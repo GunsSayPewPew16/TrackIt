@@ -36,6 +36,12 @@ is built for real. It mirrors the app's domain rules: money is stored as integer
 cents, categories come from the same set, and Shortcut-logged rows carry an `AUTO`
 badge.
 
+Its data interchange format is deliberately the same one the real app writes in
+`src/components/SettingsScreen.tsx`: a bare JSON array of expenses, downloaded as
+`trackit-<date>.json` through a blob URL and a temporary anchor. Do not invent a
+wrapper object — the mockup also accepts `{ "expenses": [...] }` on import, but that
+is tolerance for hand-written files, not the format to produce.
+
 ## Mockup conventions (`design/mockup.html`)
 
 - **One file.** HTML, CSS and JS live in `design/mockup.html`. Do not split it up or
@@ -63,8 +69,13 @@ badge.
   (`openModal(targetDate)`). There is no per-screen data.
 - **Operations is a date-filtered view of that data**, not a bank ledger. Nothing on
   it offers Transfer or Request, and the filter button cycles Day → Week → Month.
-- **Logging persists** to `localStorage` under `trackit.mockup.expenses.v1`. Clear
-  that key (or the site data) to return to the seed.
+- **Logging persists** to `localStorage` under `trackit.mockup.expenses.v1`.
+- **Profile holds the Backup panel**: Export JSON (downloads the file and fills the
+  box), Import JSON (reads the box, validates every row, and replaces the dataset
+  atomically — a bad row aborts the whole import), and Reset to demo data (drops the
+  storage key and restores the seed, which is also the way to leave the mockup in a
+  pristine state after a demo). Anything that replaces the dataset must mutate the
+  existing array in place, because every screen closes over it.
 - **The rail drives the screens, and so does a horizontal swipe.** The track follows
   the thumb, snaps on release, and a flick's speed decides how many screens it
   carries (one to three). Tapping a tab more than one screen away lands instantly;
@@ -72,5 +83,5 @@ badge.
 - **Gestures never fight the content.** A vertical drag must scroll the screen rather
   than move the track, taps and tiny drags must do nothing, and a drag must swallow
   the click it would otherwise fire.
-- **Tabs 3-5 (Activity, Cards, Profile) are deliberately blank** placeholders, so
-  every tab is wired while the screens wait to be designed.
+- **Activity and Cards are deliberately blank** placeholders, so every tab is wired
+  while those screens wait to be designed.

@@ -742,6 +742,68 @@
     }
 
     /* ------------------------------------------------------------------
+       Profile — backup panel (export, import, reset)
+       ------------------------------------------------------------------ */
+    .data-card {
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.25rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .data-card__title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .data-card__desc {
+      margin-top: 0.125rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .data-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.625rem;
+      margin-top: 0.875rem;
+    }
+
+    .data-actions__wide {
+      grid-column: span 2;
+    }
+
+    .btn-danger {
+      background-color: rgba(255, 92, 92, 0.12);
+      border: var(--hairline) solid rgba(255, 92, 92, 0.35);
+      color: var(--expense-red);
+    }
+
+    .data-box {
+      width: 100%;
+      min-height: 9rem;
+      margin-top: 0.875rem;
+      padding: 0.75rem;
+      border-radius: 0.875rem;
+      border: var(--hairline) solid var(--border-color);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.6875rem;
+      line-height: 1.5;
+      resize: none;
+      -webkit-appearance: none;
+    }
+
+    .data-status {
+      margin-top: 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
        Blank placeholder screens (rail tabs 3-5)
        ------------------------------------------------------------------ */
     .placeholder {
@@ -1108,9 +1170,24 @@
         </section>
 
         <section class="screen" data-screen="profile">
-          <div class="placeholder">
-            <span class="placeholder__title">Profile</span>
-            <span class="placeholder__note">Blank screen</span>
+          <h1 class="screen-title">Profile</h1>
+
+          <div class="day-label">Backup</div>
+          <div class="data-card">
+            <div class="data-card__title">Export data</div>
+            <div class="data-card__desc">Keep a copy outside the browser.</div>
+
+            <div class="data-actions">
+              <button class="action-btn btn-transfer" id="dataExport">Export JSON</button>
+              <button class="action-btn btn-request" id="dataImport">Import JSON</button>
+              <button class="action-btn btn-danger data-actions__wide" id="dataReset">Reset to demo data</button>
+            </div>
+
+            <!-- The JSON lives in the box so a demo can be pasted in, not just
+                 chosen from a file, and so an export is visible when it is made. -->
+            <textarea class="data-box" id="dataBox" spellcheck="false" aria-label="Expense JSON"
+              placeholder="Paste an exported TrackIt JSON here, then Import."></textarea>
+            <div class="data-status" id="dataStatus"></div>
           </div>
         </section>
 
@@ -1559,6 +1636,7 @@
       // The ring canvas measures itself, so redraw whenever Home is shown.
       if (name === 'home') renderHome();
       if (name === 'operations') renderOperations();
+      if (name === 'profile') renderDataPanel();
     }
 
     // Reposition without animating — for resize and the first paint.
@@ -1754,6 +1832,95 @@
     // ====================================================================
     document.getElementById('ops-add').addEventListener('click', () => openModal(selectedDate));
     document.getElementById('ops-back').addEventListener('click', () => showScreen('home'));
+
+    // ====================================================================
+    // Profile: backup — export, import and reset the one dataset
+    // ====================================================================
+    const dataBox = document.getElementById('dataBox');
+    const dataStatus = document.getElementById('dataStatus');
+
+    // The export is exactly what this mockup persists, and a bare JSON array is
+    // what the real app writes, so a demo moves between the two by copy-paste.
+    const expensesJson = () => JSON.stringify(expenses, null, 2);
+
+    function setDataStatus(message, isError) {
+      dataStatus.textContent = message;
+      dataStatus.style.color = isError ? '#ff9a8b' : 'var(--text-muted)';
+    }
+
+    function renderDataPanel() {
+      const count = expenses.length;
+      setDataStatus(`${count} ${count === 1 ? 'expense' : 'expenses'} saved in this browser`, false);
+    }
+
+    // Same technique as the real app's Settings screen.
+    function download(filename, content, mime) {
+      const url = URL.createObjectURL(new Blob([content], { type: mime }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportExpenses() {
+      const json = expensesJson();
+      dataBox.value = json;   // also leave it where it can be copied by hand
+      download(`trackit-${TODAY_ISO}.json`, json, 'application/json');
+      setDataStatus(`Exported ${expenses.length} expenses`, false);
+    }
+
+    // A bare array is what we export; a wrapped one is accepted for hand-written
+    // files. Every row is checked, so a bad import cannot half-replace the data.
+    function readImport(raw) {
+      const parsed = JSON.parse(raw);
+      const rows = Array.isArray(parsed)
+        ? parsed
+        : parsed && Array.isArray(parsed.expenses) ? parsed.expenses : null;
+      if (!rows || !rows.length) throw new Error('expected a JSON array of expenses');
+
+      const bad = rows.filter((row) => !isStoredExpense(row)).length;
+      if (bad) throw new Error(`${bad} of ${rows.length} entries are not expenses`);
+      return rows.slice().sort(byNewestFirst);
+    }
+
+    function importExpenses() {
+      const raw = dataBox.value.trim();
+      if (!raw) {
+        setDataStatus('Nothing to import — paste an export into the box first.', true);
+        return;
+      }
+
+      try {
+        const rows = readImport(raw);
+        expenses.length = 0;   // replaced in place: every screen reads this array
+        expenses.push(...rows);
+        persistExpenses();
+        renderHome();
+        renderOperations();
+        setDataStatus(`Imported ${rows.length} expenses`, false);
+      } catch (error) {
+        setDataStatus(`Import failed: ${error.message}.`, true);
+      }
+    }
+
+    function resetExpenses() {
+      try {
+        window.localStorage.removeItem(STORE_KEY);
+      } catch (error) {
+        /* nothing to clear when storage is unavailable */
+      }
+      expenses.length = 0;
+      expenses.push(...seedExpenses());
+      dataBox.value = '';
+      renderHome();
+      renderOperations();
+      setDataStatus(`Reset to the ${expenses.length} demo expenses`, false);
+    }
+
+    document.getElementById('dataExport').addEventListener('click', exportExpenses);
+    document.getElementById('dataImport').addEventListener('click', importExpenses);
+    document.getElementById('dataReset').addEventListener('click', resetExpenses);
 
     // ====================================================================
     // Small interactions
