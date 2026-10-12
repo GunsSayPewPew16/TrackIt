@@ -6,8 +6,8 @@
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   amount_cents INTEGER NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'USD',
-  category TEXT NOT NULL DEFAULT 'other',
+  currency TEXT NOT NULL DEFAULT 'INR',
+  category TEXT NOT NULL DEFAULT 'unknown',
   note TEXT NOT NULL DEFAULT '',
   spent_at TEXT NOT NULL, -- local calendar date, YYYY-MM-DD
   source TEXT NOT NULL DEFAULT 'manual', -- 'manual' | 'shortcut'

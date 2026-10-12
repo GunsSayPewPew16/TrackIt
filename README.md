@@ -65,7 +65,7 @@ Once deployed, an expense can be logged from anywhere:
 5. **Request Body**: JSON
 
 ```json
-{ "amount": 12.5, "category": "food", "note": "Lunch" }
+{ "amount": 150, "category": "restaurant", "note": "Lunch" }
 ```
 
 `amount` may be a number (`12.5`) or a string (`"12.50"`); `category`, `note`,
@@ -74,6 +74,25 @@ forgiving — `description`, `memo` and `title` are all accepted as the note.
 
 Then open TrackIt → **Settings → Sync now** and the new rows are pulled in.
 Shortcut-sourced rows are tagged with an `AUTO` badge.
+
+## Importing from another tracker
+
+Money is rupees throughout (`DEFAULT_CURRENCY = 'INR'`), so switching an old
+budget app over is a display change rather than an exchange rate.
+`tools/wallet-import.py` converts a **Wallet (BudgetBakers)** PouchDB export
+into the format this app imports:
+
+```bash
+python3 tools/wallet-import.py ~/Downloads/wallet_unlocked_export.json
+# writes tools/trackit-expenses.json → Settings → Import JSON
+```
+
+It keeps live expenses, drops income and internal transfers, converts Wallet's
+UTC timestamps into local dates, and reuses the Wallet document id as the
+TrackIt id — so re-importing the same export updates rows instead of
+duplicating them. It also prints the category table it used, which is how
+`CATEGORIES` here, the mockup's `CATEGORY_META` and the imported rows stay in
+step; the script's docstring lists every decision it makes.
 
 ## API
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ExpenseDraft } from '../hooks/useExpenses'
 import { currencySymbol, parseAmountToCents, todayISO } from '../lib/format'
-import { CATEGORIES, DEFAULT_CATEGORY, DEFAULT_CURRENCY } from '../lib/types'
+import { DEFAULT_CATEGORY, DEFAULT_CURRENCY, PICKABLE_CATEGORIES } from '../lib/types'
 
 type Props = {
   currency?: string
@@ -70,7 +70,7 @@ export function AddExpenseSheet({
         <div className="field" style={{ marginTop: 18 }}>
           <span className="field__label">Category</span>
           <div className="chips">
-            {CATEGORIES.map((option) => (
+            {PICKABLE_CATEGORIES.map((option) => (
               <button
                 key={option.id}
                 type="button"

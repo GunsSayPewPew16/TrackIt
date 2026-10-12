@@ -71,7 +71,7 @@ function normalizeImported(raw: unknown): Expense[] {
       id: String(item.id),
       amountCents,
       currency: typeof item.currency === 'string' ? item.currency : DEFAULT_CURRENCY,
-      category: typeof item.category === 'string' ? item.category : 'other',
+      category: typeof item.category === 'string' ? item.category : 'unknown',
       note: typeof item.note === 'string' ? item.note : '',
       spentAt,
       source,
@@ -220,7 +220,7 @@ export function SettingsScreen({ expenses, onSync, onReload }: Props) {
               In Shortcuts, use <code>Get Contents of URL</code> with method{' '}
               <code>POST</code>, header <code>Authorization: Bearer &lt;token&gt;</code>,
               and a JSON body like{' '}
-              <code>{'{ "amount": 12.50, "category": "food" }'}</code>.
+              <code>{'{ "amount": 150, "category": "restaurant" }'}</code>.
             </p>
           </div>
         </div>

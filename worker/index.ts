@@ -160,11 +160,11 @@ function normalizeExpense(
     currency:
       typeof input.currency === 'string' && input.currency
         ? input.currency
-        : 'USD',
+        : 'INR',
     category:
       typeof input.category === 'string' && input.category.trim()
         ? input.category.trim().toLowerCase()
-        : 'other',
+        : 'unknown',
     note: typeof noteValue === 'string' ? noteValue : '',
     date: dateValue.slice(0, 10),
     source:
@@ -196,8 +196,8 @@ function ensureSchema(env: Env): Promise<unknown> {
       CREATE TABLE IF NOT EXISTS expenses (
         id TEXT PRIMARY KEY,
         amount_cents INTEGER NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'USD',
-        category TEXT NOT NULL DEFAULT 'other',
+        currency TEXT NOT NULL DEFAULT 'INR',
+        category TEXT NOT NULL DEFAULT 'unknown',
         note TEXT NOT NULL DEFAULT '',
         spent_at TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT 'manual',

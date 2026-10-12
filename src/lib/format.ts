@@ -1,8 +1,10 @@
 /** Formatting and parsing helpers. Money lives in integer cents everywhere. */
 
+import { DEFAULT_CURRENCY } from './types'
+
 export function formatMoney(
   amountCents: number,
-  currency = 'USD',
+  currency = DEFAULT_CURRENCY,
   options: Intl.NumberFormatOptions = {},
 ): string {
   return new Intl.NumberFormat(undefined, {
@@ -12,13 +14,13 @@ export function formatMoney(
   }).format(amountCents / 100)
 }
 
-export function currencySymbol(currency = 'USD'): string {
+export function currencySymbol(currency = DEFAULT_CURRENCY): string {
   const parts = new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,
   }).formatToParts(0)
-  return parts.find((part) => part.type === 'currency')?.value ?? '$'
+  return parts.find((part) => part.type === 'currency')?.value ?? '₹'
 }
 
 /** Parse a user-typed amount ("12.50", "1,200") into integer cents. */

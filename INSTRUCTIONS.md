@@ -36,6 +36,34 @@ is built for real. It mirrors the app's domain rules: money is stored as integer
 cents, categories come from the same set, and Shortcut-logged rows carry an `AUTO`
 badge.
 
+Two things about the money are the owner's, not defaults: everything is in
+**rupees** (`DEFAULT_CURRENCY = 'INR'`, `money()` formats with `en-IN` grouping in the
+mockup), and the categories are the ones from their old app rather than a generic set.
+
+## Data: the Wallet import (`tools/`)
+
+`tools/wallet-import.py` is the single source of truth for the dataset and the
+category list. It reads the owner's old **Wallet (BudgetBakers)** export and writes:
+
+* `tools/trackit-expenses.json` — 112 expense rows in the exact shape the app imports
+  (**Settings → Import JSON**).
+* `tools/mockup-snippets.txt` — the same rows as a JS array literal plus both
+  category tables (the mockup's `CATEGORY_META` and `src/lib/types.ts`'s
+  `CATEGORIES`), printed from one in-script table. Paste those blocks rather than
+  editing category ids, labels or emoji by hand in either file; the slugs in the
+  mockup must stay quoted, because several contain a dash.
+
+```bash
+python3 tools/wallet-import.py ~/Downloads/wallet_unlocked_export.json
+```
+
+Decisions the script makes, so nobody has to guess: amounts are *already* rupees
+(Wallet stores paise, and INR is its referential currency, so nothing is converted);
+income rows (`type == 0`) and internal transfers are dropped because TrackIt models
+spending; soft-deleted rows are dropped; Wallet's UTC `recordDate` becomes a local
+date at `+05:30`; and the Wallet document id becomes the TrackIt id, so re-importing
+an export updates rows instead of duplicating them.
+
 Its data interchange format is deliberately the same one the real app writes in
 `src/components/SettingsScreen.tsx`: a bare JSON array of expenses, downloaded as
 `trackit-<date>.json` through a blob URL and a temporary anchor. Do not invent a
@@ -53,8 +81,10 @@ is tolerance for hand-written files, not the format to produce.
   `viewport-fit=cover` meta so the notch and home bar stay clear.
 - **390x844 is the reference size**, and a wide panel (~700px) must be checked too:
   nothing may overflow sideways at either width.
-- **The fixed "now" is 12 October 2026** (`const TODAY`). Seed data is dated relative
-  to it so screenshots stay stable across sessions.
+- **The fixed "now" is 12 October 2026** (`const TODAY`). The imported data is real
+  and dated, which keeps screenshots stable across sessions.
+- **No hardcoded currency.** `money()` is the only place that formats money, and it
+  prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78).
 - **Ids are unique and namespaced per screen.** Home owns `modalOverlay`, `modalInput`
   and friends; any other screen prefixes its own. Two modals once shared ids and both
   broke.
@@ -70,12 +100,22 @@ is tolerance for hand-written files, not the format to produce.
 - **Operations is a date-filtered view of that data**, not a bank ledger. Nothing on
   it offers Transfer or Request, and the filter button cycles Day → Week → Month.
 - **Logging persists** to `localStorage` under `trackit.mockup.expenses.v1`.
+- **The dataset is the owner's own Wallet import** (112 expenses, July–October 2026),
+  embedded in the file as `importedExpenses()`. There is no separate demo seed: this
+  *is* what the mockup ships with, and what a fresh browser sees.
+- **Home's money is scoped to the current month while the list under it is the whole
+  history.** The header, budget card and ring must keep summing only this month's
+  expenses, or four months of real data would blow the ring instantly.
+- **The add-expense modal scrolls and its buttons are pinned.** `max-height: 88dvh`
+  on `.modal-box` and a sticky `.modal-actions`, because the owner has 17 categories
+  and they no longer fit a phone screen any other way — the same bound the real app's
+  `AddExpenseSheet` uses.
 - **Profile holds the Backup panel**: Export JSON (downloads the file and fills the
   box), Import JSON (reads the box, validates every row, and replaces the dataset
-  atomically — a bad row aborts the whole import), and Reset to demo data (drops the
-  storage key and restores the seed, which is also the way to leave the mockup in a
-  pristine state after a demo). Anything that replaces the dataset must mutate the
-  existing array in place, because every screen closes over it.
+  atomically — a bad row aborts the whole import), and Reset to imported data (drops
+  the storage key and restores the Wallet import, which is also the way to leave the
+  mockup in a pristine state after a demo). Anything that replaces the dataset must
+  mutate the existing array in place, because every screen closes over it.
 - **The rail drives the screens, and so does a horizontal swipe.** The track follows
   the thumb, snaps on release, and a flick's speed decides how many screens it
   carries (one to three). Tapping a tab more than one screen away lands instantly;
