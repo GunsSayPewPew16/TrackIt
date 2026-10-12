@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#120e0a">
+  <title>TrackIt — Mockup</title>
+  <style>
+    /* ------------------------------------------------------------------
+       Scaling model
+       Reference canvas: iPhone 13 = 390 x 844 CSS px.
+
+       Bounded: on a phone 1rem is 4.1% of the viewport's short side
+       (16px on an iPhone 13), but it can never balloon past 1.15rem in a
+       wide desktop/preview panel, nor shrink below 0.9rem on a tiny screen.
+       (rem inside the root font-size resolves against the initial 16px.)
+       No layout value in this file is a hardcoded pixel.
+       ------------------------------------------------------------------ */
+    :root {
+      font-size: clamp(0.9rem, 4.1vmin, 1.15rem);
+    }
+
+    :root {
+      --bg-color: #120e0a;
+      --card-bg: #1c1611;
+      --card-bg-light: #261f18;
+      --accent-yellow: #f3e07b;
+      --accent-yellow-hover: #e5d168;
+      --text-main: #ffffff;
+      --text-muted: #9e958d;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --expense-red: #ff5c5c;
+      --tan: #8c7a65;
+      --hairline: 0.0625rem;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      overscroll-behavior-y: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    svg {
+      display: block;
+      flex: none;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    /* ------------------------------------------------------------------
+       App shell — fills the viewport, nothing outside it
+       ------------------------------------------------------------------ */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      background-color: var(--bg-color);
+      overflow: hidden;
+    }
+
+    /* The window stays put and clips; the track inside it slides. Translating
+       the clipped element itself would move the clip region with it. */
+    .app-content {
+      flex: 1 1 auto;
+      min-height: 0;   /* clip is not a scroll container, so shrink explicitly */
+      /* clip, not hidden: the track must never be scrollable, or a
+         scroll-into-view (focus, autoscroll) would shift it. */
+      overflow: hidden;
+      overflow: clip;
+      touch-action: pan-y;   /* vertical scrolling stays native, horizontal is ours */
+    }
+
+    .track {
+      display: flex;
+      height: 100%;
+      will-change: transform;
+      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .track.dragging {
+      transition: none;
+    }
+
+    .screen {
+      flex: 0 0 100%;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding:
+        calc(env(safe-area-inset-top) + 1.5rem)
+        calc(env(safe-area-inset-right) + 5.1%)
+        calc(env(safe-area-inset-bottom) + 1.25rem)
+        calc(env(safe-area-inset-left) + 5.1%);
+    }
+
+    .screen::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* ------------------------------------------------------------------
+       Home screen
+       ------------------------------------------------------------------ */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.875rem;
+      background: #3a2e25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-yellow);
+      border: var(--hairline) solid rgba(243, 224, 123, 0.2);
+      flex: none;
+    }
+
+    .brand-badge svg {
+      width: 50%;
+      height: 50%;
+    }
+
+    .greeting h1 {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .greeting p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.125rem;
+    }
+
+    .icon-btn {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 50%;
+      background-color: var(--card-bg-light);
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.2s, transform 0.1s;
+      flex: none;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+      background-color: #33281f;
+    }
+
+    .icon-btn svg {
+      width: 42%;
+      height: 42%;
+    }
+
+    .icon-btn--sm {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .icon-btn--sm svg {
+      width: 46%;
+      height: 46%;
+    }
+
+    .sync-status {
+      font-size: 0.6875rem;
+      color: var(--accent-yellow);
+      height: 0.875rem;
+      margin: -0.75rem 0 0.625rem 0.125rem;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .sync-status.show {
+      opacity: 1;
+    }
+
+    .balance-section {
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .balance-title {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .balance-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .coin-icon {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffe885 0%, #d4af37 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #5c4000;
+      font-size: 0.9375rem;
+      box-shadow: 0 0.125rem 0.375rem rgba(212, 175, 55, 0.3);
+      flex: none;
+    }
+
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03125rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+
+    .balance-amount span {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .budget-card {
+      width: 100%;
+      border-radius: 1.25rem;
+      background: linear-gradient(135deg, #2a2118 0%, #1d1610 55%, #16110c 100%);
+      border: var(--hairline) solid rgba(243, 224, 123, 0.18);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 0.625rem 1.25rem rgba(0, 0, 0, 0.35);
+    }
+
+    .budget-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .budget-top span:last-child {
+      color: var(--accent-yellow);
+    }
+
+    .budget-figures {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin: 0.625rem 0 0.875rem;
+      flex-wrap: wrap;
+    }
+
+    .budget-figures strong {
+      font-size: 1.625rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .budget-figures span {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .budget-track {
+      height: 0.5rem;
+      border-radius: 62.5rem;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .budget-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 62.5rem;
+      background: linear-gradient(90deg, #d4af37 0%, var(--accent-yellow) 100%);
+      transition: width 0.4s ease;
+    }
+
+    .budget-foot {
+      margin-top: 0.625rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .action-btn {
+      padding: 1rem 0.5rem;
+      border-radius: 1rem;
+      border: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .action-btn svg {
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+
+    .btn-transfer {
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .btn-transfer:hover {
+      background-color: var(--accent-yellow-hover);
+    }
+
+    .btn-request {
+      background-color: var(--card-bg-light);
+      color: var(--text-main);
+      border: var(--hairline) solid var(--border-color);
+    }
+
+    .btn-request:hover {
+      background-color: #33281f;
+    }
+
+    .widgets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .widget-card {
+      background-color: var(--card-bg);
+      border-radius: 1.25rem;
+      padding: 1.125rem;
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 11.25rem;
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .widget-header svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .goal-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+      position: relative;
+    }
+
+    .goal-container canvas {
+      width: 58%;
+      height: auto;
+      aspect-ratio: 1;
+      display: block;
+    }
+
+    .goal-text {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .goal-text span {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .goal-footer {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .earning-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .earning-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .earning-bottom {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: 1rem;
+    }
+
+    .arrow-btn {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
+      background-color: var(--text-main);
+      color: #120e0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.2s;
+      flex: none;
+    }
+
+    .arrow-btn:hover {
+      transform: translateX(0.1875rem);
+    }
+
+    .arrow-btn svg {
+      width: 44%;
+      height: 44%;
+    }
+
+    .hint-line {
+      display: none;
+      margin-top: 0.75rem;
+      font-size: 0.6875rem;
+      line-height: 1.5;
+      color: var(--accent-yellow);
+      word-break: break-word;
+    }
+
+    .hint-line.show {
+      display: block;
+    }
+
+    .day-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin: 0 0 0.5rem 0.25rem;
+    }
+
+    .tx-list {
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.25rem;
+      overflow: hidden;
+      margin-bottom: 1.125rem;
+    }
+
+    .tx-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0.875rem;
+      border-bottom: var(--hairline) solid var(--border-color);
+    }
+
+    .tx-row:last-child {
+      border-bottom: 0;
+    }
+
+    .tx-icon {
+      flex: none;
+      width: 2.375rem;
+      height: 2.375rem;
+      border-radius: 0.75rem;
+      background-color: var(--card-bg-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+    }
+
+    .tx-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tx-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tx-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .tx-amount {
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .tx-badge {
+      display: inline-block;
+      margin-left: 0.375rem;
+      padding: 0.0625rem 0.375rem;
+      border-radius: 62.5rem;
+      font-size: 0.5625rem;
+      font-weight: 700;
+      letter-spacing: 0.03125rem;
+      background: rgba(243, 224, 123, 0.15);
+      color: var(--accent-yellow);
+      vertical-align: middle;
+    }
+
+    /* ------------------------------------------------------------------
+       Operations screen
+       ------------------------------------------------------------------ */
+    .ops-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .screen-title {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03125rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* The same primary action as Home — both screens log through one flow. */
+    .ops-actions {
+      margin-bottom: 1.5rem;
+    }
+
+    /* Seven days always fit, so this never becomes a scroll container —
+       which keeps horizontal drags available to the screen swipe. */
+    .calendar-strip {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .cal-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.375rem;
+      min-width: 2.5rem;
+      flex: none;
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .cal-day span {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .cal-date {
+      width: 2.625rem;
+      height: 3rem;
+      border-radius: 1.5rem;
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .cal-day.active .cal-date {
+      background-color: var(--accent-yellow);
+      color: #120e0a;
+      border-color: var(--accent-yellow);
+    }
+
+    .cal-day.active span:first-child {
+      color: var(--accent-yellow);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .date-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--accent-yellow);
+    }
+
+    .date-indicator svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .ops-list {
+      display: block;
+    }
+
+    .ops-total {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding-left: 0.25rem;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      padding: 2.5rem 1rem;
+      border: var(--hairline) dashed var(--border-color);
+      border-radius: 1.25rem;
+      text-align: center;
+    }
+
+    .empty-state__title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .empty-state__note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
+       Blank placeholder screens (rail tabs 3-5)
+       ------------------------------------------------------------------ */
+    .placeholder {
+      min-height: 55dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      text-align: center;
+    }
+
+    .placeholder__title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02rem;
+    }
+
+    .placeholder__note {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
+       Bottom rail — controls which screen is shown
+       ------------------------------------------------------------------ */
+    .nav-wrap {
+      flex: none;
+      padding:
+        0
+        calc(env(safe-area-inset-right) + 3%)
+        calc(env(safe-area-inset-bottom) + 0.75rem)
+        calc(env(safe-area-inset-left) + 3%);
+    }
+
+    .bottom-nav {
+      height: 4.375rem;
+      background-color: var(--card-bg);
+      border-radius: 2.1875rem;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 2.5%;
+      border: var(--hairline) solid var(--border-color);
+      box-shadow: 0 0.625rem 1.5625rem rgba(0, 0, 0, 0.5);
+    }
+
+    .nav-item {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      border: none;
+      background: transparent;
+      flex: none;
+    }
+
+    .nav-item svg {
+      width: 46%;
+      height: 46%;
+    }
+
+    /* Active tab: gold squircle with a dark icon */
+    .nav-item.active {
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .nav-item:not(.active):hover {
+      color: var(--text-main);
+      background-color: var(--card-bg-light);
+    }
+
+    /* ------------------------------------------------------------------
+       Modals
+       ------------------------------------------------------------------ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      padding: 5%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(0.3125rem);
+      -webkit-backdrop-filter: blur(0.3125rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 100;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background-color: var(--card-bg-light);
+      border: var(--hairline) solid var(--border-color);
+      padding: 1.5rem;
+      border-radius: 1.5rem;
+      width: 90%;
+      max-width: 22rem;
+      text-align: center;
+      box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.6);
+      transform: translateY(1.25rem);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .modal-box {
+      transform: translateY(0);
+    }
+
+    .modal-box h3 {
+      font-size: 1.125rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent-yellow);
+    }
+
+    .modal-box p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      border: var(--hairline) solid var(--border-color);
+      background: var(--bg-color);
+      color: var(--text-main);
+      /* Kept >= 16px on every phone so iOS doesn't zoom the viewport. */
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      outline: none;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    .modal-input::placeholder {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .modal-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .chip {
+      padding: 0.5rem 0.75rem;
+      border-radius: 62.5rem;
+      border: var(--hairline) solid var(--border-color);
+      background: var(--bg-color);
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .chip.active {
+      background: var(--accent-yellow);
+      border-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.625rem;
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      color: var(--text-muted);
+      border: var(--hairline) solid var(--border-color);
+    }
+
+    .btn-confirm {
+      background: var(--accent-yellow);
+      color: #1a1510;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <div class="app-content">
+      <div class="track" id="track">
+
+        <!-- ============================================================
+             Screen 1 — Home
+             ============================================================ -->
+        <section class="screen" data-screen="home">
+
+          <div class="header">
+            <div class="user-info">
+              <div class="brand-badge" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <polyline points="3,8 9,14 14,9 21,17"/>
+                </svg>
+              </div>
+              <div class="greeting">
+                <h1>TrackIt</h1>
+                <p id="current-date">October 2026</p>
+              </div>
+            </div>
+            <button class="icon-btn" id="options-btn" title="Settings" aria-label="Settings">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4h.2A1.7 1.7 0 0 0 4.4 8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 1z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="sync-status" id="sync-status">Synced just now</div>
+
+          <div class="balance-section">
+            <div>
+              <div class="balance-title">Spent this month</div>
+              <div class="balance-row">
+                <div class="coin-icon">$</div>
+                <div class="balance-amount" id="month-total">$0<span>.00</span></div>
+              </div>
+            </div>
+            <button class="icon-btn" id="refresh-balance" title="Sync now" aria-label="Sync now">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v1a8 8 0 0 0 14.3 5M20 12v-1a8 8 0 0 0-14.3-5"/><path d="M4 5l3 3-3 3M20 19l-3-3 3-3"/></svg>
+            </button>
+          </div>
+
+          <div class="budget-card">
+            <div class="budget-top">
+              <span>October budget</span>
+              <span id="budget-pct">0% used</span>
+            </div>
+            <div class="budget-figures">
+              <strong id="budget-spent">$0.00</strong>
+              <span id="budget-target">of $500.00</span>
+            </div>
+            <div class="budget-track"><div class="budget-fill" id="budget-fill"></div></div>
+            <div class="budget-foot" id="budget-remaining">$500.00 left this month</div>
+          </div>
+
+          <div class="action-row">
+            <button class="action-btn btn-transfer" id="add-trigger">
+              <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Add expense
+            </button>
+            <button class="action-btn btn-request" id="reports-trigger">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+              Reports
+            </button>
+          </div>
+
+          <div class="widgets-grid">
+            <div class="widget-card">
+              <div class="widget-header">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z"/></svg>
+                Budget used
+              </div>
+              <div class="goal-container">
+                <canvas id="goalCanvas"></canvas>
+                <div class="goal-text">
+                  <span id="ring-pct" style="font-size:1.25rem;color:var(--text-main);font-weight:700;">0%</span>
+                  <span>used</span>
+                </div>
+              </div>
+              <div class="goal-footer" id="ring-footer">$500 remaining</div>
+            </div>
+
+            <div class="widget-card">
+              <div class="earning-content">
+                <div class="earning-title">Auto-log with Shortcuts</div>
+                <div class="earning-bottom">
+                  <button class="arrow-btn" id="earn-more-btn" title="How it works" aria-label="How it works">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="hint-line" id="shortcut-hint">POST /api/expense with a Bearer token — new rows arrive tagged AUTO.</div>
+            </div>
+          </div>
+
+          <div id="tx-groups"></div>
+
+        </section>
+
+        <!-- ============================================================
+             Screen 2 — Financial Operations
+             ============================================================ -->
+        <section class="screen" data-screen="operations">
+
+          <div class="ops-header">
+            <button class="icon-btn" id="ops-back" title="Back" aria-label="Back">
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+            </button>
+            <button class="icon-btn" id="ops-menu" title="Menu" aria-label="Menu">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </button>
+          </div>
+
+          <h1 class="screen-title">Spending<br>by day</h1>
+
+          <div class="ops-actions">
+            <button class="action-btn btn-transfer" id="ops-add">
+              <svg fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Add expense
+            </button>
+          </div>
+
+          <!-- Built from the shared expense data, one day per pill -->
+          <div class="calendar-strip" id="calendarStrip"></div>
+
+          <div class="section-header">
+            <div class="date-indicator">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
+              <span id="opsDateLabel"></span>
+            </div>
+            <button class="icon-btn icon-btn--sm" id="ops-filter" aria-label="Filter">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-8V3M1 14h6m2-6h6m2 8h6"/></svg>
+            </button>
+          </div>
+
+          <div class="ops-list" id="opsList"></div>
+
+        </section>
+
+        <!-- ============================================================
+             Screens 3-5 — blank, wired to the rail
+             ============================================================ -->
+        <section class="screen" data-screen="activity">
+          <div class="placeholder">
+            <span class="placeholder__title">Activity</span>
+            <span class="placeholder__note">Blank screen</span>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="cards">
+          <div class="placeholder">
+            <span class="placeholder__title">Cards</span>
+            <span class="placeholder__note">Blank screen</span>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="profile">
+          <div class="placeholder">
+            <span class="placeholder__title">Profile</span>
+            <span class="placeholder__note">Blank screen</span>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ================================================================
+         Bottom rail
+         ================================================================ -->
+    <div class="nav-wrap">
+      <div class="bottom-nav">
+        <button class="nav-item active" data-screen="home" title="Home" aria-label="Home">
+          <svg fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <rect x="4" y="4.5" width="16" height="15" rx="5"/>
+            <path d="M9.5 15.4c1.4 1.3 3.6 1.3 5 0"/>
+          </svg>
+        </button>
+        <button class="nav-item" data-screen="operations" title="Operations" aria-label="Operations">
+          <svg fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M20.5 12a8.5 8.5 0 1 1-8.5-8.5"/>
+            <path d="M16 12a4 4 0 1 1-4-4"/>
+          </svg>
+        </button>
+        <button class="nav-item" data-screen="activity" title="Activity" aria-label="Activity">
+          <svg fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5"/>
+            <path d="M12.9 7.6 9.3 12.7h2.5l-.7 3.7 3.6-5.1h-2.5z"/>
+          </svg>
+        </button>
+        <button class="nav-item" data-screen="cards" title="Cards" aria-label="Cards">
+          <svg fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <rect x="3" y="6.6" width="13" height="10.4" rx="3"/>
+            <path d="M7.6 6.6V5.2A2.2 2.2 0 0 1 9.8 3h7A2.2 2.2 0 0 1 19 5.2v7a2.2 2.2 0 0 1-2.2 2.2h-1.3"/>
+            <circle cx="6.6" cy="11.8" r="0.9"/>
+          </svg>
+        </button>
+        <button class="nav-item" data-screen="profile" title="Profile" aria-label="Profile">
+          <svg fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="12" cy="8.6" r="3.5"/>
+            <path d="M5.4 20a6.6 6.6 0 0 1 13.2 0"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Home: add expense -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal-box">
+        <h3 id="modalTitle">Add expense</h3>
+        <p id="modalSubtitle">How much did you spend?</p>
+        <input type="number" class="modal-input" id="modalInput" placeholder="$0.00" value="24.50" inputmode="decimal">
+        <div class="modal-chips" id="modalChips"></div>
+        <div class="modal-actions">
+          <button class="modal-btn btn-cancel" id="modalCancel">Cancel</button>
+          <button class="modal-btn btn-confirm" id="modalConfirm">Save</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ====================================================================
+    // Home data — money in integer cents, mirroring the real app
+    // ====================================================================
+    const BUDGET_CENTS = 50000; // $500.00
+
+    const CATEGORY_META = {
+      food:      { emoji: '🍔', label: 'Food' },
+      groceries: { emoji: '🛒', label: 'Groceries' },
+      transport: { emoji: '🚗', label: 'Transport' },
+      shopping:  { emoji: '🛍️', label: 'Shopping' },
+      bills:     { emoji: '💡', label: 'Bills' },
+      fun:       { emoji: '🎬', label: 'Fun' },
+      other:     { emoji: '📦', label: 'Other' },
+    };
+
+    // The mockup's "now" — October 2026, matching the Home header.
+    const TODAY = new Date(2026, 9, 12);
+
+    const isoOf = (date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    const shiftDays = (date, days) => {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    };
+
+    const dayIso = (daysAgo) => isoOf(shiftDays(TODAY, -daysAgo));
+    const TODAY_ISO = dayIso(0);
+
+    // One dataset for the whole app — every screen filters this same list.
+    const expenses = [
+      { id: 1, title: 'Groceries',        category: 'groceries', cents: 8640, auto: false, date: dayIso(0) },
+      { id: 2, title: 'Phone bill',       category: 'bills',     cents: 6500, auto: false, date: dayIso(0) },
+      { id: 3, title: 'Train fare',       category: 'transport', cents: 4200, auto: true,  date: dayIso(0) },
+      { id: 4, title: 'Coffee with team', category: 'food',      cents: 1250, auto: false, date: dayIso(1) },
+      { id: 5, title: 'Lunch with Sam',   category: 'food',      cents: 1875, auto: true,  date: dayIso(3) },
+      { id: 6, title: 'Running shoes',    category: 'shopping',  cents: 8735, auto: true,  date: dayIso(5) },
+    ];
+
+    const byNewestFirst = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+    // ====================================================================
+    // Helpers
+    // ====================================================================
+    const money = (cents) =>
+      '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const escapeHtml = (value) =>
+      String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // Day headings are derived from the stored date, never hard-coded.
+    const dayLabel = (iso) => {
+      if (iso === TODAY_ISO) return 'Today';
+      if (iso === dayIso(1)) return 'Yesterday';
+      return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const longDate = (iso) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    // ====================================================================
+    // Home rendering
+    // ====================================================================
+    const canvas = document.getElementById('goalCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function drawRing(percent) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const size = Math.round(rect.width * dpr);
+      if (canvas.width !== size) {
+        canvas.width = size;
+        canvas.height = size;
+      }
+
+      const center = size / 2;
+      const lineWidth = size * 0.09;
+      const radius = center - lineWidth / 2 - size * 0.01;
+
+      ctx.clearRect(0, 0, size, size);
+
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#2d241c';
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      const start = -Math.PI / 2;
+      const end = start + 2 * Math.PI * (Math.min(Math.max(percent, 0), 100) / 100);
+
+      ctx.beginPath();
+      ctx.arc(center, center, radius, start, end);
+      ctx.strokeStyle = '#f3e07b';
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    const totalEl = document.getElementById('month-total');
+    const budgetFill = document.getElementById('budget-fill');
+    const budgetPct = document.getElementById('budget-pct');
+    const budgetSpent = document.getElementById('budget-spent');
+    const budgetTarget = document.getElementById('budget-target');
+    const budgetRemaining = document.getElementById('budget-remaining');
+    const ringPct = document.getElementById('ring-pct');
+    const ringFooter = document.getElementById('ring-footer');
+    const txGroups = document.getElementById('tx-groups');
+
+    const rowHtml = (e) => {
+      const meta = CATEGORY_META[e.category] || CATEGORY_META.other;
+      return `<div class="tx-row">
+        <div class="tx-icon">${meta.emoji}</div>
+        <div class="tx-main">
+          <div class="tx-title">${escapeHtml(e.title)}${e.auto ? '<span class="tx-badge">AUTO</span>' : ''}</div>
+          <div class="tx-sub">${meta.label}</div>
+        </div>
+        <div class="tx-amount">${money(e.cents)}</div>
+      </div>`;
+    };
+
+    function renderHome() {
+      const total = expenses.reduce((sum, e) => sum + e.cents, 0);
+      const percent = (total / BUDGET_CENTS) * 100;
+      const remaining = BUDGET_CENTS - total;
+
+      const formatted = money(total);
+      const splitAt = formatted.lastIndexOf('.');
+      totalEl.innerHTML = `${formatted.slice(0, splitAt)}<span>${formatted.slice(splitAt)}</span>`;
+
+      budgetSpent.textContent = money(total);
+      budgetTarget.textContent = `of ${money(BUDGET_CENTS)}`;
+      budgetPct.textContent = `${Math.round(percent)}% used`;
+      budgetFill.style.width = `${Math.min(percent, 100)}%`;
+      budgetRemaining.textContent = remaining >= 0
+        ? `${money(remaining)} left this month`
+        : `${money(-remaining)} over budget`;
+      budgetRemaining.style.color = remaining >= 0 ? 'var(--text-muted)' : '#ff9a8b';
+
+      ringPct.textContent = `${Math.round(percent)}%`;
+      ringFooter.textContent = `${money(Math.max(remaining, 0))} remaining`;
+      drawRing(percent);
+
+      const groups = [];
+      for (const e of expenses) {
+        let group = groups.find((g) => g.date === e.date);
+        if (!group) {
+          group = { date: e.date, items: [] };
+          groups.push(group);
+        }
+        group.items.push(e);
+      }
+
+      txGroups.innerHTML = groups
+        .map((g) => `<div class="day-label">${escapeHtml(dayLabel(g.date))}</div><div class="tx-list">${g.items.map(rowHtml).join('')}</div>`)
+        .join('');
+    }
+
+    // ====================================================================
+    // Operations screen — the same expenses, filtered to one day
+    // ====================================================================
+    const opsList = document.getElementById('opsList');
+    const calendarStrip = document.getElementById('calendarStrip');
+    const opsDateLabel = document.getElementById('opsDateLabel');
+    const OPS_WINDOW_DAYS = 7;
+    let selectedDate = TODAY_ISO;
+
+    // A click that ends a horizontal drag must not also pick a day.
+    let suppressClick = false;
+
+    function renderCalendar() {
+      const days = [];
+      for (let back = OPS_WINDOW_DAYS - 1; back >= 0; back -= 1) days.push(shiftDays(TODAY, -back));
+
+      calendarStrip.innerHTML = days
+        .map((date) => {
+          const iso = isoOf(date);
+          const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+          return `<button type="button" class="cal-day${iso === selectedDate ? ' active' : ''}" data-date="${iso}">
+            <span>${weekday}</span><span class="cal-date">${date.getDate()}</span>
+          </button>`;
+        })
+        .join('');
+    }
+
+    function renderOperations() {
+      renderCalendar();
+      opsDateLabel.textContent = longDate(selectedDate);
+
+      const dayExpenses = expenses.filter((e) => e.date === selectedDate);
+      if (!dayExpenses.length) {
+        opsList.innerHTML = `<div class="empty-state">
+          <span class="empty-state__title">No expenses on this day</span>
+          <span class="empty-state__note">Add one and it shows here and on Home.</span>
+        </div>`;
+        return;
+      }
+
+      const total = dayExpenses.reduce((sum, e) => sum + e.cents, 0);
+      opsList.innerHTML = `<div class="tx-list">${dayExpenses.map(rowHtml).join('')}</div>
+        <div class="ops-total">${dayExpenses.length} ${dayExpenses.length === 1 ? 'expense' : 'expenses'} · ${money(total)}</div>`;
+    }
+
+    calendarStrip.addEventListener('click', (event) => {
+      const day = event.target.closest('.cal-day');
+      if (!day || suppressClick) return;
+      selectedDate = day.dataset.date;
+      renderOperations();
+    });
+
+    // ====================================================================
+    // Screen switching — one track, five screens, driven by the finger
+    // ====================================================================
+    const swipeArea = document.querySelector('.app-content');
+    const track = document.getElementById('track');
+    const screens = Array.from(document.querySelectorAll('.screen'));
+    const railItems = document.querySelectorAll('.nav-item[data-screen]');
+    const SCREEN_ORDER = ['home', 'operations', 'activity', 'cards', 'profile'];
+    let screenIndex = 0;
+    let currentScreen = 'home';
+
+    function trackWidth() {
+      return track.clientWidth || swipeArea.clientWidth || window.innerWidth;
+    }
+
+    function setTrack(offset) {
+      track.style.transform = `translateX(${(-screenIndex * trackWidth()) + offset}px)`;
+      // Older engines fall back to overflow:hidden, which can still be scrolled.
+      swipeArea.scrollLeft = 0;
+    }
+
+    function showScreen(name) {
+      const index = SCREEN_ORDER.indexOf(name);
+      if (index < 0) return;
+
+      screenIndex = index;
+      currentScreen = name;
+
+      railItems.forEach((item) => {
+        item.classList.toggle('active', item.dataset.screen === name);
+      });
+
+      // Only the visible screen is reachable — no tabbing into an off-canvas one.
+      screens.forEach((screen, i) => {
+        screen.inert = i !== index;
+      });
+
+      track.classList.remove('dragging');
+      setTrack(0);
+
+      // The ring canvas measures itself, so redraw whenever Home is shown.
+      if (name === 'home') renderHome();
+      if (name === 'operations') renderOperations();
+    }
+
+    // Reposition without animating — for resize and the first paint.
+    function jumpToScreen() {
+      track.classList.add('dragging');
+      setTrack(0);
+      void track.offsetWidth;
+      track.classList.remove('dragging');
+    }
+
+    railItems.forEach((item) => {
+      item.addEventListener('click', () => {
+        if (item.dataset.screen !== currentScreen) showScreen(item.dataset.screen);
+      });
+    });
+
+    // --------------------------------------------------------------------
+    // Swipe — the track follows the thumb, then snaps on release
+    // --------------------------------------------------------------------
+    const EDGE_RESISTANCE = 0.32;   // rubber band past the first/last screen
+    const SNAP_DISTANCE = 0.28;     // share of the width that commits a swipe
+    const FLICK_VELOCITY = 0.5;     // px/ms that commits a swipe regardless
+    let drag = null;
+
+    swipeArea.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      suppressClick = false;
+      drag = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        axis: null,
+        offset: 0,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        velocity: 0,
+      };
+    });
+
+    swipeArea.addEventListener('pointermove', (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+
+      // Decide once whether this gesture is a swipe or a vertical scroll.
+      if (!drag.axis) {
+        const slop = 6;
+        if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (drag.axis === 'x') {
+          suppressClick = true;
+          track.classList.add('dragging');
+          if (swipeArea.setPointerCapture) {
+            try {
+              swipeArea.setPointerCapture(event.pointerId);
+            } catch (error) {
+              /* synthetic pointers cannot be captured */
+            }
+          }
+        }
+      }
+      if (drag.axis !== 'x') return;
+
+      const elapsed = event.timeStamp - drag.lastTime;
+      if (elapsed > 0) drag.velocity = (event.clientX - drag.lastX) / elapsed;
+      drag.lastX = event.clientX;
+      drag.lastTime = event.timeStamp;
+
+      const next = screenIndex + (dx < 0 ? 1 : -1);
+      const past = next < 0 || next >= SCREEN_ORDER.length;
+      drag.offset = past ? dx * EDGE_RESISTANCE : dx;
+
+      setTrack(drag.offset);
+    });
+
+    function endDrag(event, cancelled) {
+      if (!drag || event.pointerId !== drag.id) return;
+
+      const { axis, offset, velocity } = drag;
+      drag = null;
+
+      // A tap or a vertical scroll never moves the track.
+      if (axis !== 'x') return;
+
+      const width = trackWidth();
+      const direction = offset < 0 ? 1 : -1;
+      const next = screenIndex + direction;
+      const flicked =
+        Math.abs(velocity) > FLICK_VELOCITY &&
+        Math.sign(velocity) === Math.sign(offset) &&
+        Math.abs(offset) > width * 0.08;
+      const draggedFar = Math.abs(offset) > width * SNAP_DISTANCE;
+
+      // Land on the nearest screen: the next one, or the one you came from.
+      if (!cancelled && next >= 0 && next < SCREEN_ORDER.length && (draggedFar || flicked)) {
+        showScreen(SCREEN_ORDER[next]);
+      } else {
+        track.classList.remove('dragging');
+        setTrack(0);
+      }
+    }
+
+    swipeArea.addEventListener('pointerup', (event) => endDrag(event, false));
+    swipeArea.addEventListener('pointercancel', (event) => endDrag(event, true));
+
+    // ====================================================================
+    // Home: add-expense modal
+    // ====================================================================
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalInput = document.getElementById('modalInput');
+    const modalChips = document.getElementById('modalChips');
+    let selectedCategory = 'food';
+
+    modalChips.innerHTML = Object.entries(CATEGORY_META)
+      .map(([key, meta]) =>
+        `<button class="chip${key === selectedCategory ? ' active' : ''}" data-cat="${key}">${meta.emoji} ${meta.label}</button>`,
+      )
+      .join('');
+
+    modalChips.addEventListener('click', (event) => {
+      const button = event.target.closest('.chip');
+      if (!button) return;
+      selectedCategory = button.dataset.cat;
+      modalChips.querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('active', chip === button));
+    });
+
+    const modalSubtitle = document.getElementById('modalSubtitle');
+    let entryDate = TODAY_ISO;
+
+    // Home logs to today; Operations logs to the day you are looking at.
+    function openModal(targetDate = TODAY_ISO) {
+      entryDate = targetDate;
+      modalInput.value = '24.50';
+      modalInput.style.borderColor = '';
+      modalSubtitle.textContent =
+        entryDate === TODAY_ISO ? 'How much did you spend?' : `Logging to ${longDate(entryDate)}`;
+      modalOverlay.classList.add('active');
+      modalInput.focus();
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('active');
+    }
+
+    function saveExpense() {
+      const value = parseFloat(modalInput.value);
+      if (!isFinite(value) || value <= 0) {
+        modalInput.style.borderColor = '#ff9a8b';
+        return;
+      }
+      expenses.unshift({
+        id: Date.now(),
+        title: CATEGORY_META[selectedCategory].label,
+        category: selectedCategory,
+        cents: Math.round(value * 100),
+        auto: false,
+        date: entryDate,
+      });
+      expenses.sort(byNewestFirst);
+      renderHome();
+      renderOperations();
+      closeModal();
+    }
+
+    document.getElementById('add-trigger').addEventListener('click', () => openModal());
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    document.getElementById('modalConfirm').addEventListener('click', saveExpense);
+    modalInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') saveExpense();
+    });
+    modalOverlay.addEventListener('click', (event) => {
+      if (event.target === modalOverlay) closeModal();
+    });
+
+    // ====================================================================
+    // Operations: the + button and the back arrow
+    // ====================================================================
+    document.getElementById('ops-add').addEventListener('click', () => openModal(selectedDate));
+    document.getElementById('ops-back').addEventListener('click', () => showScreen('home'));
+
+    // ====================================================================
+    // Small interactions
+    // ====================================================================
+    const syncStatus = document.getElementById('sync-status');
+    document.getElementById('refresh-balance').addEventListener('click', () => {
+      syncStatus.classList.add('show');
+      window.setTimeout(() => syncStatus.classList.remove('show'), 1400);
+    });
+
+    const shortcutHint = document.getElementById('shortcut-hint');
+    document.getElementById('earn-more-btn').addEventListener('click', () => {
+      shortcutHint.classList.toggle('show');
+    });
+
+    window.addEventListener('resize', () => {
+      jumpToScreen();
+      renderHome();
+    });
+
+    jumpToScreen();
+    showScreen('home');
+  </script>
+</body>
+</html>
