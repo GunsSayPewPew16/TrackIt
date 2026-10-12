@@ -1,0 +1,16 @@
+name = "trackit"
+main = "worker/index.ts"
+compatibility_date = "2026-10-01"
+
+# The built PWA is served by the Worker; /api/* is handled first.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trackit-db"
+# Placeholder: works for local development. After `wrangler d1 create trackit-db`
+# paste the real UUID here (or into the site's bindings when deploying).
+database_id = "00000000-0000-0000-0000-000000000000"

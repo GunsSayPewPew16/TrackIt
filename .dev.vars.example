@@ -1,0 +1,3 @@
+# Copy to `.dev.vars` for local development (`npm run dev:api`).
+# `.dev.vars` is gitignored — never commit the real token.
+API_TOKEN=dev-local-token-change-me
