@@ -55,6 +55,11 @@
       -webkit-text-size-adjust: 100%;
     }
 
+    /* Every control acts on the tap itself, with no double-tap-zoom wait. */
+    button {
+      touch-action: manipulation;
+    }
+
     svg {
       display: block;
       flex: none;
@@ -91,9 +96,10 @@
       display: flex;
       height: 100%;
       will-change: transform;
-      transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+      transition: transform var(--track-duration, 320ms) cubic-bezier(0.22, 0.61, 0.36, 1);
     }
 
+    /* Until the finger lifts the track is pinned to it, so no transition. */
     .track.dragging {
       transition: none;
     }
@@ -657,6 +663,12 @@
       color: var(--accent-yellow);
     }
 
+    /* Inside the range being summarised, but not the day you picked. */
+    .cal-day.in-range .cal-date {
+      border-color: var(--accent-yellow);
+      color: var(--accent-yellow);
+    }
+
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -677,6 +689,23 @@
     .date-indicator svg {
       width: 1rem;
       height: 1rem;
+    }
+
+    /* The filter button names the range it cycles: Day, Week or Month. */
+    .range-toggle {
+      width: auto;
+      height: 2.25rem;
+      padding: 0 0.75rem;
+      gap: 0.375rem;
+      border-radius: 1.125rem;   /* half the height: a pill at any scale */
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .range-toggle svg {
+      width: 0.9375rem;
+      height: 0.9375rem;
+      flex: none;
     }
 
     .ops-list {
@@ -1051,9 +1080,10 @@
               <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/></svg>
               <span id="opsDateLabel"></span>
             </div>
-            <button class="icon-btn icon-btn--sm" id="ops-filter" aria-label="Filter">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-8V3M1 14h6m2-6h6m2 8h6"/></svg>
-            </button>
+          <button class="icon-btn icon-btn--sm range-toggle" id="ops-filter" aria-label="Change range">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-8V3M1 14h6m2-6h6m2 8h6"/></svg>
+            <span id="opsRangeLabel">Day</span>
+          </button>
           </div>
 
           <div class="ops-list" id="opsList"></div>
@@ -1173,8 +1203,7 @@
     const dayIso = (daysAgo) => isoOf(shiftDays(TODAY, -daysAgo));
     const TODAY_ISO = dayIso(0);
 
-    // One dataset for the whole app — every screen filters this same list.
-    const expenses = [
+    const seedExpenses = () => [
       { id: 1, title: 'Groceries',        category: 'groceries', cents: 8640, auto: false, date: dayIso(0) },
       { id: 2, title: 'Phone bill',       category: 'bills',     cents: 6500, auto: false, date: dayIso(0) },
       { id: 3, title: 'Train fare',       category: 'transport', cents: 4200, auto: true,  date: dayIso(0) },
@@ -1184,6 +1213,52 @@
     ];
 
     const byNewestFirst = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+    // --------------------------------------------------------------------
+    // Storage — local-first like the real app, but one localStorage key,
+    // because this mockup is a single file with no IndexedDB helpers.
+    // --------------------------------------------------------------------
+    const STORE_KEY = 'trackit.mockup.expenses.v1';
+
+    const isStoredExpense = (row) =>
+      !!row &&
+      Number.isInteger(row.cents) &&
+      typeof row.title === 'string' &&
+      typeof row.category === 'string' &&
+      typeof row.date === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(row.date);
+
+    // Anything unrecognised falls back to the seed instead of rendering junk.
+    function loadExpenses() {
+      try {
+        const raw = window.localStorage.getItem(STORE_KEY);
+        if (raw) {
+          const rows = JSON.parse(raw);
+          if (Array.isArray(rows) && rows.length && rows.every(isStoredExpense)) return rows;
+        }
+      } catch (error) {
+        /* private mode, or a corrupted payload — the seed is the fallback */
+      }
+
+      // Drop what was there, so a bad payload is not re-parsed on every load.
+      try {
+        window.localStorage.removeItem(STORE_KEY);
+      } catch (error) {
+        /* nothing to repair when storage itself is unavailable */
+      }
+      return null;
+    }
+
+    function persistExpenses() {
+      try {
+        window.localStorage.setItem(STORE_KEY, JSON.stringify(expenses));
+      } catch (error) {
+        /* Storage unavailable: the mockup still works, it just forgets. */
+      }
+    }
+
+    // One dataset for the whole app — every screen filters this same list.
+    const expenses = loadExpenses() || seedExpenses();
 
     // ====================================================================
     // Helpers
@@ -1288,19 +1363,23 @@
       ringFooter.textContent = `${money(Math.max(remaining, 0))} remaining`;
       drawRing(percent);
 
-      const groups = [];
-      for (const e of expenses) {
-        let group = groups.find((g) => g.date === e.date);
-        if (!group) {
-          group = { date: e.date, items: [] };
-          groups.push(group);
-        }
-        group.items.push(e);
-      }
-
-      txGroups.innerHTML = groups
+      txGroups.innerHTML = groupByDate(expenses)
         .map((g) => `<div class="day-label">${escapeHtml(dayLabel(g.date))}</div><div class="tx-list">${g.items.map(rowHtml).join('')}</div>`)
         .join('');
+    }
+
+    // One block per day, in the order the rows arrive (newest first).
+    function groupByDate(rows) {
+      const groups = [];
+      for (const row of rows) {
+        let group = groups.find((g) => g.date === row.date);
+        if (!group) {
+          group = { date: row.date, items: [] };
+          groups.push(group);
+        }
+        group.items.push(row);
+      }
+      return groups;
     }
 
     // ====================================================================
@@ -1309,13 +1388,58 @@
     const opsList = document.getElementById('opsList');
     const calendarStrip = document.getElementById('calendarStrip');
     const opsDateLabel = document.getElementById('opsDateLabel');
+    const opsRangeLabel = document.getElementById('opsRangeLabel');
     const OPS_WINDOW_DAYS = 7;
     let selectedDate = TODAY_ISO;
 
-    // A click that ends a horizontal drag must not also pick a day.
+    // The filter button cycles these; the list is the same data, re-sliced.
+    const RANGE_MODES = ['day', 'week', 'month'];
+    const RANGE_NAME = { day: 'Day', week: 'Week', month: 'Month' };
+    const RANGE_EMPTY = {
+      day: 'No expenses on this day',
+      week: 'No expenses in this week',
+      month: 'No expenses in this month',
+    };
+    let rangeMode = 'day';
+
+    // A click that follows a horizontal drag must not also pick a day.
     let suppressClick = false;
 
+    // The calendar week (Sunday-first) or month containing a date.
+    function weekRange(iso) {
+      const day = new Date(`${iso}T00:00:00`);
+      const sunday = shiftDays(day, -day.getDay());
+      return { start: isoOf(sunday), end: isoOf(shiftDays(sunday, 6)) };
+    }
+
+    function monthRange(iso) {
+      const day = new Date(`${iso}T00:00:00`);
+      return {
+        start: isoOf(new Date(day.getFullYear(), day.getMonth(), 1)),
+        end: isoOf(new Date(day.getFullYear(), day.getMonth() + 1, 0)),
+      };
+    }
+
+    function currentRange() {
+      if (rangeMode === 'week') return weekRange(selectedDate);
+      if (rangeMode === 'month') return monthRange(selectedDate);
+      return { start: selectedDate, end: selectedDate };
+    }
+
+    const shortDate = (iso) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    function rangeLabel() {
+      const { start, end } = currentRange();
+      if (rangeMode === 'week') return `${shortDate(start)} – ${shortDate(end)}`;
+      if (rangeMode === 'month') {
+        return new Date(`${start}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+      return longDate(selectedDate);
+    }
+
     function renderCalendar() {
+      const { start, end } = currentRange();
       const days = [];
       for (let back = OPS_WINDOW_DAYS - 1; back >= 0; back -= 1) days.push(shiftDays(TODAY, -back));
 
@@ -1323,7 +1447,10 @@
         .map((date) => {
           const iso = isoOf(date);
           const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-          return `<button type="button" class="cal-day${iso === selectedDate ? ' active' : ''}" data-date="${iso}">
+          const classes = ['cal-day'];
+          if (iso === selectedDate) classes.push('active');
+          else if (iso >= start && iso <= end) classes.push('in-range');
+          return `<button type="button" class="${classes.join(' ')}" data-date="${iso}">
             <span>${weekday}</span><span class="cal-date">${date.getDate()}</span>
           </button>`;
         })
@@ -1332,26 +1459,40 @@
 
     function renderOperations() {
       renderCalendar();
-      opsDateLabel.textContent = longDate(selectedDate);
+      opsDateLabel.textContent = rangeLabel();
+      opsRangeLabel.textContent = RANGE_NAME[rangeMode];
 
-      const dayExpenses = expenses.filter((e) => e.date === selectedDate);
-      if (!dayExpenses.length) {
+      const { start, end } = currentRange();
+      const inRange = expenses.filter((e) => e.date >= start && e.date <= end);
+      if (!inRange.length) {
         opsList.innerHTML = `<div class="empty-state">
-          <span class="empty-state__title">No expenses on this day</span>
+          <span class="empty-state__title">${RANGE_EMPTY[rangeMode]}</span>
           <span class="empty-state__note">Add one and it shows here and on Home.</span>
         </div>`;
         return;
       }
 
-      const total = dayExpenses.reduce((sum, e) => sum + e.cents, 0);
-      opsList.innerHTML = `<div class="tx-list">${dayExpenses.map(rowHtml).join('')}</div>
-        <div class="ops-total">${dayExpenses.length} ${dayExpenses.length === 1 ? 'expense' : 'expenses'} · ${money(total)}</div>`;
+      const total = inRange.reduce((sum, e) => sum + e.cents, 0);
+      const body = rangeMode === 'day'
+        ? `<div class="tx-list">${inRange.map(rowHtml).join('')}</div>`
+        : groupByDate(inRange)
+          .map((g) => `<div class="day-label">${escapeHtml(dayLabel(g.date))}</div><div class="tx-list">${g.items.map(rowHtml).join('')}</div>`)
+          .join('');
+
+      opsList.innerHTML = `${body}
+        <div class="ops-total">${inRange.length} ${inRange.length === 1 ? 'expense' : 'expenses'} · ${money(total)}</div>`;
     }
 
     calendarStrip.addEventListener('click', (event) => {
       const day = event.target.closest('.cal-day');
       if (!day || suppressClick) return;
       selectedDate = day.dataset.date;
+      renderOperations();
+    });
+
+    // Day → Week → Month, over the same data.
+    document.getElementById('ops-filter').addEventListener('click', () => {
+      rangeMode = RANGE_MODES[(RANGE_MODES.indexOf(rangeMode) + 1) % RANGE_MODES.length];
       renderOperations();
     });
 
@@ -1366,6 +1507,9 @@
     let screenIndex = 0;
     let currentScreen = 'home';
 
+    const SLIDE_TAP = 170;      // ms to slide one screen over after a tap
+    const SLIDE_SWIPE = 300;    // ms for the slide a swipe is released into
+
     function trackWidth() {
       return track.clientWidth || swipeArea.clientWidth || window.innerWidth;
     }
@@ -1376,9 +1520,27 @@
       swipeArea.scrollLeft = 0;
     }
 
-    function showScreen(name) {
+    // Land on the current screen: at once, or with a slide of `duration`.
+    function settle(instant, duration) {
+      if (instant) {
+        track.classList.add('dragging');   // transitions off for this change only
+        setTrack(0);
+        void track.offsetWidth;            // commit the jump before they return
+        track.classList.remove('dragging');
+        return;
+      }
+      track.style.setProperty('--track-duration', `${duration}ms`);
+      track.classList.remove('dragging');
+      setTrack(0);
+    }
+
+    function showScreen(name, options = {}) {
       const index = SCREEN_ORDER.indexOf(name);
       if (index < 0) return;
+
+      // A tab more than one screen away lands instantly — a long slide reads as
+      // lag. One screen over slides, because that movement is information.
+      const instant = options.instant === undefined ? Math.abs(index - screenIndex) > 1 : options.instant;
 
       screenIndex = index;
       currentScreen = name;
@@ -1392,8 +1554,7 @@
         screen.inert = i !== index;
       });
 
-      track.classList.remove('dragging');
-      setTrack(0);
+      settle(instant, options.duration === undefined ? SLIDE_TAP : options.duration);
 
       // The ring canvas measures itself, so redraw whenever Home is shown.
       if (name === 'home') renderHome();
@@ -1402,10 +1563,7 @@
 
     // Reposition without animating — for resize and the first paint.
     function jumpToScreen() {
-      track.classList.add('dragging');
-      setTrack(0);
-      void track.offsetWidth;
-      track.classList.remove('dragging');
+      settle(true, SLIDE_TAP);
     }
 
     railItems.forEach((item) => {
@@ -1419,7 +1577,9 @@
     // --------------------------------------------------------------------
     const EDGE_RESISTANCE = 0.32;   // rubber band past the first/last screen
     const SNAP_DISTANCE = 0.28;     // share of the width that commits a swipe
-    const FLICK_VELOCITY = 0.5;     // px/ms that commits a swipe regardless
+    const FLICK_VELOCITY = 0.5;     // px/ms from which a release counts as a flick
+    const FLICK_PROJECTION = 260;   // ms of further travel a flick is still worth
+    const MAX_FLICK_SCREENS = 3;    // never carry further than this on one flick
     let drag = null;
 
     swipeArea.addEventListener('pointerdown', (event) => {
@@ -1449,7 +1609,12 @@
         if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
         drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
         if (drag.axis === 'x') {
+          // Swallow the click this release will fire, but only for as long as
+          // one could arrive: a keyboard activation must never be blocked.
           suppressClick = true;
+          window.setTimeout(() => {
+            suppressClick = false;
+          }, 400);
           track.classList.add('dragging');
           if (swipeArea.setPointerCapture) {
             try {
@@ -1474,6 +1639,21 @@
       setTrack(drag.offset);
     });
 
+    // How many screens a release should carry: where the thumb left the track,
+    // plus how much further the flick was worth, rounded to whole screens.
+    function screensToMove(offset, velocity) {
+      const width = trackWidth();
+      const flicked =
+        Math.abs(velocity) > FLICK_VELOCITY &&
+        Math.sign(velocity) === Math.sign(offset) &&
+        Math.abs(offset) > width * 0.08;
+
+      if (!flicked) return Math.abs(offset) > width * SNAP_DISTANCE ? 1 : 0;
+
+      const projected = Math.abs(offset) + Math.abs(velocity) * FLICK_PROJECTION;
+      return Math.min(Math.max(1, Math.round(projected / width)), MAX_FLICK_SCREENS);
+    }
+
     function endDrag(event, cancelled) {
       if (!drag || event.pointerId !== drag.id) return;
 
@@ -1483,22 +1663,17 @@
       // A tap or a vertical scroll never moves the track.
       if (axis !== 'x') return;
 
-      const width = trackWidth();
+      const steps = cancelled ? 0 : screensToMove(offset, velocity);
       const direction = offset < 0 ? 1 : -1;
-      const next = screenIndex + direction;
-      const flicked =
-        Math.abs(velocity) > FLICK_VELOCITY &&
-        Math.sign(velocity) === Math.sign(offset) &&
-        Math.abs(offset) > width * 0.08;
-      const draggedFar = Math.abs(offset) > width * SNAP_DISTANCE;
+      const target = Math.min(Math.max(screenIndex + direction * steps, 0), SCREEN_ORDER.length - 1);
 
-      // Land on the nearest screen: the next one, or the one you came from.
-      if (!cancelled && next >= 0 && next < SCREEN_ORDER.length && (draggedFar || flicked)) {
-        showScreen(SCREEN_ORDER[next]);
-      } else {
-        track.classList.remove('dragging');
-        setTrack(0);
+      if (target !== screenIndex) {
+        showScreen(SCREEN_ORDER[target], { instant: false, duration: SLIDE_SWIPE });
+        return;
       }
+
+      track.classList.remove('dragging');
+      setTrack(0);
     }
 
     swipeArea.addEventListener('pointerup', (event) => endDrag(event, false));
@@ -1558,6 +1733,7 @@
         date: entryDate,
       });
       expenses.sort(byNewestFirst);
+      persistExpenses();
       renderHome();
       renderOperations();
       closeModal();
