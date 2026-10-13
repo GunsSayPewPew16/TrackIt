@@ -32,6 +32,10 @@
       --expense-red: #ff5c5c;
       --income-green: #63d69f;
       --tan: #8c7a65;
+      /* The transaction badges' brown, worn again by the savings screen's
+         selected pot card. The script sets this from BADGE_COLOR at load, so
+         the two cannot drift. */
+      --badge-brown: #866845;
       --hairline: 0.0625rem;
     }
 
@@ -79,6 +83,9 @@
       height: 100dvh;
       background-color: var(--bg-color);
       overflow: hidden;
+      /* The records page is placed against the phone rather than the window, so
+         it can cover the rail as well as the screen behind it. */
+      position: relative;
     }
 
     /* The window stays put and clips; the track inside it slides. Translating
@@ -674,7 +681,8 @@
     }
 
     /* ------------------------------------------------------------------
-       Operations screen
+       Past records — the page's own furniture
+       (the overlay itself, and the savings screen, come further down)
        ------------------------------------------------------------------ */
     .ops-header {
       display: flex;
@@ -832,6 +840,266 @@
     }
 
     /* ------------------------------------------------------------------
+       Past records — the same day-by-day ledger, once the rail's second tab
+       and now a page over the whole phone: Home's Reports button opens it and
+       its back arrow is the way out. It covers the rail too, which is what
+       "the whole screen" means, so it is placed against the phone and never
+       inside the sliding track.
+       ------------------------------------------------------------------ */
+    .records-overlay {
+      /* Fixed, not absolute: this page is a sibling of the phone rather than a
+         child of it, so nothing the sliding track does can drag it along. */
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background-color: var(--bg-color);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding:
+        calc(env(safe-area-inset-top) + 1.5rem)
+        calc(env(safe-area-inset-right) + 5.1%)
+        calc(env(safe-area-inset-bottom) + 1.25rem)
+        calc(env(safe-area-inset-left) + 5.1%);
+      /* Held back until it is asked for; `visibility` is in the transition so
+         the closed page is not reachable by tab or by a stray tap. */
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(2%);
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    }
+
+    .records-overlay::-webkit-scrollbar {
+      display: none;
+    }
+
+    .records-overlay.is-open {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+    }
+
+    /* ------------------------------------------------------------------
+       Savings — the rail's second tab: what the accounts hold as of a month,
+       over the pots that money is being put aside in.
+       ------------------------------------------------------------------ */
+    .period-chips {
+      display: flex;
+      margin: 0 0 1.5rem;
+      padding-bottom: 0.25rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+      /* The row pans sideways on its own, so the screen swipe has to stand
+         down for a gesture that starts here. */
+      touch-action: pan-x;
+    }
+
+    .period-chips::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Centred while the months fit, and scrollable once they do not. */
+    .period-chips__inner {
+      display: flex;
+      gap: 0.5rem;
+      margin: 0 auto;
+    }
+
+    .chip {
+      width: 3rem;
+      height: 3rem;
+      flex: none;
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 62.5rem;
+      background-color: var(--card-bg);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    /* "All time" needs the width its name takes; a month's chip is a disc. */
+    .chip--wide {
+      width: auto;
+      padding: 0 1rem;
+    }
+
+    .chip.active {
+      background-color: var(--accent-yellow);
+      border-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .savings-total {
+      margin-bottom: 1.75rem;
+    }
+
+    .savings-total__label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .savings-total__figure {
+      margin-top: 0.25rem;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03125rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+
+    .savings-total__figure span {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* One card per pot, the selected one brown and its neighbours dark behind
+       it. A finger, a trackpad or the arrow keys move between them, and a tap
+       on a neighbour brings it forward — a swipe is never the only way across. */
+    .pot-row {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0 11%;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      touch-action: pan-x;
+    }
+
+    .pot-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 100% of the content box, not 78% of the row: the row's 11% padding already
+       takes 22% out of it, so this is the 78% of the row the reference draws,
+       with the same 11% peeking either side — which is what centres the card
+       the moment the row is at its first position. */
+    .pot-card {
+      flex: 0 0 100%;
+      scroll-snap-align: center;
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.75rem;
+      padding: 1.25rem;
+      /* A button, because a tap brings the pot forward, so it has to look like
+         the card the reference draws rather than like a control. */
+      font: inherit;
+      color: var(--text-main);
+      text-align: left;
+      cursor: pointer;
+      transition: background-color 0.25s, border-color 0.25s;
+    }
+
+    .pot-card.is-active {
+      background-color: var(--badge-brown);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .pot-card__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    .pot-card__label {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.2;
+      max-width: 6.5rem;
+    }
+
+    .pot-card__tune {
+      width: 2.25rem;
+      height: 2.25rem;
+      flex: none;
+      border: none;
+      border-radius: 62.5rem;
+      background-color: rgba(0, 0, 0, 0.28);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .pot-card__tune svg {
+      width: 58%;
+      height: 58%;
+    }
+
+    /* A pot that is not the selected one shows the single number that says how
+       far it has got; the selected one opens that number into its own goals. */
+    .pot-card__figure {
+      margin-top: 1.25rem;
+      font-size: 1.75rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pot-stack {
+      position: relative;
+      height: 9rem;
+      margin-top: 0.75rem;
+    }
+
+    .pot-goal {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03125rem;
+    }
+
+    /* The pot's biggest goal: the reference's hatched panel, its number at the
+       edge the eye lands on. */
+    .pot-goal--wide {
+      right: 0;
+      top: 0;
+      width: 74%;
+      height: 72%;
+      border-radius: 1.5rem;
+      padding-right: 1rem;
+      justify-content: flex-end;
+      font-size: 1.75rem;
+      color: #ffffff;
+      background-color: #b4b8c1;
+      background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.5) 0 0.35rem,
+        rgba(255, 255, 255, 0.16) 0.35rem 0.7rem
+      );
+    }
+
+    .pot-goal--mid {
+      left: 0;
+      top: 32%;
+      width: 52%;
+      height: 48%;
+      border-radius: 1.25rem;
+      font-size: 1.375rem;
+      color: #ffffff;
+      background-color: #17120e;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.35);
+    }
+
+    .pot-goal--pill {
+      right: 0;
+      bottom: 0;
+      width: 42%;
+      height: 30%;
+      border-radius: 62.5rem;
+      font-size: 1.25rem;
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    }
+
+    /* ------------------------------------------------------------------
        Profile — backup panel (export, import, reset)
        ------------------------------------------------------------------ */
     .data-card {
@@ -941,15 +1209,20 @@
         calc(env(safe-area-inset-left) + 3%);
     }
 
+    /* The rail is a translucent pill: whatever the screen is showing stays
+       faintly readable through it, which is what the reference's own rail does.
+       It never clips its own contents, because the active tab pops above it. */
     .bottom-nav {
       height: 4.375rem;
-      background-color: var(--card-bg);
+      background-color: rgba(28, 22, 17, 0.72);
+      backdrop-filter: blur(1.25rem) saturate(140%);
+      -webkit-backdrop-filter: blur(1.25rem) saturate(140%);
       border-radius: 2.1875rem;
       display: flex;
       justify-content: space-around;
       align-items: center;
       padding: 0 2.5%;
-      border: var(--hairline) solid var(--border-color);
+      border: var(--hairline) solid rgba(255, 255, 255, 0.07);
       box-shadow: 0 0.625rem 1.5625rem rgba(0, 0, 0, 0.5);
     }
 
@@ -960,9 +1233,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-muted);
+      /* Cream rather than the muted grey the rest of the page uses: a rail of
+         faint glyphs over a blurred bar is what the reference's rail reads as. */
+      color: #cabfad;
       cursor: pointer;
-      transition: background 0.2s, color 0.2s;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
       border: none;
       background: transparent;
       flex: none;
@@ -973,10 +1248,24 @@
       height: 46%;
     }
 
-    /* Active tab: gold squircle with a dark icon */
+    /* The active tab is the reference's own signature: a gold disc, glossy at
+       the top, that pops above the bar's edge with the glyph cut into it in a
+       dark brown rather than the page's black. */
     .nav-item.active {
-      background-color: var(--accent-yellow);
-      color: #1a1510;
+      background: radial-gradient(circle at 50% 18%, #fffbe6 0%, var(--accent-yellow) 46%, #d8ba4c 100%);
+      color: #241c0e;
+      border-radius: 62.5rem;
+      width: 3.375rem;
+      height: 3.375rem;
+      transform: translateY(-0.8rem);
+      box-shadow:
+        0 0.5rem 0.875rem rgba(0, 0, 0, 0.45),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .nav-item.active svg {
+      width: 56%;
+      height: 56%;
     }
 
     .nav-item:not(.active):hover {
@@ -1315,44 +1604,26 @@
 
         </section>
 
+
         <!-- ============================================================
-             Screen 2 — Financial Operations
+             Screen 2 — Savings
+             What the accounts hold as of a month, over the pots that money
+             is being put aside in. The chips are built from the data, like
+             every other list here.
              ============================================================ -->
-        <section class="screen" data-screen="operations">
+        <section class="screen" data-screen="savings">
 
-          <div class="ops-header">
-            <button class="icon-btn" id="ops-back" title="Back" aria-label="Back">
-              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg>
-            </button>
-            <button class="icon-btn" id="ops-menu" title="Menu" aria-label="Menu">
-              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="5" r="1" /> <circle cx="12" cy="19" r="1" /></svg>
-            </button>
+          <h1 class="screen-title">Savings</h1>
+
+          <div class="period-chips" id="savings-chips" role="tablist" aria-label="Period"></div>
+
+          <div class="savings-total">
+            <div class="savings-total__label">Current savings</div>
+            <div class="savings-total__figure" id="savings-figure">₹0.00</div>
           </div>
 
-          <h1 class="screen-title">Spending<br>by day</h1>
-
-          <div class="ops-actions">
-            <button class="action-btn btn-transfer" id="ops-add">
-              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
-              Add expense
-            </button>
-          </div>
-
-          <!-- Built from the shared expense data, one day per pill -->
-          <div class="calendar-strip" id="calendarStrip"></div>
-
-          <div class="section-header">
-            <div class="date-indicator">
-              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></svg>
-              <span id="opsDateLabel"></span>
-            </div>
-          <button class="icon-btn icon-btn--sm range-toggle" id="ops-filter" aria-label="Change range">
-            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 8h4" /> <path d="M12 21v-9" /> <path d="M12 8V3" /> <path d="M17 16h4" /> <path d="M19 12V3" /> <path d="M19 21v-5" /> <path d="M3 14h4" /> <path d="M5 10V3" /> <path d="M5 21v-7" /></svg>
-            <span id="opsRangeLabel">Day</span>
-          </button>
-          </div>
-
-          <div class="ops-list" id="opsList"></div>
+          <!-- One card per pot of savings, built from SAVINGS_POTS -->
+          <div class="pot-row" id="pot-row" tabindex="0" role="group" aria-label="Savings pots"></div>
 
         </section>
 
@@ -1456,8 +1727,8 @@
         <button class="nav-item active" data-screen="home" title="Home" aria-label="Home">
           <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
         </button>
-        <button class="nav-item" data-screen="operations" title="Operations" aria-label="Operations">
-          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></svg>
+        <button class="nav-item" data-screen="savings" title="Savings" aria-label="Savings">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <circle cx="12" cy="12" r="6" /> <circle cx="12" cy="12" r="2" /></svg>
         </button>
         <button class="nav-item" data-screen="add" title="Add expense" aria-label="Add expense">
           <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
@@ -1472,6 +1743,48 @@
     </div>
 
   </div>
+
+  <!-- ================================================================
+       Past records — the day-by-day ledger over the whole phone
+       Opened from Home's Reports button, which is why it lives outside
+       the sliding track: it covers the rail as well as the screen.
+       ================================================================ -->
+  <section class="records-overlay" id="records-overlay" inert>
+    <div class="ops-header">
+      <button class="icon-btn" id="ops-back" title="Back" aria-label="Back">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg>
+      </button>
+      <button class="icon-btn" id="ops-menu" title="Menu" aria-label="Menu">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="5" r="1" /> <circle cx="12" cy="19" r="1" /></svg>
+      </button>
+    </div>
+
+    <h1 class="screen-title">Spending<br>by day</h1>
+
+    <div class="ops-actions">
+      <button class="action-btn btn-transfer" id="ops-add">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        Add expense
+      </button>
+    </div>
+
+    <!-- Built from the shared expense data, one day per pill -->
+    <div class="calendar-strip" id="calendarStrip"></div>
+
+    <div class="section-header">
+      <div class="date-indicator">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></svg>
+        <span id="opsDateLabel"></span>
+      </div>
+    <button class="icon-btn icon-btn--sm range-toggle" id="ops-filter" aria-label="Change range">
+      <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 8h4" /> <path d="M12 21v-9" /> <path d="M12 8V3" /> <path d="M17 16h4" /> <path d="M19 12V3" /> <path d="M19 21v-5" /> <path d="M3 14h4" /> <path d="M5 10V3" /> <path d="M5 21v-7" /></svg>
+      <span id="opsRangeLabel">Day</span>
+    </button>
+    </div>
+
+    <div class="ops-list" id="opsList"></div>
+
+  </section>
 
   <script>
     // ====================================================================
@@ -1744,6 +2057,10 @@
     // the way the reference's own rows do. The pie is untouched: it has always
     // drawn its wedges from PIE_COLORS rather than from the groups.
     const BADGE_COLOR = '#866845';
+
+    // The savings screen's selected pot wears the same brown, and reads it from
+    // here, so the badge tiles and the card can never drift apart.
+    document.documentElement.style.setProperty('--badge-brown', BADGE_COLOR);
 
     // The marker: one filled glyph, white, on one solid tile. The picker's rows
     // wear the same fill as the transaction rows, so a category looks the same
@@ -2249,7 +2566,7 @@
     }
 
     // ====================================================================
-    // Operations screen — the same expenses, filtered to one day
+    // Past records — the same expenses, filtered to a range
     // ====================================================================
     const opsList = document.getElementById('opsList');
     const calendarStrip = document.getElementById('calendarStrip');
@@ -2327,7 +2644,7 @@
         .join('');
     }
 
-    function renderOperations() {
+    function renderRecords() {
       renderCalendar();
       opsDateLabel.textContent = rangeLabel();
       opsRangeLabel.textContent = RANGE_NAME[rangeMode];
@@ -2365,13 +2682,233 @@
       const day = event.target.closest('.cal-day');
       if (!day) return;
       selectedDate = day.dataset.date;
-      renderOperations();
+      renderRecords();
     });
 
     // Day → Week → Month, over the same data.
     document.getElementById('ops-filter').addEventListener('click', () => {
       rangeMode = RANGE_MODES[(RANGE_MODES.indexOf(rangeMode) + 1) % RANGE_MODES.length];
-      renderOperations();
+      renderRecords();
+    });
+
+    // The page is a page, not a tab: Home's Reports button is the way in and
+    // its back arrow the way out. It covers the rail as well as the screen, and
+    // what it covers stays out of reach — inert, so no tap or tab lands on the
+    // dashboard through it.
+    const recordsOverlay = document.getElementById('records-overlay');
+
+    function setRecordsOpen(open) {
+      recordsOverlay.classList.toggle('is-open', open);
+      recordsOverlay.inert = !open;
+      document.querySelector('.app-content').inert = open;
+      document.querySelector('.nav-wrap').inert = open;
+    }
+
+    function openRecords() {
+      renderRecords();   // built before it is ever shown
+      recordsOverlay.scrollTop = 0;
+      setRecordsOpen(true);
+    }
+
+    function closeRecords() {
+      setRecordsOpen(false);
+    }
+
+    // ====================================================================
+    // Savings — the rail's second tab, and the month it is about
+    // ====================================================================
+    // What the accounts hold as of a period, over the pots that money is being
+    // put aside in. The real app has no goal or pot of its own yet, so these are
+    // placeholders drawn the way the reference draws one: a target and a monthly
+    // amount, with every figure on this screen derived from those two — which is
+    // why the chips move all of them and why no percentage is typed twice.
+    const SAVINGS_POTS = [
+      { slug: 'health', label: 'Health savings', goals: [
+        { label: 'Doctor visits',    target:  400000, monthly: 34000, started: '2025-12' },
+        { label: 'Medicine',         target:  300000, monthly: 23000, started: '2026-01' },
+        { label: 'Health cover',     target: 1200000, monthly: 23000, started: '2025-12' },
+      ]},
+      { slug: 'car', label: 'Car savings', goals: [
+        { label: 'Car service',      target:  600000, monthly: 40000, started: '2026-02' },
+        { label: 'Tyres, brakes',    target:  400000, monthly: 22000, started: '2026-03' },
+        { label: 'Car cover',        target:  900000, monthly: 26000, started: '2025-11' },
+      ]},
+      { slug: 'travel', label: 'Travel fund', goals: [
+        { label: 'Flights',          target:  500000, monthly: 30000, started: '2026-04' },
+        { label: 'Stays',            target:  350000, monthly: 18000, started: '2026-05' },
+        { label: 'Spending money',   target:  300000, monthly: 15000, started: '2026-06' },
+      ]},
+      { slug: 'home', label: 'Home deposit', goals: [
+        { label: 'Deposit',          target: 2500000, monthly: 60000, started: '2025-10' },
+        { label: 'Furniture',        target:  800000, monthly: 20000, started: '2026-07' },
+        { label: 'Repairs',          target:  400000, monthly: 12000, started: '2026-08' },
+      ]},
+    ];
+
+    const savingsChips = document.getElementById('savings-chips');
+    const savingsFigure = document.getElementById('savings-figure');
+    const potRow = document.getElementById('pot-row');
+
+    // Every month the data actually holds, oldest first, and "all time" for the
+    // whole history. A new entry adds a chip without anyone editing this.
+    const ALL_TIME = 'all';
+    const monthKeys = [...new Set(expenses.map((row) => row.date.slice(0, 7)))].sort();
+    let savingsPeriod = monthKeys[monthKeys.length - 1] || ALL_TIME;
+    let activePot = 0;
+
+    const monthShort = (key) =>
+      new Date(`${key}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short' });
+
+    // The last day of the period: a month runs to its own end, and the whole
+    // history to the mockup's fixed now.
+    const periodEnd = () =>
+      savingsPeriod === ALL_TIME
+        ? TODAY_ISO
+        : isoOf(new Date(Number(savingsPeriod.slice(0, 4)), Number(savingsPeriod.slice(5, 7)), 0));
+
+    // Money in minus money out up to that day: what the accounts held then, which
+    // is the one figure the reference leads with.
+    function savingsUpTo(end) {
+      let total = ACCOUNTS.reduce((sum, account) => sum + account.opening, 0);
+      for (const row of expenses) {
+        if (row.date > end) continue;
+        total += isIncome(row) ? row.cents : -row.cents;
+      }
+      return total;
+    }
+
+    // How far one goal has got by the end of the period: whole months of its own
+    // monthly amount, never past its target.
+    function goalProgress(goal, end) {
+      const months =
+        Number(end.slice(0, 4)) * 12 + Number(end.slice(5, 7)) -
+        (Number(goal.started.slice(0, 4)) * 12 + Number(goal.started.slice(5, 7))) + 1;
+      const saved = Math.min(goal.monthly * Math.max(months, 1), goal.target);
+      return { percent: Math.round((saved / goal.target) * 100), saved };
+    }
+
+    const potPercent = (pot, end) =>
+      Math.round(
+        pot.goals.reduce((sum, goal) => sum + goalProgress(goal, end).percent, 0) / pot.goals.length,
+      );
+
+    // What one pot holds, as the reference stacks it: the biggest goal on the
+    // wide hatched panel, the others the dark card and the gold pill under it.
+    const potStackHtml = (pot, end) =>
+      pot.goals
+        .map((goal, index) => {
+          const { percent, saved } = goalProgress(goal, end);
+          const label = `${goal.label} — ${percent}% of ${money(goal.target)}, ${money(saved)} put by`;
+          const shape = ['pot-goal--wide', 'pot-goal--mid', 'pot-goal--pill'][index] || 'pot-goal--mid';
+          return `<div class="pot-goal ${shape}" role="img" aria-label="${escapeHtml(label)}"
+            title="${escapeHtml(label)}">${percent}%</div>`;
+        })
+        .join('');
+
+    const potHtml = (pot, index, end) => {
+      const active = index === activePot;
+      const label = `${pot.label}: ${pot.goals
+        .map((goal) => `${goal.label} ${goalProgress(goal, end).percent}%`)
+        .join(', ')}`;
+      const head = `<div class="pot-card__head">
+          <span class="pot-card__label">${escapeHtml(pot.label)}</span>
+          <span class="pot-card__tune" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12h6" /> <path d="M15 12h6" /> <path d="M6 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" /> <path d="M14 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" /></svg>
+          </span>
+        </div>`;
+      // The selected pot opens into its goals; a neighbour keeps the single
+      // number that says how far it has got.
+      const body = active
+        ? `<div class="pot-stack">${potStackHtml(pot, end)}</div>`
+        : `<div class="pot-card__figure">${potPercent(pot, end)}%</div>`;
+      return `<button type="button" class="pot-card${active ? ' is-active' : ''}"
+        data-pot="${pot.slug}" aria-pressed="${active}" aria-label="${escapeHtml(label)}">${head}${body}</button>`;
+    };
+
+    // The row scrolls natively — a finger, a trackpad and the arrow keys all
+    // work — so this is what keeps the brown card under the eye.
+    function paintActivePot() {
+      const rowBox = potRow.getBoundingClientRect();
+      const rowMiddle = rowBox.left + rowBox.width / 2;
+      let nearest = 0;
+      let closest = Infinity;
+      potRow.querySelectorAll('.pot-card').forEach((candidate, index) => {
+        const box = candidate.getBoundingClientRect();
+        const distance = Math.abs(box.left + box.width / 2 - rowMiddle);
+        if (distance < closest) {
+          closest = distance;
+          nearest = index;
+        }
+      });
+      if (nearest === activePot) return;
+      activePot = nearest;
+      potRow.querySelectorAll('.pot-card').forEach((candidate, index) => {
+        candidate.classList.toggle('is-active', index === activePot);
+        candidate.setAttribute('aria-pressed', String(index === activePot));
+      });
+    }
+
+    const indexOfPot = (slug) => SAVINGS_POTS.findIndex((pot) => pot.slug === slug);
+
+    // A tap lands on the next frame, the way every other tap in this mockup does:
+    // a release eases on the screens' track, nothing else does — and a smooth
+    // scroll here is what the row's own snapping argues with.
+    function scrollToPot(index, behaviour = 'auto') {
+      activePot = Math.min(Math.max(index, 0), SAVINGS_POTS.length - 1);
+      potRow.querySelectorAll('.pot-card').forEach((card, i) => {
+        card.classList.toggle('is-active', i === activePot);
+        card.setAttribute('aria-pressed', String(i === activePot));
+      });
+      const card = potRow.querySelectorAll('.pot-card')[activePot];
+      if (!card) return;
+      // Named by the two boxes rather than by offsetLeft, because the sliding
+      // track sits between the card and its offset parent and moves the row
+      // without moving the offsets it reports. The page behind the row never
+      // moves either: only the row's own left edge is asked for.
+      const rowBox = potRow.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const toCentre = cardBox.left + cardBox.width / 2 - (rowBox.left + rowBox.width / 2);
+      potRow.scrollTo({ left: potRow.scrollLeft + toCentre, behavior: behaviour });
+    }
+
+    let potFrame = 0;
+    potRow.addEventListener('scroll', () => {
+      if (potFrame) return;
+      potFrame = requestAnimationFrame(() => {
+        potFrame = 0;
+        paintActivePot();
+      });
+    });
+
+    // A tap on a neighbour brings it forward: a swipe is not the only way across.
+    potRow.addEventListener('click', (event) => {
+      const card = event.target.closest('.pot-card');
+      if (!card || card.dataset.pot === SAVINGS_POTS[activePot].slug) return;
+      scrollToPot(indexOfPot(card.dataset.pot));
+    });
+
+    function renderSavings() {
+      const end = periodEnd();
+
+      savingsChips.innerHTML = `<div class="period-chips__inner">${monthKeys
+        .map(
+          (key) => `<button type="button" class="chip${key === savingsPeriod ? ' active' : ''}"
+            data-period="${key}" aria-pressed="${key === savingsPeriod}">${escapeHtml(monthShort(key))}</button>`,
+        )
+        .join('')}<button type="button" class="chip chip--wide${savingsPeriod === ALL_TIME ? ' active' : ''}"
+            data-period="${ALL_TIME}" aria-pressed="${savingsPeriod === ALL_TIME}">All time</button></div>`;
+
+      savingsFigure.innerHTML = splitAmount(money(savingsUpTo(end)));
+
+      potRow.innerHTML = SAVINGS_POTS.map((pot, index) => potHtml(pot, index, end)).join('');
+      scrollToPot(activePot, 'auto');
+    }
+
+    savingsChips.addEventListener('click', (event) => {
+      const chip = event.target.closest('.chip');
+      if (!chip) return;
+      savingsPeriod = chip.dataset.period;
+      renderSavings();
     });
 
     // ====================================================================
@@ -2382,8 +2919,9 @@
     const screens = Array.from(document.querySelectorAll('.screen'));
     const railItems = document.querySelectorAll('.nav-item[data-screen]');
     // The third screen is where the money is entered, so it sits right after the
-    // day-by-day view, which is how the owner reaches for it.
-    const SCREEN_ORDER = ['home', 'operations', 'add', 'cards', 'profile'];
+    // savings view, which is how the owner reaches for it. The past records are
+    // not in here at all: they are a page over the phone, not a screen of it.
+    const SCREEN_ORDER = ['home', 'savings', 'add', 'cards', 'profile'];
     let screenIndex = 0;
     let currentScreen = 'home';
 
@@ -2433,7 +2971,7 @@
 
       // The ring canvas measures itself, so redraw whenever Home is shown.
       if (name === 'home') renderHome();
-      if (name === 'operations') renderOperations();
+      if (name === 'savings') renderSavings();
       if (name === 'add') renderCategoryList();
       if (name === 'profile') renderDataPanel();
     }
@@ -2483,9 +3021,10 @@
 
     swipeArea.addEventListener('pointerdown', (event) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
-      // A drag that starts on the balance card belongs to the card's own track:
-      // one finger must never move both it and the screens.
-      if (event.target.closest('.acct-carousel')) return;
+      // A drag that starts on the balance card, on the savings pots or on the
+      // month chips belongs to that row's own pan: one finger must never move
+      // both a row and the screens.
+      if (event.target.closest('.acct-carousel, .pot-row, .period-chips')) return;
       dragEndedAt = 0;   // a new gesture cancels the click the last one owed
       drag = {
         id: event.pointerId,
@@ -2720,7 +3259,7 @@
     // ====================================================================
     // Add expense — the third screen, and the only way in
     // ====================================================================
-    // Home's button and Operations' "+" both land here. The money is typed
+    // Home's button and the records page's "+" both land here. The money is typed
     // first and the category browser is the last step, so choosing a category
     // is what saves: a finished entry needs no second confirmation, and a
     // half-finished one (no amount) cannot be saved by accident.
@@ -2788,7 +3327,7 @@
       renderCategoryList();
     }
 
-    // Home logs to today; Operations logs to the day you are looking at. Either
+    // Home logs to today; the records page logs to the day you are looking at. Either
     // way the screen opens empty, because the last entry was already saved.
     function openAdd(targetDate = TODAY_ISO) {
       entryKind = 'expense';
@@ -2833,7 +3372,7 @@
 
       // The entry has to be seen where it landed, so the dashboard is where
       // this finishes — and the line under the header says what was added.
-      renderOperations();
+      renderRecords();
       showScreen('home');
       flashStatus(`Added ${money(cents)} · ${meta.label}`);
       paintAddScreen();
@@ -2885,11 +3424,21 @@
     document.getElementById('add-back').addEventListener('click', () => showScreen('home'));
 
     // ====================================================================
-    // Operations: the + button and the back arrow
+    // The records page: the + button, the exit, and the way in from Home
     // ====================================================================
     document.getElementById('add-trigger').addEventListener('click', () => openAdd());
-    document.getElementById('ops-add').addEventListener('click', () => openAdd(selectedDate));
-    document.getElementById('ops-back').addEventListener('click', () => showScreen('home'));
+
+    // Home's Reports button is how the past records are reached, and the page's
+    // own back arrow is the way out — back to the dashboard it came from.
+    document.getElementById('reports-trigger').addEventListener('click', openRecords);
+    document.getElementById('ops-back').addEventListener('click', closeRecords);
+
+    // Logging from the records page leaves the page first: the add screen is a
+    // screen of the track, and the page covers the track.
+    document.getElementById('ops-add').addEventListener('click', () => {
+      closeRecords();
+      openAdd(selectedDate);
+    });
 
     // ====================================================================
     // Profile: backup — export, import and reset the one dataset
@@ -2955,7 +3504,7 @@
         expenses.push(...rows);
         persistExpenses();
         renderHome();
-        renderOperations();
+        renderRecords();
         setDataStatus(`Imported ${rows.length} expenses`, false);
       } catch (error) {
         setDataStatus(`Import failed: ${error.message}.`, true);
@@ -2972,7 +3521,7 @@
       expenses.push(...importedExpenses());
       dataBox.value = '';
       renderHome();
-      renderOperations();
+      renderRecords();
       setDataStatus(`Restored the ${expenses.length} imported expenses`, false);
     }
 
@@ -3006,6 +3555,9 @@
     window.addEventListener('resize', () => {
       jumpToScreen();
       renderHome();
+      // The pot row is built from percentages, so a resize moves every card and
+      // the selected one has to be put back under the eye.
+      if (currentScreen === 'savings') scrollToPot(activePot, 'auto');
     });
 
     // The add screen is built before it is ever shown, so swiping onto it mid-
