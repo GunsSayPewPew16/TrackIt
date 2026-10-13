@@ -171,11 +171,14 @@ is tolerance for hand-written files, not the format to produce.
 - **The fixed "now" is 12 October 2026** (`const TODAY`). The imported data is real
   and dated, which keeps screenshots stable across sessions.
 - **No hardcoded currency.** `money()` is the only place that formats money, and it
-  prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78).
+  prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78). The one
+  exception is the statistics chart's `axisMoney()`, which sits beside it and only
+  ever *shortens* what `money()` would say (₹22.0K, ₹1.2L), because a full figure
+  beside every dashed line is wider than the plot it names.
 - **Ids are unique and namespaced per screen.**  Home owns the balance card's ids,
-  the records page owns the calendar's, the add screen owns its browser's, the savings
-  screen owns the chips' and the pots'; any other screen prefixes its own. Two overlays
-  once shared ids and both broke.
+  the records page owns the calendar's, the add screen owns its browser's, the
+  statistics screen owns the chart's and its axis labels'; any other screen prefixes
+  its own. Two overlays once shared ids and both broke.
 - **Screenshots in the preview panel crop the bottom ~150px**, which is why the bottom
   rail never appears in a capture even though it is rendered and tappable. Probe it
   instead of trusting the image.
@@ -224,23 +227,23 @@ is tolerance for hand-written files, not the format to produce.
   must not be the only way across, and a tap on one lands on the next frame like
   every other tap. The add screen picks the account with a second, quieter toggle
   under the kind, so a logged row moves one balance and not the other.
-- **Savings is the rail's second tab: a month of the history, over the pots.** Its
-  chips are every month the dataset holds, oldest first, plus "All time" — built from
-  the data, so a new entry adds a chip without anyone editing the file — and "Current
-  savings" is the accounts' own arithmetic to the end of the period chosen: opening
-  balances, plus income, minus spending, which is the same figure Home leads with when
-  the period is the current month. The pots below it are **placeholders**: the app has
-  no savings goal of its own yet, so each pot carries a target and a monthly amount put
-  aside and every percentage is derived from those two — which is why a chip moves the
-  goals as well as the total instead of leaving them frozen. The selected pot opens
-  into its goals the way the reference draws one (the wide hatched panel, the dark card
-  and the gold pill behind it) while its neighbours keep the single average percentage
-  that says how far they have got; the row pans natively, so a finger, a trackpad and
-  the arrow keys all move between pots, and a tap on a neighbour brings it forward. The
-  selected card wears `--badge-brown`, set from `BADGE_COLOR` when the script loads, so
-  the card and the transaction tiles cannot drift apart. **Do not read the pot figures
-  as the owner's savings**: they are a design, and `SAVINGS_POTS` is what to replace —
-  with real goals, or with nothing — the moment the app grows them.
+- **Statistics is the rail's second tab: the balance over time, as one line.** Its
+  summary is the balance at the end of every day from the first entry to the fixed now
+  (`dailyBalances`), which is the same figure Home leads with — so the two can never
+  disagree, and the falls in the line are the days that spent more than they took in.
+  It replaces the savings screen the reference's pot cards were built on: those pots
+  were placeholders (the app has no savings goal of its own), so they went rather than
+  staying as decoration. A month of days is what fits legibly (`TREND_WINDOW_DAYS`) and
+  **Show more** opens the whole history — the same line with more of its past on screen.
+  The dashed rounds are round rupees, the day labels are ~six of them with today always
+  last, and each value label is placed by the same fraction of the height the chart
+  draws its line at, so a label can never drift off the round it names (the value
+  column and the canvas take their height from one variable for the same reason).
+  Everything is the app's own palette: a gold line with a translucent gold wash under
+  it, dashed grey-white rounds, muted labels. The drawing itself is canvas, sized for
+  the device pixel ratio like the ring and the pie, and redrawn on `showScreen` and on
+  a resize; the canvas carries an `aria-label` with the window's low, high and current
+  figure, because a plot is pixels no screen reader can read.
 - **The month's budget is the pie, not a progress bar.** The old October-budget card
   is gone: its slot holds the account carousel, and its figures are the widget that
   replaced "Auto-log with Shortcuts" — this month's spending as a pie over the
@@ -249,7 +252,7 @@ is tolerance for hand-written files, not the format to produce.
   at-a-glance percent. The Shortcuts endpoint is documentation rather than a glance,
   so it lives on Profile beside the Backup card.
 - **Adding an expense is a screen, not a sheet.** It is the third screen — right
-  after the savings view, where the owner reaches for it — and both the Home button
+  after the statistics view, where the owner reaches for it — and both the Home button
   and the records page's `+` navigate to it. Money first, then Expense/Income,
   account and date, then the category browser: the groups, and once one is open its
   own row followed by its subcategories. **The last tap is the save** — the amount is
@@ -290,7 +293,7 @@ them.
   mockup in a pristine state after a demo). Anything that replaces the dataset must
   mutate the existing array in place, because every screen closes over it.
 - **The rail drives the screens, and so does a horizontal swipe.** Its five tabs are
-  Home, Savings, the add screen, Cards and Profile, and the active one is drawn the
+  Home, Statistics, the add screen, Cards and Profile, and the active one is drawn the
   way the reference draws it: a gold disc, glossy at the top, that pops above the
   bar's top edge with its glyph in a dark brown, over a translucent pill that blurs
   whatever is behind it. Do not flatten that disc back into a squircle, and never clip

@@ -32,10 +32,6 @@
       --expense-red: #ff5c5c;
       --income-green: #63d69f;
       --tan: #8c7a65;
-      /* The transaction badges' brown, worn again by the savings screen's
-         selected pot card. The script sets this from BADGE_COLOR at load, so
-         the two cannot drift. */
-      --badge-brown: #866845;
       --hairline: 0.0625rem;
     }
 
@@ -682,7 +678,7 @@
 
     /* ------------------------------------------------------------------
        Past records — the page's own furniture
-       (the overlay itself, and the savings screen, come further down)
+       (the overlay itself, and the statistics screen, come further down)
        ------------------------------------------------------------------ */
     .ops-header {
       display: flex;
@@ -879,68 +875,45 @@
     }
 
     /* ------------------------------------------------------------------
-       Savings — the rail's second tab: what the accounts hold as of a month,
-       over the pots that money is being put aside in.
+       Statistics — the rail's second tab: the money over time, one line
        ------------------------------------------------------------------ */
-    .period-chips {
-      display: flex;
-      margin: 0 0 1.5rem;
-      padding-bottom: 0.25rem;
-      overflow-x: auto;
-      scrollbar-width: none;
-      /* The row pans sideways on its own, so the screen swipe has to stand
-         down for a gesture that starts here. */
-      touch-action: pan-x;
-    }
-
-    .period-chips::-webkit-scrollbar {
-      display: none;
-    }
-
-    /* Centred while the months fit, and scrollable once they do not. */
-    .period-chips__inner {
-      display: flex;
-      gap: 0.5rem;
-      margin: 0 auto;
-    }
-
-    .chip {
-      width: 3rem;
-      height: 3rem;
-      flex: none;
-      border: var(--hairline) solid var(--border-color);
-      border-radius: 62.5rem;
+    .stat-card {
       background-color: var(--card-bg);
-      color: var(--text-muted);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.5rem;
+      padding: 1.25rem;
+    }
+
+    .stat-card__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding-bottom: 0.875rem;
+      border-bottom: var(--hairline) solid var(--border-color);
+    }
+
+    .stat-card__title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.015625rem;
+    }
+
+    /* TODAY over the figure the line ends on: the same money Home leads with,
+       in the same format, with the paise dimmed. */
+    .trend-today {
+      margin: 1.125rem 0 0.75rem;
+    }
+
+    .trend-today__label {
       font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-    }
-
-    /* "All time" needs the width its name takes; a month's chip is a disc. */
-    .chip--wide {
-      width: auto;
-      padding: 0 1rem;
-    }
-
-    .chip.active {
-      background-color: var(--accent-yellow);
-      border-color: var(--accent-yellow);
-      color: #1a1510;
-    }
-
-    .savings-total {
-      margin-bottom: 1.75rem;
-    }
-
-    .savings-total__label {
-      font-size: 0.8125rem;
+      font-weight: 700;
+      letter-spacing: 0.09375rem;
+      text-transform: uppercase;
       color: var(--text-muted);
-      font-weight: 600;
     }
 
-    .savings-total__figure {
+    .trend-today__figure {
       margin-top: 0.25rem;
       font-size: 2rem;
       font-weight: 700;
@@ -949,154 +922,97 @@
       line-height: 1.1;
     }
 
-    .savings-total__figure span {
+    .trend-today__figure span {
       font-size: 1.25rem;
       color: var(--text-muted);
       font-weight: 500;
     }
 
-    /* One card per pot, the selected one brown and its neighbours dark behind
-       it. A finger, a trackpad or the arrow keys move between them, and a tap
-       on a neighbour brings it forward — a swipe is never the only way across. */
-    .pot-row {
+    /* The plot's height lives here once: the value column has to be exactly as
+       tall as the canvas, or its labels drift off the lines they name. */
+    .trend {
+      --plot-height: 11rem;
       display: flex;
-      gap: 0.75rem;
-      padding: 0 11%;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scrollbar-width: none;
-      touch-action: pan-x;
+      align-items: flex-start;
+      gap: 0.5rem;
     }
 
-    .pot-row::-webkit-scrollbar {
-      display: none;
+    .trend__axis {
+      position: relative;
+      flex: none;
+      width: 3.25rem;
+      height: var(--plot-height);
     }
 
-    /* 100% of the content box, not 78% of the row: the row's 11% padding already
-       takes 22% out of it, so this is the 78% of the row the reference draws,
-       with the same 11% peeking either side — which is what centres the card
-       the moment the row is at its first position. */
-    .pot-card {
-      flex: 0 0 100%;
-      scroll-snap-align: center;
-      background-color: var(--card-bg);
-      border: var(--hairline) solid var(--border-color);
-      border-radius: 1.75rem;
-      padding: 1.25rem;
-      /* A button, because a tap brings the pot forward, so it has to look like
-         the card the reference draws rather than like a control. */
-      font: inherit;
-      color: var(--text-main);
-      text-align: left;
-      cursor: pointer;
-      transition: background-color 0.25s, border-color 0.25s;
+    /* One label per dashed line, at the fraction of the height that line is
+       drawn at, and shifted up by half its own height to sit on it. */
+    .trend__tick {
+      position: absolute;
+      right: 0;
+      transform: translateY(50%);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      white-space: nowrap;
     }
 
-    .pot-card.is-active {
-      background-color: var(--badge-brown);
-      border-color: rgba(255, 255, 255, 0.18);
+    .trend__frame {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
-    .pot-card__head {
+    #trendCanvas {
+      display: block;
+      width: 100%;
+      height: var(--plot-height);
+    }
+
+    .trend__days {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 0.75rem;
+      gap: 0.25rem;
+      margin-top: 0.5rem;
     }
 
-    .pot-card__label {
-      font-size: 1rem;
-      font-weight: 700;
-      line-height: 1.2;
-      max-width: 6.5rem;
+    .trend__day {
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
     }
 
-    .pot-card__tune {
-      width: 2.25rem;
-      height: 2.25rem;
+    .trend__legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+
+    .trend__swatch {
       flex: none;
-      border: none;
-      border-radius: 62.5rem;
-      background-color: rgba(0, 0, 0, 0.28);
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    .pot-card__tune svg {
-      width: 58%;
-      height: 58%;
-    }
-
-    /* A pot that is not the selected one shows the single number that says how
-       far it has got; the selected one opens that number into its own goals. */
-    .pot-card__figure {
-      margin-top: 1.25rem;
-      font-size: 1.75rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .pot-stack {
-      position: relative;
-      height: 9rem;
-      margin-top: 0.75rem;
-    }
-
-    .pot-goal {
-      position: absolute;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: -0.03125rem;
-    }
-
-    /* The pot's biggest goal: the reference's hatched panel, its number at the
-       edge the eye lands on. */
-    .pot-goal--wide {
-      right: 0;
-      top: 0;
-      width: 74%;
-      height: 72%;
-      border-radius: 1.5rem;
-      padding-right: 1rem;
-      justify-content: flex-end;
-      font-size: 1.75rem;
-      color: #ffffff;
-      background-color: #b4b8c1;
-      background-image: repeating-linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.5) 0 0.35rem,
-        rgba(255, 255, 255, 0.16) 0.35rem 0.7rem
-      );
-    }
-
-    .pot-goal--mid {
-      left: 0;
-      top: 32%;
-      width: 52%;
-      height: 48%;
-      border-radius: 1.25rem;
-      font-size: 1.375rem;
-      color: #ffffff;
-      background-color: #17120e;
-      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.35);
-    }
-
-    .pot-goal--pill {
-      right: 0;
-      bottom: 0;
-      width: 42%;
-      height: 30%;
-      border-radius: 62.5rem;
-      font-size: 1.25rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 0.1875rem;
       background-color: var(--accent-yellow);
-      color: #1a1510;
-      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    }
+
+    /* The reference's link, in the app's own accent: it changes a range, not a
+       screen, so it is a link and not another button on the card. */
+    .trend__more {
+      display: block;
+      margin: 0.75rem 0 0 auto;
+      padding: 0.25rem 0;
+      border: none;
+      background: none;
+      color: var(--accent-yellow);
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
     }
 
     /* ------------------------------------------------------------------
@@ -1606,24 +1522,40 @@
 
 
         <!-- ============================================================
-             Screen 2 — Savings
-             What the accounts hold as of a month, over the pots that money
-             is being put aside in. The chips are built from the data, like
-             every other list here.
+             Screen 2 — Statistics
+             The money over time: the same balance Home leads with, drawn day
+             by day, so what the line loses is what was spent.
              ============================================================ -->
-        <section class="screen" data-screen="savings">
+        <section class="screen" data-screen="statistics">
 
-          <h1 class="screen-title">Savings</h1>
+          <h1 class="screen-title">Statistics</h1>
 
-          <div class="period-chips" id="savings-chips" role="tablist" aria-label="Period"></div>
+          <div class="stat-card">
+            <div class="stat-card__head">
+              <h2 class="stat-card__title">Balance trend</h2>
+            </div>
 
-          <div class="savings-total">
-            <div class="savings-total__label">Current savings</div>
-            <div class="savings-total__figure" id="savings-figure">₹0.00</div>
+            <div class="trend-today">
+              <div class="trend-today__label">Today</div>
+              <div class="trend-today__figure" id="trend-figure">₹0.00</div>
+            </div>
+
+            <!-- Drawn from the shared expenses, one point per day -->
+            <div class="trend">
+              <div class="trend__axis" id="trend-axis" aria-hidden="true"></div>
+              <div class="trend__frame">
+                <canvas id="trendCanvas"></canvas>
+                <div class="trend__days" id="trend-days" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <div class="trend__legend">
+              <span class="trend__swatch" aria-hidden="true"></span>
+              Total balance
+            </div>
+
+            <button type="button" class="trend__more" id="trend-more" aria-expanded="false">Show more</button>
           </div>
-
-          <!-- One card per pot of savings, built from SAVINGS_POTS -->
-          <div class="pot-row" id="pot-row" tabindex="0" role="group" aria-label="Savings pots"></div>
 
         </section>
 
@@ -1727,8 +1659,8 @@
         <button class="nav-item active" data-screen="home" title="Home" aria-label="Home">
           <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
         </button>
-        <button class="nav-item" data-screen="savings" title="Savings" aria-label="Savings">
-          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <circle cx="12" cy="12" r="6" /> <circle cx="12" cy="12" r="2" /></svg>
+        <button class="nav-item" data-screen="statistics" title="Statistics" aria-label="Statistics">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="m19 9-5 5-4-4-3 3" /></svg>
         </button>
         <button class="nav-item" data-screen="add" title="Add expense" aria-label="Add expense">
           <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
@@ -2057,10 +1989,6 @@
     // the way the reference's own rows do. The pie is untouched: it has always
     // drawn its wedges from PIE_COLORS rather than from the groups.
     const BADGE_COLOR = '#866845';
-
-    // The savings screen's selected pot wears the same brown, and reads it from
-    // here, so the badge tiles and the card can never drift apart.
-    document.documentElement.style.setProperty('--badge-brown', BADGE_COLOR);
 
     // The marker: one filled glyph, white, on one solid tile. The picker's rows
     // wear the same fill as the transaction rows, so a category looks the same
@@ -2715,200 +2643,186 @@
     }
 
     // ====================================================================
-    // Savings — the rail's second tab, and the month it is about
+    // Statistics — the rail's second tab: the money, over time
     // ====================================================================
-    // What the accounts hold as of a period, over the pots that money is being
-    // put aside in. The real app has no goal or pot of its own yet, so these are
-    // placeholders drawn the way the reference draws one: a target and a monthly
-    // amount, with every figure on this screen derived from those two — which is
-    // why the chips move all of them and why no percentage is typed twice.
-    const SAVINGS_POTS = [
-      { slug: 'health', label: 'Health savings', goals: [
-        { label: 'Doctor visits',    target:  400000, monthly: 34000, started: '2025-12' },
-        { label: 'Medicine',         target:  300000, monthly: 23000, started: '2026-01' },
-        { label: 'Health cover',     target: 1200000, monthly: 23000, started: '2025-12' },
-      ]},
-      { slug: 'car', label: 'Car savings', goals: [
-        { label: 'Car service',      target:  600000, monthly: 40000, started: '2026-02' },
-        { label: 'Tyres, brakes',    target:  400000, monthly: 22000, started: '2026-03' },
-        { label: 'Car cover',        target:  900000, monthly: 26000, started: '2025-11' },
-      ]},
-      { slug: 'travel', label: 'Travel fund', goals: [
-        { label: 'Flights',          target:  500000, monthly: 30000, started: '2026-04' },
-        { label: 'Stays',            target:  350000, monthly: 18000, started: '2026-05' },
-        { label: 'Spending money',   target:  300000, monthly: 15000, started: '2026-06' },
-      ]},
-      { slug: 'home', label: 'Home deposit', goals: [
-        { label: 'Deposit',          target: 2500000, monthly: 60000, started: '2025-10' },
-        { label: 'Furniture',        target:  800000, monthly: 20000, started: '2026-07' },
-        { label: 'Repairs',          target:  400000, monthly: 12000, started: '2026-08' },
-      ]},
-    ];
+    const trendCanvas = document.getElementById('trendCanvas');
+    const trendCtx = trendCanvas.getContext('2d');
+    const trendAxis = document.getElementById('trend-axis');
+    const trendDays = document.getElementById('trend-days');
+    const trendFigure = document.getElementById('trend-figure');
+    const trendMore = document.getElementById('trend-more');
 
-    const savingsChips = document.getElementById('savings-chips');
-    const savingsFigure = document.getElementById('savings-figure');
-    const potRow = document.getElementById('pot-row');
+    // A month is what fits legibly; "Show more" opens the rest of the history,
+    // which is the same money with more of its past on screen.
+    const TREND_WINDOW_DAYS = 30;
+    let trendWhole = false;
 
-    // Every month the data actually holds, oldest first, and "all time" for the
-    // whole history. A new entry adds a chip without anyone editing this.
-    const ALL_TIME = 'all';
-    const monthKeys = [...new Set(expenses.map((row) => row.date.slice(0, 7)))].sort();
-    let savingsPeriod = monthKeys[monthKeys.length - 1] || ALL_TIME;
-    let activePot = 0;
-
-    const monthShort = (key) =>
-      new Date(`${key}-01T00:00:00`).toLocaleDateString('en-US', { month: 'short' });
-
-    // The last day of the period: a month runs to its own end, and the whole
-    // history to the mockup's fixed now.
-    const periodEnd = () =>
-      savingsPeriod === ALL_TIME
-        ? TODAY_ISO
-        : isoOf(new Date(Number(savingsPeriod.slice(0, 4)), Number(savingsPeriod.slice(5, 7)), 0));
-
-    // Money in minus money out up to that day: what the accounts held then, which
-    // is the one figure the reference leads with.
-    function savingsUpTo(end) {
-      let total = ACCOUNTS.reduce((sum, account) => sum + account.opening, 0);
+    // The balance at the end of every day, from the first entry to the fixed now:
+    // the accounts' openings, then each day's own money in and out. It is the
+    // figure Home leads with, so the two can never disagree — and the falls in
+    // this line are the spending, which is what the screen is here to show.
+    function dailyBalances(toIso) {
+      const netByDay = new Map();
       for (const row of expenses) {
-        if (row.date > end) continue;
-        total += isIncome(row) ? row.cents : -row.cents;
+        netByDay.set(row.date, (netByDay.get(row.date) || 0) + (isIncome(row) ? row.cents : -row.cents));
       }
-      return total;
+
+      const first = expenses.reduce((oldest, row) => (row.date < oldest ? row.date : oldest), toIso);
+      let running = ACCOUNTS.reduce((sum, account) => sum + account.opening, 0);
+      const series = [];
+      for (let day = new Date(`${first}T00:00:00`); isoOf(day) <= toIso; day = shiftDays(day, 1)) {
+        running += netByDay.get(isoOf(day)) || 0;
+        series.push({ iso: isoOf(day), cents: running });
+      }
+      return series;
     }
 
-    // How far one goal has got by the end of the period: whole months of its own
-    // monthly amount, never past its target.
-    function goalProgress(goal, end) {
-      const months =
-        Number(end.slice(0, 4)) * 12 + Number(end.slice(5, 7)) -
-        (Number(goal.started.slice(0, 4)) * 12 + Number(goal.started.slice(5, 7))) + 1;
-      const saved = Math.min(goal.monthly * Math.max(months, 1), goal.target);
-      return { percent: Math.round((saved / goal.target) * 100), saved };
+    // An axis label is money too, so it is rupees — shortened, because a full
+    // ₹1,23,456.78 beside every dashed line is wider than the plot it names.
+    // This is the one other place money is printed, and it only ever shortens
+    // what `money()` would say.
+    const axisMoney = (cents) => {
+      const rupees = Math.abs(cents) / 100;
+      if (rupees >= 100000) return `₹${(cents / 10000000).toFixed(1)}L`;
+      if (rupees >= 1000) return `₹${(cents / 100000).toFixed(1)}K`;
+      return `₹${Math.round(cents / 100)}`;
+    };
+
+    // The dashed lines sit on round rupees: three or four of them across however
+    // wide this window's own range happens to be.
+    function gridValues(min, max) {
+      const steps = [500000, 200000, 100000, 50000, 20000, 10000, 5000];   // ₹5,000 down to ₹50
+      const span = Math.max(max - min, 1);
+      const step = steps.find((candidate) => candidate <= span / 2.5) || 5000;
+      const values = [];
+      for (let value = Math.ceil(min / step) * step; value <= max; value += step) values.push(value);
+      return values;
     }
 
-    const potPercent = (pot, end) =>
-      Math.round(
-        pot.goals.reduce((sum, goal) => sum + goalProgress(goal, end).percent, 0) / pot.goals.length,
-      );
+    // About six day labels, and always the last one, which is today.
+    function tickIndexes(count) {
+      const every = Math.max(1, Math.round(count / 6));
+      const indexes = [];
+      for (let index = 0; index < count; index += every) indexes.push(index);
+      if (indexes[indexes.length - 1] !== count - 1) indexes.push(count - 1);
+      return indexes;
+    }
 
-    // What one pot holds, as the reference stacks it: the biggest goal on the
-    // wide hatched panel, the others the dark card and the gold pill under it.
-    const potStackHtml = (pot, end) =>
-      pot.goals
-        .map((goal, index) => {
-          const { percent, saved } = goalProgress(goal, end);
-          const label = `${goal.label} — ${percent}% of ${money(goal.target)}, ${money(saved)} put by`;
-          const shape = ['pot-goal--wide', 'pot-goal--mid', 'pot-goal--pill'][index] || 'pot-goal--mid';
-          return `<div class="pot-goal ${shape}" role="img" aria-label="${escapeHtml(label)}"
-            title="${escapeHtml(label)}">${percent}%</div>`;
+    // The plot is pixels, which no screen reader can read, so the canvas is given
+    // the same three numbers the picture holds — the way the pie's is.
+    function drawTrend(points, min, max) {
+      const rect = trendCanvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.round(rect.width * dpr);
+      const height = Math.round(rect.height * dpr);
+      if (trendCanvas.width !== width || trendCanvas.height !== height) {
+        trendCanvas.width = width;
+        trendCanvas.height = height;
+      }
+
+      trendCtx.clearRect(0, 0, width, height);
+      if (points.length < 2) return;
+
+      const span = Math.max(max - min, 1);
+      const xOf = (index) => (index / (points.length - 1)) * width;
+      const yOf = (cents) => height - ((cents - min) / span) * height;
+
+      // One faint upright per day, the way the reference rules its plot.
+      trendCtx.lineWidth = dpr;
+      trendCtx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+      trendCtx.beginPath();
+      points.forEach((point, index) => {
+        const x = Math.round(xOf(index)) + 0.5 * dpr;
+        trendCtx.moveTo(x, 0);
+        trendCtx.lineTo(x, height);
+      });
+      trendCtx.stroke();
+
+      // The rounds the labels name, dashed so they stay behind the line.
+      trendCtx.setLineDash([5 * dpr, 5 * dpr]);
+      trendCtx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      trendCtx.beginPath();
+      for (const value of gridValues(min, max)) {
+        const y = Math.round(yOf(value)) + 0.5 * dpr;
+        trendCtx.moveTo(0, y);
+        trendCtx.lineTo(width, y);
+      }
+      trendCtx.stroke();
+      trendCtx.setLineDash([]);
+
+      // The money under the line, then the line itself, in the app's own gold.
+      const trace = () => {
+        trendCtx.beginPath();
+        points.forEach((point, index) => {
+          const x = xOf(index);
+          const y = yOf(point.cents);
+          if (index === 0) trendCtx.moveTo(x, y);
+          else trendCtx.lineTo(x, y);
+        });
+      };
+
+      const fill = trendCtx.createLinearGradient(0, 0, 0, height);
+      fill.addColorStop(0, 'rgba(243, 224, 123, 0.30)');
+      fill.addColorStop(1, 'rgba(243, 224, 123, 0.02)');
+      trace();
+      trendCtx.lineTo(width, height);
+      trendCtx.lineTo(0, height);
+      trendCtx.closePath();
+      trendCtx.fillStyle = fill;
+      trendCtx.fill();
+
+      trace();
+      trendCtx.strokeStyle = '#f3e07b';
+      trendCtx.lineWidth = 2 * dpr;
+      trendCtx.lineJoin = 'round';
+      trendCtx.lineCap = 'round';
+      trendCtx.stroke();
+    }
+
+    function renderStatistics() {
+      const all = dailyBalances(TODAY_ISO);
+      const points = trendWhole ? all : all.slice(-TREND_WINDOW_DAYS);
+      const last = points[points.length - 1];
+      const values = points.map((point) => point.cents);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+
+      trendFigure.innerHTML = splitAmount(money(last ? last.cents : 0));
+
+      // A label is placed by the same fraction the line is drawn at, so it can
+      // never drift off the round it names.
+      trendAxis.innerHTML = gridValues(min, max)
+        .map((value) => {
+          const fraction = ((value - min) / Math.max(max - min, 1)) * 100;
+          return `<span class="trend__tick" style="bottom:${fraction.toFixed(2)}%">${axisMoney(value)}</span>`;
         })
         .join('');
 
-    const potHtml = (pot, index, end) => {
-      const active = index === activePot;
-      const label = `${pot.label}: ${pot.goals
-        .map((goal) => `${goal.label} ${goalProgress(goal, end).percent}%`)
-        .join(', ')}`;
-      const head = `<div class="pot-card__head">
-          <span class="pot-card__label">${escapeHtml(pot.label)}</span>
-          <span class="pot-card__tune" aria-hidden="true">
-            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12h6" /> <path d="M15 12h6" /> <path d="M6 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" /> <path d="M14 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" /></svg>
-          </span>
-        </div>`;
-      // The selected pot opens into its goals; a neighbour keeps the single
-      // number that says how far it has got.
-      const body = active
-        ? `<div class="pot-stack">${potStackHtml(pot, end)}</div>`
-        : `<div class="pot-card__figure">${potPercent(pot, end)}%</div>`;
-      return `<button type="button" class="pot-card${active ? ' is-active' : ''}"
-        data-pot="${pot.slug}" aria-pressed="${active}" aria-label="${escapeHtml(label)}">${head}${body}</button>`;
-    };
+      trendDays.innerHTML = tickIndexes(points.length)
+        .map((index) =>
+          `<span class="trend__day">${index === points.length - 1 ? 'Today' : shortDate(points[index].iso)}</span>`)
+        .join('');
 
-    // The row scrolls natively — a finger, a trackpad and the arrow keys all
-    // work — so this is what keeps the brown card under the eye.
-    function paintActivePot() {
-      const rowBox = potRow.getBoundingClientRect();
-      const rowMiddle = rowBox.left + rowBox.width / 2;
-      let nearest = 0;
-      let closest = Infinity;
-      potRow.querySelectorAll('.pot-card').forEach((candidate, index) => {
-        const box = candidate.getBoundingClientRect();
-        const distance = Math.abs(box.left + box.width / 2 - rowMiddle);
-        if (distance < closest) {
-          closest = distance;
-          nearest = index;
-        }
-      });
-      if (nearest === activePot) return;
-      activePot = nearest;
-      potRow.querySelectorAll('.pot-card').forEach((candidate, index) => {
-        candidate.classList.toggle('is-active', index === activePot);
-        candidate.setAttribute('aria-pressed', String(index === activePot));
-      });
+      trendCanvas.setAttribute('role', 'img');
+      trendCanvas.setAttribute(
+        'aria-label',
+        `${points.length} days to ${longDate(TODAY_ISO)}: low ${money(min)}, high ${money(max)}, now ${money(values[values.length - 1])}`,
+      );
+
+      trendMore.hidden = all.length <= TREND_WINDOW_DAYS;
+      trendMore.textContent = trendWhole ? 'Show less' : 'Show more';
+      trendMore.setAttribute('aria-expanded', String(trendWhole));
+
+      drawTrend(points, min, max);
     }
 
-    const indexOfPot = (slug) => SAVINGS_POTS.findIndex((pot) => pot.slug === slug);
-
-    // A tap lands on the next frame, the way every other tap in this mockup does:
-    // a release eases on the screens' track, nothing else does — and a smooth
-    // scroll here is what the row's own snapping argues with.
-    function scrollToPot(index, behaviour = 'auto') {
-      activePot = Math.min(Math.max(index, 0), SAVINGS_POTS.length - 1);
-      potRow.querySelectorAll('.pot-card').forEach((card, i) => {
-        card.classList.toggle('is-active', i === activePot);
-        card.setAttribute('aria-pressed', String(i === activePot));
-      });
-      const card = potRow.querySelectorAll('.pot-card')[activePot];
-      if (!card) return;
-      // Named by the two boxes rather than by offsetLeft, because the sliding
-      // track sits between the card and its offset parent and moves the row
-      // without moving the offsets it reports. The page behind the row never
-      // moves either: only the row's own left edge is asked for.
-      const rowBox = potRow.getBoundingClientRect();
-      const cardBox = card.getBoundingClientRect();
-      const toCentre = cardBox.left + cardBox.width / 2 - (rowBox.left + rowBox.width / 2);
-      potRow.scrollTo({ left: potRow.scrollLeft + toCentre, behavior: behaviour });
-    }
-
-    let potFrame = 0;
-    potRow.addEventListener('scroll', () => {
-      if (potFrame) return;
-      potFrame = requestAnimationFrame(() => {
-        potFrame = 0;
-        paintActivePot();
-      });
-    });
-
-    // A tap on a neighbour brings it forward: a swipe is not the only way across.
-    potRow.addEventListener('click', (event) => {
-      const card = event.target.closest('.pot-card');
-      if (!card || card.dataset.pot === SAVINGS_POTS[activePot].slug) return;
-      scrollToPot(indexOfPot(card.dataset.pot));
-    });
-
-    function renderSavings() {
-      const end = periodEnd();
-
-      savingsChips.innerHTML = `<div class="period-chips__inner">${monthKeys
-        .map(
-          (key) => `<button type="button" class="chip${key === savingsPeriod ? ' active' : ''}"
-            data-period="${key}" aria-pressed="${key === savingsPeriod}">${escapeHtml(monthShort(key))}</button>`,
-        )
-        .join('')}<button type="button" class="chip chip--wide${savingsPeriod === ALL_TIME ? ' active' : ''}"
-            data-period="${ALL_TIME}" aria-pressed="${savingsPeriod === ALL_TIME}">All time</button></div>`;
-
-      savingsFigure.innerHTML = splitAmount(money(savingsUpTo(end)));
-
-      potRow.innerHTML = SAVINGS_POTS.map((pot, index) => potHtml(pot, index, end)).join('');
-      scrollToPot(activePot, 'auto');
-    }
-
-    savingsChips.addEventListener('click', (event) => {
-      const chip = event.target.closest('.chip');
-      if (!chip) return;
-      savingsPeriod = chip.dataset.period;
-      renderSavings();
+    // The history is longer than a month, so this is a range: the same line with
+    // more of its past on screen.
+    trendMore.addEventListener('click', () => {
+      trendWhole = !trendWhole;
+      renderStatistics();
     });
 
     // ====================================================================
@@ -2919,9 +2833,9 @@
     const screens = Array.from(document.querySelectorAll('.screen'));
     const railItems = document.querySelectorAll('.nav-item[data-screen]');
     // The third screen is where the money is entered, so it sits right after the
-    // savings view, which is how the owner reaches for it. The past records are
-    // not in here at all: they are a page over the phone, not a screen of it.
-    const SCREEN_ORDER = ['home', 'savings', 'add', 'cards', 'profile'];
+    // statistics view, which is how the owner reaches for it. The past records
+    // are not in here at all: they are a page over the phone, not a screen of it.
+    const SCREEN_ORDER = ['home', 'statistics', 'add', 'cards', 'profile'];
     let screenIndex = 0;
     let currentScreen = 'home';
 
@@ -2971,7 +2885,7 @@
 
       // The ring canvas measures itself, so redraw whenever Home is shown.
       if (name === 'home') renderHome();
-      if (name === 'savings') renderSavings();
+      if (name === 'statistics') renderStatistics();
       if (name === 'add') renderCategoryList();
       if (name === 'profile') renderDataPanel();
     }
@@ -3021,10 +2935,9 @@
 
     swipeArea.addEventListener('pointerdown', (event) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
-      // A drag that starts on the balance card, on the savings pots or on the
-      // month chips belongs to that row's own pan: one finger must never move
-      // both a row and the screens.
-      if (event.target.closest('.acct-carousel, .pot-row, .period-chips')) return;
+      // A drag that starts on the balance card belongs to the card's own track:
+      // one finger must never move both it and the screens.
+      if (event.target.closest('.acct-carousel')) return;
       dragEndedAt = 0;   // a new gesture cancels the click the last one owed
       drag = {
         id: event.pointerId,
@@ -3555,9 +3468,8 @@
     window.addEventListener('resize', () => {
       jumpToScreen();
       renderHome();
-      // The pot row is built from percentages, so a resize moves every card and
-      // the selected one has to be put back under the eye.
-      if (currentScreen === 'savings') scrollToPot(activePot, 'auto');
+      // The plot is sized from its own box, so a resize lands on a new canvas.
+      if (currentScreen === 'statistics') renderStatistics();
     });
 
     // The add screen is built before it is ever shown, so swiping onto it mid-
