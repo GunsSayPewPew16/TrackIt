@@ -23,6 +23,7 @@ type ExpenseRow = {
   id: string
   amount_cents: number
   currency: string
+  kind: string
   category: string
   note: string
   spent_at: string
@@ -35,6 +36,7 @@ type NormalizedExpense = {
   id: string
   amountCents: number
   currency: string
+  kind: string
   category: string
   note: string
   date: string
@@ -51,11 +53,12 @@ const CORS_HEADERS: Record<string, string> = {
 
 const UPSERT_SQL = `
   INSERT INTO expenses
-    (id, amount_cents, currency, category, note, spent_at, source, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, amount_cents, currency, kind, category, note, spent_at, source, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     amount_cents = excluded.amount_cents,
     currency = excluded.currency,
+    kind = excluded.kind,
     category = excluded.category,
     note = excluded.note,
     spent_at = excluded.spent_at,
@@ -119,6 +122,7 @@ function toApi(row: ExpenseRow) {
     id: row.id,
     amountCents: row.amount_cents,
     currency: row.currency,
+    kind: row.kind,
     category: row.category,
     note: row.note,
     date: row.spent_at,
@@ -161,6 +165,9 @@ function normalizeExpense(
       typeof input.currency === 'string' && input.currency
         ? input.currency
         : 'INR',
+    // Anything that is not explicitly income is spending, which is also what a
+    // Shortcut that omits the field means.
+    kind: input.kind === 'income' ? 'income' : 'expense',
     category:
       typeof input.category === 'string' && input.category.trim()
         ? input.category.trim().toLowerCase()
@@ -179,6 +186,7 @@ function bindExpense(env: Env, expense: NormalizedExpense): D1PreparedStatement 
     expense.id,
     expense.amountCents,
     expense.currency,
+    expense.kind,
     expense.category,
     expense.note,
     expense.date,
@@ -191,24 +199,37 @@ function bindExpense(env: Env, expense: NormalizedExpense): D1PreparedStatement 
 // Create the schema on first use so a fresh deploy works without a manual step.
 let schemaReady: Promise<unknown> | undefined
 function ensureSchema(env: Env): Promise<unknown> {
-  schemaReady ??= env.DB.batch([
-    env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS expenses (
-        id TEXT PRIMARY KEY,
-        amount_cents INTEGER NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'INR',
-        category TEXT NOT NULL DEFAULT 'unknown',
-        note TEXT NOT NULL DEFAULT '',
-        spent_at TEXT NOT NULL,
-        source TEXT NOT NULL DEFAULT 'manual',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `),
-    env.DB.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_expenses_spent_at ON expenses (spent_at DESC)',
-    ),
-  ])
+  schemaReady ??= (async () => {
+    await env.DB.batch([
+      env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS expenses (
+          id TEXT PRIMARY KEY,
+          amount_cents INTEGER NOT NULL,
+          currency TEXT NOT NULL DEFAULT 'INR',
+          kind TEXT NOT NULL DEFAULT 'expense',
+          category TEXT NOT NULL DEFAULT 'unknown',
+          note TEXT NOT NULL DEFAULT '',
+          spent_at TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'manual',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `),
+      env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_expenses_spent_at ON expenses (spent_at DESC)',
+      ),
+    ])
+
+    // Income arrived after the first deploys, so a database created before it
+    // needs the column added. SQLite has no "ADD COLUMN IF NOT EXISTS", and a
+    // fresh table already has it — a failure here just means it is already
+    // there, so it must not fail the cached promise.
+    await env.DB.prepare(
+      "ALTER TABLE expenses ADD COLUMN kind TEXT NOT NULL DEFAULT 'expense'",
+    )
+      .run()
+      .catch(() => undefined)
+  })()
   return schemaReady
 }
 

@@ -1,0 +1,3019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#120e0a">
+  <title>TrackIt — Mockup</title>
+  <style>
+    /* ------------------------------------------------------------------
+       Scaling model
+       Reference canvas: iPhone 13 = 390 x 844 CSS px.
+
+       Bounded: on a phone 1rem is 4.1% of the viewport's short side
+       (16px on an iPhone 13), but it can never balloon past 1.15rem in a
+       wide desktop/preview panel, nor shrink below 0.9rem on a tiny screen.
+       (rem inside the root font-size resolves against the initial 16px.)
+       No layout value in this file is a hardcoded pixel.
+       ------------------------------------------------------------------ */
+    :root {
+      font-size: clamp(0.9rem, 4.1vmin, 1.15rem);
+    }
+
+    :root {
+      --bg-color: #120e0a;
+      --card-bg: #1c1611;
+      --card-bg-light: #261f18;
+      --accent-yellow: #f3e07b;
+      --accent-yellow-hover: #e5d168;
+      --text-main: #ffffff;
+      --text-muted: #9e958d;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --expense-red: #ff5c5c;
+      --income-green: #63d69f;
+      --tan: #8c7a65;
+      --hairline: 0.0625rem;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      overscroll-behavior-y: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* Every control acts on the tap itself, with no double-tap-zoom wait. */
+    button {
+      touch-action: manipulation;
+    }
+
+    svg {
+      display: block;
+      flex: none;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    /* ------------------------------------------------------------------
+       App shell — fills the viewport, nothing outside it
+       ------------------------------------------------------------------ */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      background-color: var(--bg-color);
+      overflow: hidden;
+    }
+
+    /* The window stays put and clips; the track inside it slides. Translating
+       the clipped element itself would move the clip region with it. */
+    .app-content {
+      flex: 1 1 auto;
+      min-height: 0;   /* clip is not a scroll container, so shrink explicitly */
+      /* clip, not hidden: the track must never be scrollable, or a
+         scroll-into-view (focus, autoscroll) would shift it. */
+      overflow: hidden;
+      overflow: clip;
+      touch-action: pan-y;   /* vertical scrolling stays native, horizontal is ours */
+    }
+
+    /* The track is where the finger puts it, with no transition while it is down
+       (`--track-duration` is 0 then, so it can never lag the thumb); only a
+       release eases it, over the 120ms that release sets — long enough to watch a
+       flick carry its screens, short enough that the page is there as it leaves. */
+    .track {
+      display: flex;
+      height: 100%;
+      will-change: transform;
+      transition: transform var(--track-duration, 0ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .screen {
+      flex: 0 0 100%;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding:
+        calc(env(safe-area-inset-top) + 1.5rem)
+        calc(env(safe-area-inset-right) + 5.1%)
+        calc(env(safe-area-inset-bottom) + 1.25rem)
+        calc(env(safe-area-inset-left) + 5.1%);
+    }
+
+    .screen::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* ------------------------------------------------------------------
+       Home screen
+       ------------------------------------------------------------------ */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.875rem;
+      background: #3a2e25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-yellow);
+      border: var(--hairline) solid rgba(243, 224, 123, 0.2);
+      flex: none;
+    }
+
+    .brand-badge svg {
+      width: 50%;
+      height: 50%;
+    }
+
+    .greeting h1 {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .greeting p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.125rem;
+    }
+
+    .icon-btn {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 50%;
+      background-color: var(--card-bg-light);
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: background 0.2s, transform 0.1s;
+      flex: none;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+      background-color: #33281f;
+    }
+
+    .icon-btn svg {
+      width: 42%;
+      height: 42%;
+    }
+
+    .icon-btn--sm {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .icon-btn--sm svg {
+      width: 46%;
+      height: 46%;
+    }
+
+    .sync-status {
+      font-size: 0.6875rem;
+      color: var(--accent-yellow);
+      height: 0.875rem;
+      margin: -0.75rem 0 0.625rem 0.125rem;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+
+    .sync-status.show {
+      opacity: 1;
+    }
+
+    .balance-section {
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .balance-title {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .balance-row {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .coin-icon {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffe885 0%, #d4af37 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #5c4000;
+      font-size: 0.9375rem;
+      box-shadow: 0 0.125rem 0.375rem rgba(212, 175, 55, 0.3);
+      flex: none;
+    }
+
+    .balance-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03125rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+
+    .balance-amount span {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Money in the accounts is the headline; this month's spending sits under it. */
+    .balance-second {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .balance-second__label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .balance-second__value {
+      font-size: 1.125rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .balance-second__value span {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* The accounts carousel: the slot the October budget used to fill, now one
+       card per Wallet account. It follows the thumb and lands on release exactly
+       as the screens do — but under a finger of its own, which is why the screen
+       swipe has to stay out of a gesture that starts here. */
+    .acct-carousel {
+      width: 100%;
+      border-radius: 1.25rem;
+      background: linear-gradient(135deg, #2a2118 0%, #1d1610 55%, #16110c 100%);
+      border: var(--hairline) solid rgba(243, 224, 123, 0.18);
+      padding: 1.25rem 1.25rem 0.875rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 0.625rem 1.25rem rgba(0, 0, 0, 0.35);
+      /* Vertical scrolling stays native; the horizontal drag belongs to the
+         card, so the browser must not claim it as a pan. */
+      touch-action: pan-y;
+    }
+
+    .acct-viewport {
+      overflow: hidden;
+      overflow: clip;
+    }
+
+    /* Eased by a release and by nothing else, exactly as the screens' track is. */
+    .acct-track {
+      display: flex;
+      will-change: transform;
+      transition: transform var(--acct-duration, 0ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .acct-slide {
+      flex: 0 0 100%;
+      min-width: 0;
+    }
+
+    .acct-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .acct-top span:last-child {
+      color: var(--accent-yellow);
+    }
+
+    .acct-figure {
+      margin: 0.625rem 0 0.25rem;
+      font-size: 1.625rem;
+      font-weight: 700;
+      letter-spacing: -0.03125rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .acct-figure span {
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .acct-foot {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .acct-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.375rem;
+      margin-top: 0.875rem;
+    }
+
+    /* A dot is also the button for its slide: a swipe is not the only way. */
+    .acct-dot {
+      width: 0.375rem;
+      height: 0.375rem;
+      padding: 0;
+      border: none;
+      border-radius: 62.5rem;
+      background: rgba(255, 255, 255, 0.18);
+      cursor: pointer;
+      transition: width 0.2s, background 0.2s;
+    }
+
+    .acct-dot.active {
+      width: 1rem;
+      background: var(--accent-yellow);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .action-btn {
+      padding: 1rem 0.5rem;
+      border-radius: 1rem;
+      border: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .action-btn svg {
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+
+    .btn-transfer {
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .btn-transfer:hover {
+      background-color: var(--accent-yellow-hover);
+    }
+
+    .btn-request {
+      background-color: var(--card-bg-light);
+      color: var(--text-main);
+      border: var(--hairline) solid var(--border-color);
+    }
+
+    .btn-request:hover {
+      background-color: #33281f;
+    }
+
+    .widgets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .widget-card {
+      background-color: var(--card-bg);
+      border-radius: 1.25rem;
+      padding: 1.125rem;
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 11.25rem;
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .widget-header svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .goal-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+      position: relative;
+    }
+
+    .goal-container canvas {
+      width: 58%;
+      height: auto;
+      aspect-ratio: 1;
+      display: block;
+    }
+
+    .goal-text {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .goal-text span {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .goal-footer {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    /* The month's spending as a pie: which category each rupee went to. */
+    .cat-pie {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0 0.625rem;
+    }
+
+    .cat-pie canvas {
+      width: 62%;
+      height: auto;
+      aspect-ratio: 1;
+      display: block;
+    }
+
+    /* The pie's key: the wedge's colour worn by the category's own icon, the
+       category's name, and what it took. */
+    .cat-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1875rem;
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cat-legend__row {
+      display: flex;
+      align-items: center;
+      gap: 0.3125rem;
+    }
+
+    .cat-legend__icon {
+      width: 0.8125rem;
+      height: 0.8125rem;
+      flex: none;
+    }
+
+    .cat-legend__name {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .cat-legend__amount {
+      margin-left: auto;
+      color: var(--text-main);
+    }
+
+    .day-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin: 0 0 0.5rem 0.25rem;
+    }
+
+    .tx-list {
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.25rem;
+      overflow: hidden;
+      margin-bottom: 1.125rem;
+    }
+
+    .tx-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0.875rem;
+      border-bottom: var(--hairline) solid var(--border-color);
+    }
+
+    .tx-row:last-child {
+      border-bottom: 0;
+    }
+
+    /* The marker: the category's icon, white on one solid tile — the transaction
+       rows of the reference, down to the badge's colour. The icon is sized in
+       percentages so one rule covers every place it appears. */
+    .tx-icon {
+      flex: none;
+      width: 2.375rem;
+      height: 2.375rem;
+      border-radius: 32%;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        0 1px 2px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tx-icon > svg,
+    .cat-row__icon > svg {
+      width: 58%;
+      height: 58%;
+      display: block;
+    }
+
+    /* Income keeps its own ring, so a glance at the list still tells them apart. */
+    .tx-icon--income {
+      box-shadow: inset 0 0 0 1.5px var(--income-green);
+    }
+
+    .tx-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .tx-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tx-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .tx-amount {
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Money out reads red and signed, money in reads green and signed — the
+       reference's own two ends of a transaction. */
+    .tx-amount--expense {
+      color: var(--expense-red);
+    }
+
+    .tx-amount--income {
+      color: var(--income-green);
+    }
+
+    /* Home shows a handful of rows; this reveals the rest of the history. */
+    .list-more {
+      width: 100%;
+      margin-top: 0.875rem;
+      padding: 0.8125rem;
+      border-radius: 0.875rem;
+      border: var(--hairline) solid var(--border-color);
+      background-color: var(--card-bg-light);
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .list-more:active {
+      background-color: #33281f;
+    }
+
+    .tx-badge {
+      display: inline-block;
+      margin-left: 0.375rem;
+      padding: 0.0625rem 0.375rem;
+      border-radius: 62.5rem;
+      font-size: 0.5625rem;
+      font-weight: 700;
+      letter-spacing: 0.03125rem;
+      background: rgba(243, 224, 123, 0.15);
+      color: var(--accent-yellow);
+      vertical-align: middle;
+    }
+
+    /* ------------------------------------------------------------------
+       Operations screen
+       ------------------------------------------------------------------ */
+    .ops-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .screen-title {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03125rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* The same primary action as Home — both screens log through one flow. */
+    .ops-actions {
+      margin-bottom: 1.5rem;
+    }
+
+    /* Seven days always fit, so this never becomes a scroll container —
+       which keeps horizontal drags available to the screen swipe. */
+    .calendar-strip {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .cal-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.375rem;
+      min-width: 2.5rem;
+      flex: none;
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .cal-day span {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .cal-date {
+      width: 2.625rem;
+      height: 3rem;
+      border-radius: 1.5rem;
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .cal-day.active .cal-date {
+      background-color: var(--accent-yellow);
+      color: #120e0a;
+      border-color: var(--accent-yellow);
+    }
+
+    .cal-day.active span:first-child {
+      color: var(--accent-yellow);
+    }
+
+    /* Inside the range being summarised, but not the day you picked. */
+    .cal-day.in-range .cal-date {
+      border-color: var(--accent-yellow);
+      color: var(--accent-yellow);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .date-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--accent-yellow);
+    }
+
+    .date-indicator svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    /* The filter button names the range it cycles: Day, Week or Month. */
+    .range-toggle {
+      width: auto;
+      height: 2.25rem;
+      padding: 0 0.75rem;
+      gap: 0.375rem;
+      border-radius: 1.125rem;   /* half the height: a pill at any scale */
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .range-toggle svg {
+      width: 0.9375rem;
+      height: 0.9375rem;
+      flex: none;
+    }
+
+    .ops-list {
+      display: block;
+    }
+
+    .ops-total {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding-left: 0.25rem;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      padding: 2.5rem 1rem;
+      border: var(--hairline) dashed var(--border-color);
+      border-radius: 1.25rem;
+      text-align: center;
+    }
+
+    .empty-state__title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .empty-state__note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
+       Profile — backup panel (export, import, reset)
+       ------------------------------------------------------------------ */
+    .data-card {
+      background-color: var(--card-bg);
+      border: var(--hairline) solid var(--border-color);
+      border-radius: 1.25rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .data-card__title {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .data-card__desc {
+      margin-top: 0.125rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .data-card__code {
+      margin-top: 0.5rem;
+      padding: 0.375rem 0.5rem;
+      border-radius: 0.5rem;
+      background-color: var(--bg-color);
+      border: var(--hairline) solid var(--border-color);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.6875rem;
+      color: var(--accent-yellow);
+      overflow-wrap: anywhere;
+    }
+
+    .data-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.625rem;
+      margin-top: 0.875rem;
+    }
+
+    .data-actions__wide {
+      grid-column: span 2;
+    }
+
+    .btn-danger {
+      background-color: rgba(255, 92, 92, 0.12);
+      border: var(--hairline) solid rgba(255, 92, 92, 0.35);
+      color: var(--expense-red);
+    }
+
+    .data-box {
+      width: 100%;
+      min-height: 9rem;
+      margin-top: 0.875rem;
+      padding: 0.75rem;
+      border-radius: 0.875rem;
+      border: var(--hairline) solid var(--border-color);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.6875rem;
+      line-height: 1.5;
+      resize: none;
+      -webkit-appearance: none;
+    }
+
+    .data-status {
+      margin-top: 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
+       Blank placeholder screens (rail tabs 3-5)
+       ------------------------------------------------------------------ */
+    .placeholder {
+      min-height: 55dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      text-align: center;
+    }
+
+    .placeholder__title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02rem;
+    }
+
+    .placeholder__note {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------
+       Bottom rail — controls which screen is shown
+       ------------------------------------------------------------------ */
+    .nav-wrap {
+      flex: none;
+      padding:
+        0
+        calc(env(safe-area-inset-right) + 3%)
+        calc(env(safe-area-inset-bottom) + 0.75rem)
+        calc(env(safe-area-inset-left) + 3%);
+    }
+
+    .bottom-nav {
+      height: 4.375rem;
+      background-color: var(--card-bg);
+      border-radius: 2.1875rem;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 2.5%;
+      border: var(--hairline) solid var(--border-color);
+      box-shadow: 0 0.625rem 1.5625rem rgba(0, 0, 0, 0.5);
+    }
+
+    .nav-item {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      border: none;
+      background: transparent;
+      flex: none;
+    }
+
+    .nav-item svg {
+      width: 46%;
+      height: 46%;
+    }
+
+    /* Active tab: gold squircle with a dark icon */
+    .nav-item.active {
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    .nav-item:not(.active):hover {
+      color: var(--text-main);
+      background-color: var(--card-bg-light);
+    }
+
+    /* ------------------------------------------------------------------
+       Modals
+       ------------------------------------------------------------------ */
+
+
+
+
+
+
+
+
+
+
+    /* Expense or income, chosen before the amount is typed. */
+    .kind-toggle {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      margin-bottom: 1rem;
+      border-radius: 62.5rem;
+      background-color: var(--bg-color);
+      border: var(--hairline) solid var(--border-color);
+    }
+
+    .kind-toggle__btn {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 62.5rem;
+      background: none;
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .kind-toggle__btn.active {
+      background-color: var(--accent-yellow);
+      color: #1a1510;
+    }
+
+    /* Which account the money moved through: the kind toggle's quieter twin, so
+       the two choices do not compete for the same glance. */
+    .acct-toggle {
+      display: flex;
+      gap: 0.375rem;
+      margin-top: 0.875rem;
+    }
+
+    .acct-toggle__btn {
+      flex: 1;
+      padding: 0.4375rem 0.625rem;
+      border-radius: 62.5rem;
+      border: var(--hairline) solid var(--border-color);
+      background-color: var(--bg-color);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .acct-toggle__btn.active {
+      background-color: rgba(243, 224, 123, 0.14);
+      border-color: rgba(243, 224, 123, 0.45);
+      color: var(--accent-yellow);
+    }
+
+
+
+
+    /* ------------------------------------------------------------------
+       Add expense — a screen of its own. The sheet that used to hold this
+       could not hold a category browser with groups inside it.
+       ------------------------------------------------------------------ */
+    .add-head {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .add-amount {
+      display: flex;
+      align-items: baseline;
+      gap: 0.375rem;
+      margin: 0.25rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: var(--hairline) solid var(--border-color);
+    }
+
+    .add-amount__symbol {
+      font-size: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    .add-amount__input {
+      flex: 1;
+      min-width: 0;
+      background: none;
+      border: none;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -0.03125rem;
+      font-variant-numeric: tabular-nums;
+      -webkit-appearance: none;
+    }
+
+    .add-amount__input:focus {
+      outline: none;
+    }
+
+    /* An entry cannot exist without money: say so where the money is typed. */
+    .add-amount--missing {
+      border-bottom-color: #ff9a8b;
+    }
+
+    .add-amount--missing .add-amount__symbol {
+      color: #ff9a8b;
+    }
+
+    .add-date-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.875rem;
+    }
+
+    .add-date-row__label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .add-date {
+      padding: 0.4375rem 0.625rem;
+      border-radius: 0.625rem;
+      border: var(--hairline) solid var(--border-color);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      -webkit-appearance: none;
+    }
+
+    /* The category browser: a heading that becomes the group's name, and the
+       rows Wallet's own browser shows underneath it. */
+    .cat-head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1.75rem 0 0.25rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.0625rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .cat-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.6875rem 0.25rem;
+      border: none;
+      border-bottom: var(--hairline) solid var(--border-color);
+      background: none;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9375rem;
+      text-align: left;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .cat-row:last-child {
+      border-bottom: none;
+    }
+
+    .cat-row:active {
+      background-color: var(--card-bg-light);
+    }
+
+    /* The tile wears the same solid fill as the transaction rows, so a category
+       looks the same in the browser as it does in the list. */
+    .cat-row__icon {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 32%;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        0 1px 2px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+
+    .cat-row__name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .cat-row__chev {
+      width: 1rem;
+      height: 1rem;
+      color: var(--text-muted);
+      flex: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <div class="app-content">
+      <div class="track" id="track">
+
+        <!-- ============================================================
+             Screen 1 — Home
+             ============================================================ -->
+        <section class="screen" data-screen="home">
+
+          <div class="header">
+            <div class="user-info">
+              <div class="brand-badge" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M16 7h6v6" /> <path d="m22 7-8.5 8.5-5-5L2 17" /></svg>
+              </div>
+              <div class="greeting">
+                <h1>TrackIt</h1>
+                <p id="current-date">October 2026</p>
+              </div>
+            </div>
+            <button class="icon-btn" id="options-btn" title="Settings" aria-label="Settings">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg>
+            </button>
+          </div>
+
+          <div class="sync-status" id="sync-status">Synced just now</div>
+
+          <div class="balance-section">
+            <div>
+              <div class="balance-title">Total balance</div>
+              <div class="balance-row">
+                <div class="coin-icon">₹</div>
+                <div class="balance-amount" id="total-balance">₹0<span>.00</span></div>
+              </div>
+              <div class="balance-second">
+                <span class="balance-second__label">Spent this month</span>
+                <span class="balance-second__value" id="month-total">₹0<span>.00</span></span>
+              </div>
+            </div>
+            <button class="icon-btn" id="refresh-balance" title="Sync now" aria-label="Sync now">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></svg>
+            </button>
+          </div>
+
+          <!-- One account at a time; the total above is these two added up.
+               Swipe the card sideways, or tap a dot, to reach Cash, which the
+               strip below the card is there to advertise. -->
+          <div class="acct-carousel" id="acct-carousel">
+            <div class="acct-viewport">
+              <div class="acct-track" id="acct-track"></div>
+            </div>
+            <div class="acct-dots" id="acct-dots" role="tablist" aria-label="Accounts"></div>
+          </div>
+
+          <div class="action-row">
+            <button class="action-btn btn-transfer" id="add-trigger">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+              Add expense
+            </button>
+            <button class="action-btn btn-request" id="reports-trigger">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></svg>
+              Reports
+            </button>
+          </div>
+
+          <div class="widgets-grid">
+            <div class="widget-card">
+              <div class="widget-header">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></svg>
+                Budget used
+              </div>
+              <div class="goal-container">
+                <canvas id="goalCanvas"></canvas>
+                <div class="goal-text">
+                  <span id="ring-pct" style="font-size:1.25rem;color:var(--text-main);font-weight:700;">0%</span>
+                  <span>used</span>
+                </div>
+              </div>
+              <div class="goal-footer" id="ring-footer">₹1,500 remaining</div>
+            </div>
+
+            <!-- The budget card in pie form: the same month's spending, split
+                 by the category each rupee went to, with the budget line it is
+                 measured against underneath. -->
+            <div class="widget-card">
+              <div class="widget-header">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></svg>
+                <span id="budget-month">October budget</span>
+              </div>
+              <div class="cat-pie">
+                <canvas id="categoryCanvas"></canvas>
+              </div>
+              <div class="cat-legend" id="cat-legend"></div>
+              <div class="goal-footer" id="budget-footer">₹0.00 of ₹1,500.00</div>
+            </div>
+          </div>
+
+          <div id="tx-groups"></div>
+
+          <button class="list-more" id="list-more" hidden></button>
+
+        </section>
+
+        <!-- ============================================================
+             Screen 2 — Financial Operations
+             ============================================================ -->
+        <section class="screen" data-screen="operations">
+
+          <div class="ops-header">
+            <button class="icon-btn" id="ops-back" title="Back" aria-label="Back">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg>
+            </button>
+            <button class="icon-btn" id="ops-menu" title="Menu" aria-label="Menu">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="5" r="1" /> <circle cx="12" cy="19" r="1" /></svg>
+            </button>
+          </div>
+
+          <h1 class="screen-title">Spending<br>by day</h1>
+
+          <div class="ops-actions">
+            <button class="action-btn btn-transfer" id="ops-add">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+              Add expense
+            </button>
+          </div>
+
+          <!-- Built from the shared expense data, one day per pill -->
+          <div class="calendar-strip" id="calendarStrip"></div>
+
+          <div class="section-header">
+            <div class="date-indicator">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></svg>
+              <span id="opsDateLabel"></span>
+            </div>
+          <button class="icon-btn icon-btn--sm range-toggle" id="ops-filter" aria-label="Change range">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 8h4" /> <path d="M12 21v-9" /> <path d="M12 8V3" /> <path d="M17 16h4" /> <path d="M19 12V3" /> <path d="M19 21v-5" /> <path d="M3 14h4" /> <path d="M5 10V3" /> <path d="M5 21v-7" /></svg>
+            <span id="opsRangeLabel">Day</span>
+          </button>
+          </div>
+
+          <div class="ops-list" id="opsList"></div>
+
+        </section>
+
+        <!-- ============================================================
+             Screens 3-5 — blank, wired to the rail
+             ============================================================ -->
+        <!-- ============================================================
+             Screen 3 — Add expense
+             The category browser lives on a screen of its own: groups
+             first, then one group's own row and its subcategories, and the
+             last tap is what logs the entry and lands back on Home.
+             ============================================================ -->
+        <section class="screen" data-screen="add">
+
+          <div class="add-head">
+            <button class="icon-btn" id="add-back" title="Back to the dashboard" aria-label="Back to the dashboard">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg>
+            </button>
+          </div>
+
+          <h1 class="screen-title">Add expense</h1>
+
+          <div class="add-amount" id="add-amount-row">
+            <span class="add-amount__symbol" aria-hidden>₹</span>
+            <input class="add-amount__input" id="add-amount" inputmode="decimal" placeholder="0.00" aria-label="Amount">
+          </div>
+
+          <div class="kind-toggle" id="add-kind" role="group" aria-label="Kind">
+            <button type="button" class="kind-toggle__btn active" data-kind="expense">Expense</button>
+            <button type="button" class="kind-toggle__btn" data-kind="income">Income</button>
+          </div>
+
+          <div class="acct-toggle" id="add-account" role="group" aria-label="Account"></div>
+
+          <div class="add-date-row">
+            <label class="add-date-row__label" for="add-date">Date</label>
+            <input class="add-date" id="add-date" type="date">
+          </div>
+
+          <div class="cat-head">
+            <button class="icon-btn icon-btn--sm" id="cat-back" title="All categories" aria-label="All categories" hidden>
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></svg>
+            </button>
+            <span id="cat-title">All categories</span>
+          </div>
+
+          <div class="cat-list" id="cat-list"></div>
+
+        </section>
+
+        <section class="screen" data-screen="cards">
+          <div class="placeholder">
+            <span class="placeholder__title">Cards</span>
+            <span class="placeholder__note">Blank screen</span>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="profile">
+          <h1 class="screen-title">Profile</h1>
+
+          <!-- Home used to carry this as a widget. The endpoint is documentation,
+               not a glance, so it lives with the other settings-like card. -->
+          <div class="day-label">Auto-logging</div>
+          <div class="data-card">
+            <div class="data-card__title">Auto-log with Shortcuts</div>
+            <div class="data-card__desc">
+              Rows logged by a Shortcut count like any other entry, and arrive
+              tagged <span class="tx-badge">AUTO</span>.
+            </div>
+            <div class="data-card__code">POST /api/expense</div>
+            <div class="data-card__desc">with a Bearer token.</div>
+          </div>
+
+          <div class="day-label">Backup</div>
+          <div class="data-card">
+            <div class="data-card__title">Export data</div>
+            <div class="data-card__desc">Keep a copy outside the browser.</div>
+
+            <div class="data-actions">
+              <button class="action-btn btn-transfer" id="dataExport">Export JSON</button>
+              <button class="action-btn btn-request" id="dataImport">Import JSON</button>
+              <button class="action-btn btn-danger data-actions__wide" id="dataReset">Reset to imported data</button>
+            </div>
+
+            <!-- The JSON lives in the box so a demo can be pasted in, not just
+                 chosen from a file, and so an export is visible when it is made. -->
+            <textarea class="data-box" id="dataBox" spellcheck="false" aria-label="Expense JSON"
+              placeholder="Paste an exported TrackIt JSON here, then Import."></textarea>
+            <div class="data-status" id="dataStatus"></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ================================================================
+         Bottom rail
+         ================================================================ -->
+    <div class="nav-wrap">
+      <div class="bottom-nav">
+        <button class="nav-item active" data-screen="home" title="Home" aria-label="Home">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+        </button>
+        <button class="nav-item" data-screen="operations" title="Operations" aria-label="Operations">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M13 16H8" /> <path d="M14 8H8" /> <path d="M16 12H8" /> <path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z" /></svg>
+        </button>
+        <button class="nav-item" data-screen="add" title="Add expense" aria-label="Add expense">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>
+        </button>
+        <button class="nav-item" data-screen="cards" title="Cards" aria-label="Cards">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 11h3.75a2 2 0 0 1 1.6.8l.45.6a4 4 0 0 0 6.4 0l.45-.6a2 2 0 0 1 1.6-.8H21" /> <path d="M3 7h18" /> <rect x="3" y="3" width="18" height="18" rx="2" /></svg>
+        </button>
+        <button class="nav-item" data-screen="profile" title="Profile" aria-label="Profile">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ====================================================================
+    // Home data — money in integer cents, mirroring the real app
+    // ====================================================================
+    // The monthly budget in rupees: 1,500 is the owner's own Wallet budget
+    // document ("Food stuff"), so the ring and the pie both start from a real
+    // number.
+    const BUDGET_CENTS = 150000; // ₹1,500.00
+
+    // The owner's two Wallet accounts, from the same export: the balance each
+    // one begins the imported history with. Home walks this list — it is what
+    // the balance card swipes through — and every row names one of them in
+    // `account` (see tools/wallet-import.py).
+    const ACCOUNTS = [
+      { slug: 'upi',   name: 'UPI',  label: 'UPI balance',   opening: 1430407 },   // UPI: ₹14,304.07
+      { slug: 'cash',  name: 'Cash', label: 'Cash balance',  opening: 378000 },   // Cash: ₹3,780.00
+    ];
+
+    // A row with no account counts on the primary one, the way a row with no
+    // `kind` counts as spending: accounts arrived after the first import, and a
+    // hand-written file should still land somewhere rather than nowhere.
+    const ACCOUNT_FALLBACK = ACCOUNTS[0].slug;
+
+    // Home's headline is still one number: it adds these accounts up, and the
+    // card below it is the same money, one account at a time.
+
+    // Home is a glance, not a ledger: the newest entries, with the rest a tap away.
+    const HOME_LIST_LIMIT = 5;
+    let homeShowAll = false;
+
+    // Every category Wallet has, generated by tools/wallet-import.py from its
+    // one table so this list cannot drift from the real app's: the export's own
+    // categories, plus the rest of Wallet's browser from the owner's screenshots
+    // of it. `sys` marks the six Wallet envelopes that are plumbing rather than
+    // owner-facing categories: an imported row still renders them, the picker
+    // keeps them out.
+    const CATEGORY_META = {
+      'food-drinks':             { label: 'Food & Drinks' },
+      'groceries':               { label: 'Groceries' },
+      'restaurant':              { label: 'Restaurant, fast-food' },
+      'bar-cafe':                { label: 'Bar, cafe' },
+      'shopping':                { label: 'Shopping' },
+      'clothes-shoes':           { label: 'Clothes & shoes' },
+      'jewels':                  { label: 'Jewels, accessories' },
+      'health-beauty':           { label: 'Health and beauty' },
+      'kids':                    { label: 'Kids' },
+      'home-garden':             { label: 'Home, garden' },
+      'pets':                    { label: 'Pets, animals' },
+      'electronics':             { label: 'Electronics, accessories' },
+      'gifts-joy':               { label: 'Gifts, joy' },
+      'stationery':              { label: 'Stationery, tools' },
+      'free-time':               { label: 'Free time' },
+      'drug-store':              { label: 'Drug-store, chemist' },
+      'housing':                 { label: 'Housing' },
+      'rent':                    { label: 'Rent' },
+      'mortgage':                { label: 'Mortgage' },
+      'energy':                  { label: 'Energy, utilities' },
+      'services':                { label: 'Services' },
+      'maintenance':             { label: 'Maintenance, repairs' },
+      'property-insurance':      { label: 'Property insurance' },
+      'transportation':          { label: 'Transportation' },
+      'public-transport':        { label: 'Public transport' },
+      'taxi':                    { label: 'Taxi' },
+      'long-distance':           { label: 'Long distance' },
+      'business-trips':          { label: 'Business trips' },
+      'vehicle':                 { label: 'Vehicle' },
+      'fuel':                    { label: 'Fuel' },
+      'parking':                 { label: 'Parking' },
+      'vehicle-maintenance':     { label: 'Vehicle maintenance' },
+      'rentals':                 { label: 'Rentals' },
+      'vehicle-insurance':       { label: 'Vehicle insurance' },
+      'leasing':                 { label: 'Leasing' },
+      'life-entertainment':      { label: 'Life & Entertainment' },
+      'health-doctor':           { label: 'Health care, doctor' },
+      'wellness':                { label: 'Wellness, beauty' },
+      'active-sport':            { label: 'Active sport, fitness' },
+      'culture-sport':           { label: 'Culture, sport events' },
+      'life-events':             { label: 'Life events' },
+      'hobbies':                 { label: 'Hobbies' },
+      'education':               { label: 'Education, development' },
+      'books-subs':              { label: 'Books, audio, subscriptions' },
+      'tv-streaming':            { label: 'TV, Streaming' },
+      'holiday-trips':           { label: 'Holiday, trips, hotels' },
+      'charity-gifts':           { label: 'Charity, gifts' },
+      'friends':                 { label: 'Friends' },
+      'mobile-recharge':         { label: 'Mobile Recharge' },
+      'lottery':                 { label: 'Lottery, gambling' },
+      'communication':           { label: 'Communication, PC' },
+      'phone':                   { label: 'Phone, cell phone' },
+      'internet':                { label: 'Internet' },
+      'software':                { label: 'Software, apps, games' },
+      'postal':                  { label: 'Postal services' },
+      'financial-expenses':      { label: 'Financial expenses' },
+      'taxes':                   { label: 'Taxes' },
+      'insurances':              { label: 'Insurances' },
+      'loans-interests':         { label: 'Loan, interests' },
+      'fines':                   { label: 'Fines' },
+      'advisory':                { label: 'Advisory' },
+      'charges-fees':            { label: 'Charges, Fees' },
+      'financial-child-support': { label: 'Child Support' },
+      'investments':             { label: 'Investments' },
+      'realty':                  { label: 'Realty' },
+      'vehicles-chattels':       { label: 'Vehicles, chattels' },
+      'financial-investments':   { label: 'Financial investments' },
+      'savings':                 { label: 'Savings' },
+      'collections':             { label: 'Collections' },
+      'allowance':               { label: 'Allowance' },
+      'child-support':           { label: 'Child Support' },
+      'income':                  { label: 'Income' },
+      'wage-invoices':           { label: 'Wage, invoices' },
+      'interests-dividends':     { label: 'Interests, dividends' },
+      'sale':                    { label: 'Sale' },
+      'rental-income':           { label: 'Rental income' },
+      'dues-grants':             { label: 'Dues & grants' },
+      'lending-renting':         { label: 'Lending, renting' },
+      'checks-coupons':          { label: 'Checks, coupons' },
+      'income-lottery':          { label: 'Lottery, gambling' },
+      'refunds':                 { label: 'Refunds (tax, purchase)' },
+      'income-child-support':    { label: 'Child Support' },
+      'income-gifts':            { label: 'Gifts' },
+      'debts':                   { label: 'Debts', sys: true },
+      'transfer':                { label: 'Transfer, withdraw', sys: true },
+      'shopping-list':           { label: 'Shopping list', sys: true },
+      'oneclick':                { label: 'Wallet - OneClick record', sys: true },
+      'bank-statements':         { label: 'Automatic bank statements reading', sys: true },
+      'unknown':                 { label: 'Unknown', sys: true },
+    };
+
+
+    // Wallet's category groups, in the order its own browser lists them, with
+    // the colour every category in the group is painted. That colour is how the
+    // export tells the groups apart — it keeps the paint, never the group's
+    // name — so tools/wallet-import.py checks this table against it on every
+    // run, and takes the colours this export never happens to use from the
+    // owner's screenshots of Wallet. Income is the one group that is a set of
+    // its own rather than a row of Wallet's list: it holds the categories
+    // Wallet offers for money coming in. A group's first entry is the group
+    // itself, the row Wallet shows above its "SUBCATEGORIES" heading, and the
+    // owner logs whole outings against it, so it stays selectable. The picker's
+    // tiles all wear the one badge colour, so no group colour reaches them.
+    const CATEGORY_GROUPS = [
+      { slug: 'food-drinks',         label: 'Food & Drinks',         color: '#f44336', categories: ['food-drinks', 'groceries', 'restaurant', 'bar-cafe'] },
+      { slug: 'shopping',            label: 'Shopping',              color: '#4FC3F7', categories: ['shopping', 'clothes-shoes', 'jewels', 'health-beauty', 'kids', 'home-garden', 'pets', 'electronics', 'gifts-joy', 'stationery', 'free-time', 'drug-store'] },
+      { slug: 'housing',             label: 'Housing',               color: '#FFA726', categories: ['housing', 'rent', 'mortgage', 'energy', 'services', 'maintenance', 'property-insurance'] },
+      { slug: 'transportation',      label: 'Transportation',        color: '#78909C', categories: ['transportation', 'public-transport', 'taxi', 'long-distance', 'business-trips'] },
+      { slug: 'vehicle',             label: 'Vehicle',               color: '#AA00FF', categories: ['vehicle', 'fuel', 'parking', 'vehicle-maintenance', 'rentals', 'vehicle-insurance', 'leasing'] },
+      { slug: 'life-entertainment',  label: 'Life & Entertainment',  color: '#64DD17', categories: ['life-entertainment', 'health-doctor', 'wellness', 'active-sport', 'culture-sport', 'life-events', 'hobbies', 'education', 'books-subs', 'tv-streaming', 'holiday-trips', 'charity-gifts', 'friends', 'mobile-recharge', 'lottery'] },
+      { slug: 'communication',       label: 'Communication, PC',     color: '#536DFE', categories: ['communication', 'phone', 'internet', 'software', 'postal'] },
+      { slug: 'financial-expenses',  label: 'Financial expenses',    color: '#26A69A', categories: ['financial-expenses', 'taxes', 'insurances', 'loans-interests', 'fines', 'advisory', 'charges-fees', 'financial-child-support'] },
+      { slug: 'investments',         label: 'Investments',           color: '#EC407A', categories: ['investments', 'realty', 'vehicles-chattels', 'financial-investments', 'savings', 'collections'] },
+      { slug: 'allowance',           label: 'Allowance',             color: '#FBC02D', categories: ['allowance', 'child-support'] },
+      { slug: 'income',              label: 'Income',                color: '#FFCA28', categories: ['income', 'wage-invoices', 'interests-dividends', 'sale', 'rental-income', 'dues-grants', 'lending-renting', 'checks-coupons', 'income-lottery', 'refunds', 'income-child-support', 'income-gifts'] },
+    ];
+
+    // ------------------------------------------------------------------
+    // Category markers
+    // A category is a white glyph on one solid tile. Emoji cannot do that job:
+    // they arrive with their own palette, so the glyph fights the tile, and
+    // every platform draws them differently.
+    //
+    // These are **Phosphor** icons (phosphoricons.com, MIT licence) in its
+    // `fill` weight — the solid silhouette, where Lucide (which still draws the
+    // chrome: the rail, the buttons, the browser's arrows) is a line-only
+    // family. Generated by tools/phosphor-icons.py from @phosphor-icons/core:
+    // one family, one 256px grid, one filled shape, exactly as their own files
+    // draw them. Keyed by the same slugs tools/wallet-import.py prints, and
+    // mirrored element-for-element by frontend/src/lib/icons.tsx, so the two
+    // clients mark a category the same way.
+    // ------------------------------------------------------------------
+    const CATEGORY_ICONS = {
+      'food-drinks': '<path d="M216,40V224a8,8,0,0,1-16,0V176H152a8,8,0,0,1-8-8,268.75,268.75,0,0,1,7.22-56.88c9.78-40.49,28.32-67.63,53.63-78.47A8,8,0,0,1,216,40Zm-96.11-1.31a8,8,0,1,0-15.78,2.63L111.89,88H88V40a8,8,0,0,0-16,0V88H48.11l7.78-46.68a8,8,0,1,0-15.78-2.63l-8,48A8.17,8.17,0,0,0,32,88a48.07,48.07,0,0,0,40,47.32V224a8,8,0,0,0,16,0V135.32A48.07,48.07,0,0,0,128,88a8.17,8.17,0,0,0-.11-1.31Z"/>',
+      'groceries': '<path d="M238,82.73A8,8,0,0,0,232,80H187.63L134,18.73a8,8,0,0,0-12,0L68.37,80H24a8,8,0,0,0-7.93,9.06L31.14,202.12A16.06,16.06,0,0,0,47,216H209a16.06,16.06,0,0,0,15.86-13.88L239.93,89.06A8,8,0,0,0,238,82.73ZM81.6,184a7.32,7.32,0,0,1-.81,0,8,8,0,0,1-8-7.2l-5.6-56a8,8,0,0,1,15.92-1.6l5.6,56A8,8,0,0,1,81.6,184Zm54.4-8a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0ZM89.63,80,128,36.15,166.37,80Zm99.13,40.8-5.6,56a8,8,0,0,1-7.95,7.2,7.32,7.32,0,0,1-.81,0,8,8,0,0,1-7.16-8.76l5.6-56a8,8,0,0,1,15.92,1.6Z"/>',
+      'restaurant': '<path d="M35.58,98.06a16,16,0,0,1-3.23-13.44C39.78,49.5,80,24,128,24s88.22,25.5,95.65,60.62A16,16,0,0,1,207.93,104H48.07A16,16,0,0,1,35.58,98.06Zm193.68,54.42-41.13,15L151,152.57a8,8,0,0,0-5.94,0l-37,14.81L71,152.57a8,8,0,0,0-5.7-.09l-44,16a8,8,0,0,0,5.47,15L40,178.69V184a40,40,0,0,0,40,40h96a40,40,0,0,0,40-40v-9.67l18.73-6.81a8,8,0,1,0-5.47-15ZM24,136H232a8,8,0,0,0,0-16H24a8,8,0,0,0,0,16Z"/>',
+      'bar-cafe': '<path d="M205.33,103.67,183.56,29.74A8,8,0,0,0,175.89,24H80.11a8,8,0,0,0-7.67,5.74L50.67,103.67a63.46,63.46,0,0,0,17.42,64.67A87.41,87.41,0,0,0,120,191.63V232H88a8,8,0,1,0,0,16h80a8,8,0,1,0,0-16H136V191.63a87.39,87.39,0,0,0,51.91-23.29A63.48,63.48,0,0,0,205.33,103.67ZM86.09,40h83.82L190,108.19c.09.3.17.6.25.9-21.42,7.68-45.54-1.6-58.63-8.23C106.43,88.11,86.43,86.49,71.68,88.93Z"/>',
+      'shopping': '<path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm-88,96A48.05,48.05,0,0,1,80,88a8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0A48.05,48.05,0,0,1,128,136Z"/>',
+      'clothes-shoes': '<path d="M247.59,61.22,195.83,33A8,8,0,0,0,192,32H160a8,8,0,0,0-8,8,24,24,0,0,1-48,0,8,8,0,0,0-8-8H64a8,8,0,0,0-3.84,1L8.41,61.22A15.76,15.76,0,0,0,1.82,82.48l19.27,36.81A16.37,16.37,0,0,0,35.67,128H56v80a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V128h20.34a16.37,16.37,0,0,0,14.58-8.71l19.27-36.81A15.76,15.76,0,0,0,247.59,61.22ZM35.67,112a.62.62,0,0,1-.41-.13L16.09,75.26,56,53.48V112Zm185.07-.14a.55.55,0,0,1-.41.14H200V53.48l39.92,21.78Z"/>',
+      'jewels': '<path d="M240,128a15.85,15.85,0,0,1-4.67,11.28l-96.05,96.06a16,16,0,0,1-22.56,0h0l-96-96.06a16,16,0,0,1,0-22.56l96.05-96.06a16,16,0,0,1,22.56,0l96.05,96.06A15.85,15.85,0,0,1,240,128Z"/>',
+      'health-beauty': '<path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Zm9.85,105.59a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/>',
+      'kids': '<path d="M215.58,54.55a7.53,7.53,0,0,0-1.32-1.27A79.68,79.68,0,0,0,160,32h-8a16,16,0,0,0-16,16v56H55.2A40.07,40.07,0,0,0,16,72a8,8,0,0,0,0,16,24,24,0,0,1,24,24,80.09,80.09,0,0,0,80,80h40A79.94,79.94,0,0,0,215.58,54.55Zm-6.91,16A63.73,63.73,0,0,1,223.48,104H166.81ZM160,48a63.59,63.59,0,0,1,36.69,11.61L152,95.35V48ZM104,224a16,16,0,1,1-16-16A16,16,0,0,1,104,224Zm104,0a16,16,0,1,1-16-16A16,16,0,0,1,208,224Z"/>',
+      'home-garden': '<path d="M205.41,159.07a60.9,60.9,0,0,1-31.83,8.86,71.71,71.71,0,0,1-27.36-5.66A55.55,55.55,0,0,0,136,194.51V224a8,8,0,0,1-8.53,8,8.18,8.18,0,0,1-7.47-8.25V211.31L81.38,172.69A52.5,52.5,0,0,1,63.44,176a45.82,45.82,0,0,1-23.92-6.67C17.73,156.09,6,125.62,8.27,87.79a8,8,0,0,1,7.52-7.52c37.83-2.23,68.3,9.46,81.5,31.25A46,46,0,0,1,103.74,140a4,4,0,0,1-6.89,2.43l-19.2-20.1a8,8,0,0,0-11.31,11.31l53.88,55.25c.06-.78.13-1.56.21-2.33a68.56,68.56,0,0,1,18.64-39.46l50.59-53.46a8,8,0,0,0-11.31-11.32l-49,51.82a4,4,0,0,1-6.78-1.74c-4.74-17.48-2.65-34.88,6.4-49.82,17.86-29.48,59.42-45.26,111.18-42.22a8,8,0,0,1,7.52,7.52C250.67,99.65,234.89,141.21,205.41,159.07Z"/>',
+      'pets': '<path d="M240,108a28,28,0,1,1-28-28A28,28,0,0,1,240,108ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm72,0a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm23.12,60.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72Z"/>',
+      'electronics': '<path d="M232,168h-8V72a24,24,0,0,0-24-24H56A24,24,0,0,0,32,72v96H24a8,8,0,0,0-8,8v16a24,24,0,0,0,24,24H216a24,24,0,0,0,24-24V176A8,8,0,0,0,232,168ZM112,72h32a8,8,0,0,1,0,16H112a8,8,0,0,1,0-16ZM224,192a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8v-8H224Z"/>',
+      'gifts-joy': '<path d="M216,72H180.92c.39-.33.79-.65,1.17-1A29.53,29.53,0,0,0,192,49.57,32.62,32.62,0,0,0,158.44,16,29.53,29.53,0,0,0,137,25.91a54.94,54.94,0,0,0-9,14.48,54.94,54.94,0,0,0-9-14.48A29.53,29.53,0,0,0,97.56,16,32.62,32.62,0,0,0,64,49.57,29.53,29.53,0,0,0,73.91,71c.38.33.78.65,1.17,1H40A16,16,0,0,0,24,88v32a16,16,0,0,0,16,16v64a16,16,0,0,0,16,16h60a4,4,0,0,0,4-4V120H40V88h80v32h16V88h80v32H136v92a4,4,0,0,0,4,4h60a16,16,0,0,0,16-16V136a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72ZM84.51,59a13.69,13.69,0,0,1-4.5-10A16.62,16.62,0,0,1,96.59,32h.49a13.69,13.69,0,0,1,10,4.5c8.39,9.48,11.35,25.2,12.39,34.92C109.71,70.39,94,67.43,84.51,59Zm87,0c-9.49,8.4-25.24,11.36-35,12.4C137.7,60.89,141,45.5,149,36.51a13.69,13.69,0,0,1,10-4.5h.49A16.62,16.62,0,0,1,176,49.08,13.69,13.69,0,0,1,171.49,59Z"/>',
+      'stationery': '<path d="M224,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V180a4,4,0,0,1,4-4h36a8,8,0,0,0,8-8.53,8.18,8.18,0,0,0-8.25-7.47H148a4,4,0,0,1-4-4V140a4,4,0,0,1,4-4h36a8,8,0,0,0,8-8.53,8.18,8.18,0,0,0-8.25-7.47H148a4,4,0,0,1-4-4V100a4,4,0,0,1,4-4h36a8,8,0,0,0,8-8.53A8.18,8.18,0,0,0,183.73,80H148a4,4,0,0,1-4-4V48a16,16,0,0,1,16-16h48A16,16,0,0,1,224,48ZM109.66,58.34A8,8,0,0,1,112,64V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V64a8,8,0,0,1,2.34-5.66l32-32a8,8,0,0,1,11.32,0ZM48,80V184H64V80Zm32,0V184H96V80ZM51.31,64H92.69L72,43.31Z"/>',
+      'free-time': '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM92,96a12,12,0,1,1-12,12A12,12,0,0,1,92,96Zm82.92,60c-10.29,17.79-27.39,28-46.92,28s-36.63-10.2-46.92-28a8,8,0,1,1,13.84-8c7.47,12.91,19.21,20,33.08,20s25.61-7.1,33.08-20a8,8,0,1,1,13.84,8ZM164,120a12,12,0,1,1,12-12A12,12,0,0,1,164,120Z"/>',
+      'drug-store': '<path d="M231.69,93.81,217.35,43.6A16.07,16.07,0,0,0,202,32H54A16.07,16.07,0,0,0,38.65,43.6L24.31,93.81A7.94,7.94,0,0,0,24,96v16a40,40,0,0,0,16,32v72a8,8,0,0,0,8,8H208a8,8,0,0,0,8-8V144a40,40,0,0,0,16-32V96A7.94,7.94,0,0,0,231.69,93.81ZM88,112a24,24,0,0,1-35.12,21.26,7.88,7.88,0,0,0-1.82-1.06A24,24,0,0,1,40,112v-8H88Zm64,0a24,24,0,0,1-48,0v-8h48Zm64,0a24,24,0,0,1-11.07,20.2,8.08,8.08,0,0,0-1.8,1.05A24,24,0,0,1,168,112v-8h48Z"/>',
+      'housing': '<path d="M224,120v96a8,8,0,0,1-8,8H160a8,8,0,0,1-8-8V164a4,4,0,0,0-4-4H108a4,4,0,0,0-4,4v52a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a16,16,0,0,1,4.69-11.31l80-80a16,16,0,0,1,22.62,0l80,80A16,16,0,0,1,224,120Z"/>',
+      'rent': '<path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM180,92a16,16,0,1,1,16-16A16,16,0,0,1,180,92Z"/>',
+      'mortgage': '<path d="M240,208H224V136l2.34,2.34A8,8,0,0,0,237.66,127L139.31,28.68a16,16,0,0,0-22.62,0L18.34,127a8,8,0,0,0,11.32,11.31L32,136v72H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16Zm-88,0H104V160a4,4,0,0,1,4-4h40a4,4,0,0,1,4,4Z"/>',
+      'energy': '<path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-32.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/>',
+      'services': '<path d="M216,130.16q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.6,107.6,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.29,107.29,0,0,0-26.25-10.86,8,8,0,0,0-7.06,1.48L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.6,107.6,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06ZM128,168a40,40,0,1,1,40-40A40,40,0,0,1,128,168Z"/>',
+      'maintenance': '<path d="M251.34,112,183.88,44.08a96.1,96.1,0,0,0-135.77,0l-.09.09L34.25,58.4A8,8,0,0,0,45.74,69.53L59.47,55.35a79.92,79.92,0,0,1,18.71-13.9L124.68,88l-96,96a16,16,0,0,0,0,22.63l20.69,20.69a16,16,0,0,0,22.63,0l96-96,32,32a16,16,0,0,0,22.63,0l28.69-28.69A16,16,0,0,0,251.34,112Zm-89,2.33L140,136.67,119.31,116l22.35-22.35a8,8,0,0,0,0-11.32L94.32,35a80,80,0,0,1,78.23,20.41l44.22,44.51L188,128.66l-14.34-14.34A8,8,0,0,0,162.34,114.32Zm49,37.66-12-12L228,111.25l12,12Z"/>',
+      'property-insurance': '<path d="M143.38,17.85a8,8,0,0,0-12.63,3.41l-22,60.41L84.59,58.26a8,8,0,0,0-11.93.89C51,87.53,40,116.08,40,144a88,88,0,0,0,176,0C216,84.55,165.21,36,143.38,17.85Zm40.51,135.49a57.6,57.6,0,0,1-46.56,46.55A7.65,7.65,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/>',
+      'transportation': '<path d="M248,80v24a8,8,0,0,1-16,0V80a8,8,0,0,1,16,0ZM16,72a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V80A8,8,0,0,0,16,72Zm200-8V208a16,16,0,0,1-16,16H184a16,16,0,0,1-16-16v-8H88v8a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V64A32,32,0,0,1,72,32H184A32,32,0,0,1,216,64ZM104,148a12,12,0,1,0-12,12A12,12,0,0,0,104,148Zm72,0a12,12,0,1,0-12,12A12,12,0,0,0,176,148Zm24-76H56v40H200Z"/>',
+      'public-transport': '<path d="M184,48H136V24h32a8,8,0,0,0,0-16H88a8,8,0,0,0,0,16h32V48H72A32,32,0,0,0,40,80V184a32,32,0,0,0,32,32h8L65.6,235.2a8,8,0,1,0,12.8,9.6L100,216h56l21.6,28.8a8,8,0,1,0,12.8-9.6L176,216h8a32,32,0,0,0,32-32V80A32,32,0,0,0,184,48Zm0,152H72a16,16,0,0,1-16-16V128H200v56A16,16,0,0,1,184,200ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm88,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z"/>',
+      'taxi': '<path d="M240,104H228.64L201.25,56.06A16,16,0,0,0,187.36,48H165.42l-12-29.94A15.93,15.93,0,0,0,138.58,8H117.42a15.93,15.93,0,0,0-14.86,10.06L90.58,48H68.64a16,16,0,0,0-13.89,8.06L27.36,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16v-8h96v8a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM80,152H56a8,8,0,0,1,0-16H80a8,8,0,0,1,0,16Zm120,0H176a8,8,0,0,1,0-16h24a8,8,0,0,1,0,16ZM45.79,104,68.64,64H187.36l22.85,40Z"/>',
+      'long-distance': '<path d="M224,216a8,8,0,0,1-8,8H72a8,8,0,1,1,0-16H216A8,8,0,0,1,224,216ZM208,96H147.32L101.66,50.34A8,8,0,0,0,96,48H88A16,16,0,0,0,72.83,69.06l9,26.94H59.32L37.66,74.34A8,8,0,0,0,32,72H24A16,16,0,0,0,8.69,92.6l14.07,46.89A39.75,39.75,0,0,0,61.07,168H240a8,8,0,0,0,8-8V136A40,40,0,0,0,208,96Z"/>',
+      'business-trips': '<path d="M152,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h32A8,8,0,0,1,152,112Zm80-40V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V72A16,16,0,0,1,40,56H80V48a24,24,0,0,1,24-24h48a24,24,0,0,1,24,24v8h40A16,16,0,0,1,232,72ZM96,56h64V48a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8Zm120,57.61V72H40v41.61A184,184,0,0,0,128,136,184,184,0,0,0,216,113.61Z"/>',
+      'vehicle': '<path d="M240,104H229.2L201.42,41.5A16,16,0,0,0,186.8,32H69.2a16,16,0,0,0-14.62,9.5L26.8,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16v-8h96v8a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM80,152H56a8,8,0,0,1,0-16H80a8,8,0,0,1,0,16Zm120,0H176a8,8,0,0,1,0-16h24a8,8,0,0,1,0,16ZM44.31,104,69.2,48H186.8l24.89,56Z"/>',
+      'fuel': '<path d="M241,69.66,221.66,50.34a8,8,0,0,0-11.32,11.32L229.66,81A8,8,0,0,1,232,86.63V168a8,8,0,0,1-16,0V128a24,24,0,0,0-24-24H176V56a24,24,0,0,0-24-24H72A24,24,0,0,0,48,56V208H32a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16H176V120h16a8,8,0,0,1,8,8v40a24,24,0,0,0,48,0V86.63A23.85,23.85,0,0,0,241,69.66ZM144,120H80a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Z"/>',
+      'parking': '<path d="M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z"/>',
+      'vehicle-maintenance': '<path d="M232,96a72,72,0,0,1-100.94,66L79,222.22c-.12.14-.26.29-.39.42a32,32,0,0,1-45.26-45.26c.14-.13.28-.27.43-.39L94,124.94a72.07,72.07,0,0,1,83.54-98.78,8,8,0,0,1,3.93,13.19L144,80l5.66,26.35L176,112l40.65-37.52a8,8,0,0,1,13.19,3.93A72.6,72.6,0,0,1,232,96Z"/>',
+      'rentals': '<path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM180,92a16,16,0,1,1,16-16A16,16,0,0,1,180,92Z"/>',
+      'vehicle-insurance': '<path d="M112,120a16,16,0,1,1-16-16A16,16,0,0,1,112,120ZM232,56V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM135.75,166a39.76,39.76,0,0,0-17.19-23.34,32,32,0,1,0-45.12,0A39.84,39.84,0,0,0,56.25,166a8,8,0,0,0,15.5,4c2.64-10.25,13.06-18,24.25-18s21.62,7.73,24.25,18a8,8,0,1,0,15.5-4ZM200,144a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,144Zm0-32a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,112Z"/>',
+      'leasing': '<path d="M244.24,60a8,8,0,0,0-7.75-.4c-42.93,21-73.59,11.16-106,.78C96.4,49.53,61.2,38.28,12.49,62.06A8,8,0,0,0,8,69.24V189.17a8,8,0,0,0,11.51,7.19c42.93-21,73.59-11.16,106.05-.78,19.24,6.15,38.84,12.42,61,12.42,17.09,0,35.73-3.72,56.91-14.06a8,8,0,0,0,4.49-7.18V66.83A8,8,0,0,0,244.24,60ZM48,152a8,8,0,0,1-16,0V88a8,8,0,0,1,16,0Zm80,8a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm96,8a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/>',
+      'life-entertainment': '<path d="M100,36a28,28,0,1,1,28,28A28,28,0,0,1,100,36ZM215.42,140.78l-45.25-51.3a28,28,0,0,0-21-9.48H106.83a28,28,0,0,0-21,9.48l-45.25,51.3a16,16,0,0,0,22.56,22.69L89,142.7l-19.7,74.88a16,16,0,0,0,29.08,13.35L128,180l29.58,51a16,16,0,0,0,29.08-13.35L167,142.7l25.9,20.77a16,16,0,0,0,22.56-22.69Z"/>',
+      'health-doctor': '<path d="M240,160a32,32,0,1,0-39.93,31,8,8,0,0,0-.07,1,32,32,0,0,1-32,32H144a32,32,0,0,1-32-32V151.48c31.47-4,56-31.47,56-64.31V40a8,8,0,0,0-8-8H136a8,8,0,0,0,0,16h16V87.17c0,26.58-21.25,48.49-47.36,48.83A48,48,0,0,1,56,88V48H72a8,8,0,0,0,0-16H48a8,8,0,0,0-8,8V88a64,64,0,0,0,56,63.49V192a48.05,48.05,0,0,0,48,48h24a48.05,48.05,0,0,0,48-48,8,8,0,0,0-.07-1A32,32,0,0,0,240,160Zm-32,8a8,8,0,1,1,8-8A8,8,0,0,1,208,168Z"/>',
+      'wellness': '<path d="M210.35,129.36c-.81-.47-1.7-.92-2.62-1.36.92-.44,1.81-.89,2.62-1.36a40,40,0,1,0-40-69.28c-.81.47-1.65,1-2.48,1.59.08-1,.13-2,.13-3a40,40,0,0,0-80,0c0,.94,0,1.94.13,3-.83-.57-1.67-1.12-2.48-1.59a40,40,0,1,0-40,69.28c.81.47,1.7.92,2.62,1.36-.92.44-1.81.89-2.62,1.36a40,40,0,1,0,40,69.28c.81-.47,1.65-1,2.48-1.59-.08,1-.13,2-.13,2.95a40,40,0,0,0,80,0c0-.94-.05-1.94-.13-2.95.83.57,1.67,1.12,2.48,1.59A39.79,39.79,0,0,0,190.29,204a40.43,40.43,0,0,0,10.42-1.38,40,40,0,0,0,9.64-73.28ZM128,156a28,28,0,1,1,28-28A28,28,0,0,1,128,156Z"/>',
+      'active-sport': '<path d="M200,64V192a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V136H104v56a16,16,0,0,1-16,16H72a16,16,0,0,1-16-16V64A16,16,0,0,1,72,48H88a16,16,0,0,1,16,16v56h48V64a16,16,0,0,1,16-16h16A16,16,0,0,1,200,64ZM36,72H32A16,16,0,0,0,16,88v32H8.27A8.18,8.18,0,0,0,0,127.47,8,8,0,0,0,8,136h8v32a16,16,0,0,0,16,16h4a4,4,0,0,0,4-4V76A4,4,0,0,0,36,72Zm220,55.47a8.18,8.18,0,0,0-8.25-7.47H240V88a16,16,0,0,0-16-16h-4a4,4,0,0,0-4,4V180a4,4,0,0,0,4,4h4a16,16,0,0,0,16-16V136h8A8,8,0,0,0,256,127.47Z"/>',
+      'culture-sport': '<path d="M188.87,65A18,18,0,0,0,157.62,83L133.36,41a18,18,0,0,0-31.22,18L96.4,49A18,18,0,0,0,65.18,67l3.34,5.77A26,26,0,0,0,39.74,111l3,5.2A26,26,0,0,0,23.5,155l35.27,61a80.14,80.14,0,0,0,149.52-39.57A71.92,71.92,0,0,0,210,101.58Zm1.2,127.56A64.12,64.12,0,0,1,72.65,208L37.38,147a10,10,0,0,1,17.34-10L75,172a8,8,0,0,0,13.87-8L53.62,103A10,10,0,0,1,71,93l31.81,55a8,8,0,0,0,13.87-8l-26-45a10,10,0,0,1,17.35-10l36.5,63a8,8,0,0,0,13.87-8l-12.6-21.75A10,10,0,0,1,163.44,109l20.22,35A63.52,63.52,0,0,1,190.07,192.57ZM160.22,24V8a8,8,0,0,1,16,0V24a8,8,0,0,1-16,0Zm33.22,6,8-13.1a8,8,0,0,1,13.68,8.33l-8,13.11a8,8,0,0,1-6.84,3.83A8,8,0,0,1,193.44,30Zm45,33.66-15.05,4.85a8.15,8.15,0,0,1-2.46.39,8,8,0,0,1-2.46-15.62l15.06-4.85a8,8,0,1,1,4.91,15.23Z"/>',
+      'life-events': '<path d="M208,88H136V79a32.06,32.06,0,0,0,24-31c0-28-26.44-45.91-27.56-46.66a8,8,0,0,0-8.88,0C122.44,2.09,96,20,96,48a32.06,32.06,0,0,0,24,31v9H48a24,24,0,0,0-24,24v23.33a40.84,40.84,0,0,0,8,24.24V200a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V159.57a40.84,40.84,0,0,0,8-24.24V112A24,24,0,0,0,208,88ZM112,48c0-13.57,10-24.46,16-29.79,6,5.33,16,16.22,16,29.79a16,16,0,0,1-32,0Zm104,87.33c0,13.25-10.46,24.31-23.32,24.66A24,24,0,0,1,168,136a8,8,0,0,0-16,0,24,24,0,0,1-48,0,8,8,0,0,0-16,0,24,24,0,0,1-24.68,24C50.46,159.64,40,148.58,40,135.33V112a8,8,0,0,1,8-8H208a8,8,0,0,1,8,8Z"/>',
+      'hobbies': '<path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89ZM84,168a12,12,0,1,1,12-12A12,12,0,0,1,84,168Zm0-56a12,12,0,1,1,12-12A12,12,0,0,1,84,112Zm44-24a12,12,0,1,1,12-12A12,12,0,0,1,128,88Zm44,24a12,12,0,1,1,12-12A12,12,0,0,1,172,112Z"/>',
+      'education': '<path d="M176,207.24a119,119,0,0,0,16-7.73V240a8,8,0,0,1-16,0Zm11.76-88.43-56-29.87a8,8,0,0,0-7.52,14.12L171,128l17-9.06Zm64-29.87-120-64a8,8,0,0,0-7.52,0l-120,64a8,8,0,0,0,0,14.12L32,117.87v48.42a15.91,15.91,0,0,0,4.06,10.65C49.16,191.53,78.51,216,128,216a130,130,0,0,0,48-8.76V130.67L171,128l-43,22.93L43.83,106l0,0L25,96,128,41.07,231,96l-18.78,10-.06,0L188,118.94a8,8,0,0,1,4,6.93v73.64a115.63,115.63,0,0,0,27.94-22.57A15.91,15.91,0,0,0,224,166.29V117.87l27.76-14.81a8,8,0,0,0,0-14.12Z"/>',
+      'books-subs': '<path d="M240,56V200a8,8,0,0,1-8,8H160a24,24,0,0,0-24,23.94,7.9,7.9,0,0,1-5.12,7.55A8,8,0,0,1,120,232a24,24,0,0,0-24-24H24a8,8,0,0,1-8-8V56a8,8,0,0,1,8-8H88a32,32,0,0,1,32,32v87.73a8.17,8.17,0,0,0,7.47,8.25,8,8,0,0,0,8.53-8V80a32,32,0,0,1,32-32h64A8,8,0,0,1,240,56Z"/>',
+      'tv-streaming': '<path d="M216,64H147.31l34.35-34.34a8,8,0,1,0-11.32-11.32L128,60.69,85.66,18.34A8,8,0,0,0,74.34,29.66L108.69,64H40A16,16,0,0,0,24,80V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V80A16,16,0,0,0,216,64Zm0,136H160V80h56V200Zm-16-84a12,12,0,1,1-12-12A12,12,0,0,1,200,116Zm0,48a12,12,0,1,1-12-12A12,12,0,0,1,200,164Z"/>',
+      'holiday-trips': '<path d="M239.84,60.33a8,8,0,0,1-4.65,5.75L179,90.55a71.42,71.42,0,0,1,43.36,33.21,70.64,70.64,0,0,1,7.2,54.32A8,8,0,0,1,217,182.36l-81-61.68V224a8,8,0,0,1-16,0V120.68L39,182.36a8,8,0,0,1-12.57-4.28,70.64,70.64,0,0,1,7.2-54.32A71.42,71.42,0,0,1,77,90.55L20.81,66.08a8,8,0,0,1-2.6-12.85,66.86,66.86,0,0,1,97.74,0,72.21,72.21,0,0,1,12,17,72.21,72.21,0,0,1,12.05-17,66.86,66.86,0,0,1,97.74,0A8,8,0,0,1,239.84,60.33Z"/>',
+      'charity-gifts': '<path d="M230.33,141.06a24.34,24.34,0,0,0-18.61-4.77C230.5,117.33,240,98.48,240,80c0-26.47-21.29-48-47.46-48A47.58,47.58,0,0,0,156,48.75,47.58,47.58,0,0,0,119.46,32C93.29,32,72,53.53,72,80c0,11,3.24,21.69,10.06,33a31.87,31.87,0,0,0-14.75,8.4L44.69,144H16A16,16,0,0,0,0,160v40a16,16,0,0,0,16,16H120a7.93,7.93,0,0,0,1.94-.24l64-16a6.94,6.94,0,0,0,1.19-.4L226,182.82l.44-.2a24.6,24.6,0,0,0,3.93-41.56Zm-10.9,27.15-38,16.18L119,200H56V155.31l22.63-22.62A15.86,15.86,0,0,1,89.94,128H140a12,12,0,0,1,0,24H112a8,8,0,0,0,0,16h32a8.32,8.32,0,0,0,1.79-.2l67-15.41.31-.08a8.6,8.6,0,0,1,6.3,15.9Z"/>',
+      'friends': '<path d="M254.3,107.91,228.78,56.85a16,16,0,0,0-21.47-7.15L182.44,62.13,130.05,48.27a8.14,8.14,0,0,0-4.1,0L73.56,62.13,48.69,49.7a16,16,0,0,0-21.47,7.15L1.7,107.9a16,16,0,0,0,7.15,21.47l27,13.51,55.49,39.63a8.06,8.06,0,0,0,2.71,1.25l64,16a8,8,0,0,0,7.6-2.1l40-40,15.08-15.08,26.42-13.21a16,16,0,0,0,7.15-21.46Zm-54.89,33.37L165,113.72a8,8,0,0,0-10.68.61C136.51,132.27,116.66,130,104,122L147.24,80h31.81l27.21,54.41Zm-41.87,41.86L99.42,168.61l-49.2-35.14,28-56L128,64.28l9.8,2.59-45,43.68-.08.09a16,16,0,0,0,2.72,24.81c20.56,13.13,45.37,11,64.91-5L188,152.66Zm-25.72,34.8a8,8,0,0,1-7.75,6.06,8.13,8.13,0,0,1-1.95-.24L80.41,213.33a7.89,7.89,0,0,1-2.71-1.25L51.35,193.26a8,8,0,0,1,9.3-13l25.11,17.94L126,208.24A8,8,0,0,1,131.82,217.94Z"/>',
+      'mobile-recharge': '<path d="M244.35,92.8l-104,125.43A15.93,15.93,0,0,1,128,224h0a15.93,15.93,0,0,1-12.31-5.77L11.65,92.8A15.65,15.65,0,0,1,8.11,80.91,15.93,15.93,0,0,1,14.28,70.1,186.67,186.67,0,0,1,128,32,186.67,186.67,0,0,1,241.72,70.1a15.93,15.93,0,0,1,6.17,10.81A15.65,15.65,0,0,1,244.35,92.8Z"/>',
+      'lottery': '<path d="M192,32H64A32,32,0,0,0,32,64V192a32,32,0,0,0,32,32H192a32,32,0,0,0,32-32V64A32,32,0,0,0,192,32ZM92,176a12,12,0,1,1,12-12A12,12,0,0,1,92,176Zm0-72a12,12,0,1,1,12-12A12,12,0,0,1,92,104Zm36,36a12,12,0,1,1,12-12A12,12,0,0,1,128,140Zm36,36a12,12,0,1,1,12-12A12,12,0,0,1,164,176Zm0-72a12,12,0,1,1,12-12A12,12,0,0,1,164,104Z"/>',
+      'communication': '<path d="M232,64V176a24,24,0,0,1-24,24H48a24,24,0,0,1-24-24V64A24,24,0,0,1,48,40H208A24,24,0,0,1,232,64ZM160,216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Z"/>',
+      'phone': '<path d="M176,16H80A24,24,0,0,0,56,40V216a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V40A24,24,0,0,0,176,16ZM80,32h96a8,8,0,0,1,8,8v8H72V40A8,8,0,0,1,80,32Zm96,192H80a8,8,0,0,1-8-8v-8H184v8A8,8,0,0,1,176,224Z"/>',
+      'internet': '<path d="M244.35,92.8l-104,125.43A15.93,15.93,0,0,1,128,224h0a15.93,15.93,0,0,1-12.31-5.77L11.65,92.8A15.65,15.65,0,0,1,8.11,80.91,15.93,15.93,0,0,1,14.28,70.1,186.67,186.67,0,0,1,128,32,186.67,186.67,0,0,1,241.72,70.1a15.93,15.93,0,0,1,6.17,10.81A15.65,15.65,0,0,1,244.35,92.8Z"/>',
+      'software': '<path d="M219.31,72,184,36.69A15.86,15.86,0,0,0,172.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V83.31A15.86,15.86,0,0,0,219.31,72ZM208,208H184V152a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v56H48V48H172.69L208,83.31ZM160,72a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,72Z"/>',
+      'postal': '<path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM98.71,128,40,181.81V74.19Zm11.84,10.85,12,11.05a8,8,0,0,0,10.82,0l12-11.05,58,53.15H52.57ZM157.29,128,216,74.18V181.82Z"/>',
+      'financial-expenses': '<path d="M184,89.57V84c0-25.08-37.83-44-88-44S8,58.92,8,84v40c0,20.89,26.25,37.49,64,42.46V172c0,25.08,37.83,44,88,44s88-18.92,88-44V132C248,111.3,222.58,94.68,184,89.57ZM56,146.87C36.41,141.4,24,132.39,24,124V109.93c8.16,5.78,19.09,10.44,32,13.57Zm80-23.37c12.91-3.13,23.84-7.79,32-13.57V124c0,8.39-12.41,17.4-32,22.87Zm-16,71.37C100.41,189.4,88,180.39,88,172v-4.17c2.63.1,5.29.17,8,.17,3.88,0,7.67-.13,11.39-.35A121.92,121.92,0,0,0,120,171.41Zm0-44.62A163,163,0,0,1,96,152a163,163,0,0,1-24-1.75V126.46A183.74,183.74,0,0,0,96,128a183.74,183.74,0,0,0,24-1.54Zm64,48a165.45,165.45,0,0,1-48,0V174.4a179.48,179.48,0,0,0,24,1.6,183.74,183.74,0,0,0,24-1.54ZM232,172c0,8.39-12.41,17.4-32,22.87V171.5c12.91-3.13,23.84-7.79,32-13.57Z"/>',
+      'taxes': '<path d="M236.52,187.09l-143-97.87a36,36,0,1,0-14.38,17.27l21.39,21.69L79.15,149.54l0,0a35.91,35.91,0,1,0,14.38,17.27l26.91-18.41L170,198.64a32.26,32.26,0,0,0,22.7,9.37,31.52,31.52,0,0,0,4.11-.27l.28,0,36.27-6.11a8,8,0,0,0,3.19-14.5Zm-162.38-97A20,20,0,1,1,80,76,20,20,0,0,1,74.14,90.13Zm0,104A20,20,0,1,1,80,180,20,20,0,0,1,74.14,194.15Zm61-101.5L169.94,57.4a32.19,32.19,0,0,1,26.84-9.14l.28,0,36,6.07a8.21,8.21,0,0,1,6.09,4.42,8,8,0,0,1-2.67,10.12l-69.93,47.85a4,4,0,0,1-4.51,0l-26.31-18A4,4,0,0,1,135.18,92.65Z"/>',
+      'insurances': '<path d="M224,56v56c0,52.72-25.52,84.67-46.93,102.19-23.06,18.86-46,25.27-47,25.53a8,8,0,0,1-4.2,0c-1-.26-23.91-6.67-47-25.53C57.52,196.67,32,164.72,32,112V56A16,16,0,0,1,48,40H208A16,16,0,0,1,224,56Z"/>',
+      'loans-interests': '<path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM200,176a8,8,0,0,1,0,16H56a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v62.92l34.88-29.07a8,8,0,0,1,9.56-.51l43,28.69,43.41-36.18a8,8,0,0,1,10.24,12.3l-48,40a8,8,0,0,1-9.56.51l-43-28.69L64,155.75V176Z"/>',
+      'fines': '<path d="M52.69,99.31a16,16,0,0,1,0-22.63l64-64a16,16,0,0,1,22.63,22.63l-64,64a16,16,0,0,1-22.63,0Zm190.63,17.37a16,16,0,0,0-22.63,0l-64,64a16,16,0,0,0,0,22.63h0a16,16,0,0,0,22.63,0l64-64A16,16,0,0,0,243.32,116.68Zm-35.11-15.8L155.12,47.79a4,4,0,0,0-5.66,0L87.8,109.45a4,4,0,0,0,0,5.66L103,130.34,28.69,204.69a16,16,0,0,0,22.62,22.62L125.66,153l15.23,15.23a4,4,0,0,0,5.66,0l61.66-61.66A4,4,0,0,0,208.21,100.88Z"/>',
+      'advisory': '<path d="M232.07,186.76a80,80,0,0,0-62.5-114.17A80,80,0,1,0,23.93,138.76l-7.27,24.71a16,16,0,0,0,19.87,19.87l24.71-7.27a80.39,80.39,0,0,0,25.18,7.35,80,80,0,0,0,108.34,40.65l24.71,7.27a16,16,0,0,0,19.87-19.86Zm-16.25,1.47L224,216l-27.76-8.17a8,8,0,0,0-6,.63,64.05,64.05,0,0,1-85.87-24.88A79.93,79.93,0,0,0,174.7,89.71a64,64,0,0,1,41.75,92.48A8,8,0,0,0,215.82,188.23Z"/>',
+      'charges-fees': '<path d="M216,40H40A16,16,0,0,0,24,56V208a8,8,0,0,0,11.58,7.15L64,200.94l28.42,14.21a8,8,0,0,0,7.16,0L128,200.94l28.42,14.21a8,8,0,0,0,7.16,0L192,200.94l28.42,14.21A8,8,0,0,0,232,208V56A16,16,0,0,0,216,40ZM176,144H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Zm0-32H80a8,8,0,0,1,0-16h96a8,8,0,0,1,0,16Z"/>',
+      'financial-child-support': '<path d="M134.16,24.1a4,4,0,0,0-3.56,1.81C120.3,41.48,120,55.79,120,56a8,8,0,0,0,9.68,7.79A8.24,8.24,0,0,0,136,55.68,8,8,0,0,1,144.8,48a8.14,8.14,0,0,1,7.2,8.23,24,24,0,0,1-48-.27c0-.63.09-10.78,5.44-24a4,4,0,0,0-4.59-5.39A104.16,104.16,0,0,0,24.07,131.66C26,186.72,71.23,231,126.32,231.9a104,104,0,0,0,7.84-207.8ZM80,127.91a12,12,0,1,1,12,12A12,12,0,0,1,80,127.91Zm80.27,54.77a61,61,0,0,1-64.54,0,8,8,0,0,1,8.54-13.54,45,45,0,0,0,47.46,0,8,8,0,0,1,8.54,13.54ZM164,139.91a12,12,0,1,1,12-12A12,12,0,0,1,164,139.91Z"/>',
+      'investments': '<path d="M240,120a8,8,0,0,1-8,8H200v32h8a16,16,0,0,1,16,16v32a16,16,0,0,1-16,16H176a16,16,0,0,1-16-16V176a16,16,0,0,1,16-16h8V128H72v32h8a16,16,0,0,1,16,16v32a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V176a16,16,0,0,1,16-16h8V128H24a8,8,0,0,1,0-16h96V88h-8A16,16,0,0,1,96,72V40a16,16,0,0,1,16-16h32a16,16,0,0,1,16,16V72a16,16,0,0,1-16,16h-8v24h96A8,8,0,0,1,240,120Z"/>',
+      'realty': '<path d="M239.73,208H224V96a16,16,0,0,0-16-16H164a4,4,0,0,0-4,4V208H144V32.41a16.43,16.43,0,0,0-6.16-13,16,16,0,0,0-18.72-.69L39.12,72A16,16,0,0,0,32,85.34V208H16.27A8.18,8.18,0,0,0,8,215.47,8,8,0,0,0,16,224H240a8,8,0,0,0,8-8.53A8.18,8.18,0,0,0,239.73,208ZM76,184a8,8,0,0,1-8.53,8A8.18,8.18,0,0,1,60,183.72V168.27A8.19,8.19,0,0,1,67.47,160,8,8,0,0,1,76,168Zm0-56a8,8,0,0,1-8.53,8A8.19,8.19,0,0,1,60,127.72V112.27A8.19,8.19,0,0,1,67.47,104,8,8,0,0,1,76,112Zm40,56a8,8,0,0,1-8.53,8,8.18,8.18,0,0,1-7.47-8.26V168.27a8.19,8.19,0,0,1,7.47-8.26,8,8,0,0,1,8.53,8Zm0-56a8,8,0,0,1-8.53,8,8.19,8.19,0,0,1-7.47-8.26V112.27a8.19,8.19,0,0,1,7.47-8.26,8,8,0,0,1,8.53,8Z"/>',
+      'vehicles-chattels': '<path d="M240,104H229.2L201.42,41.5A16,16,0,0,0,186.8,32H69.2a16,16,0,0,0-14.62,9.5L26.8,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16v-8h96v8a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM44.31,104,69.2,48H186.8l24.89,56Z"/>',
+      'financial-investments': '<path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM200,192H56a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v76.69l34.34-34.35a8,8,0,0,1,11.32,0L128,132.69,172.69,88H144a8,8,0,0,1,0-16h48a8,8,0,0,1,8,8v48a8,8,0,0,1-16,0V99.31l-50.34,50.35a8,8,0,0,1-11.32,0L104,131.31l-40,40V176H200a8,8,0,0,1,0,16Z"/>',
+      'savings': '<path d="M226,88.08c-.4-1-.82-2-1.25-3a87.93,87.93,0,0,0-30.17-37H216a8,8,0,0,0,0-16H112a88.12,88.12,0,0,0-87.72,81A32,32,0,0,0,0,144a8,8,0,0,0,16,0,16,16,0,0,1,8.57-14.16A87.69,87.69,0,0,0,46,178.22l12.56,35.16A16,16,0,0,0,73.64,224H86.36a16,16,0,0,0,15.07-10.62l1.92-5.38h57.3l1.92,5.38A16,16,0,0,0,177.64,224h12.72a16,16,0,0,0,15.07-10.62L221.64,168H224a24,24,0,0,0,24-24V112A24,24,0,0,0,226,88.08ZM152,72H112a8,8,0,0,1,0-16h40a8,8,0,0,1,0,16Zm28,56a12,12,0,1,1,12-12A12,12,0,0,1,180,128Z"/>',
+      'collections': '<path d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"/>',
+      'allowance': '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm38.32,72H176a8,8,0,0,1,0,16h-8.19A44.06,44.06,0,0,1,124,152H111.32l53.59,41.69a8,8,0,1,1-9.82,12.62l-72-56A8,8,0,0,1,88,136h36a28,28,0,0,0,27.71-24H88a8,8,0,0,1,0-16h61.29A28,28,0,0,0,124,80H88a8,8,0,0,1,0-16h88a8,8,0,0,1,0,16H157.92A43.87,43.87,0,0,1,166.32,96Z"/>',
+      'child-support': '<path d="M134.16,24.1a4,4,0,0,0-3.56,1.81C120.3,41.48,120,55.79,120,56a8,8,0,0,0,9.68,7.79A8.24,8.24,0,0,0,136,55.68,8,8,0,0,1,144.8,48a8.14,8.14,0,0,1,7.2,8.23,24,24,0,0,1-48-.27c0-.63.09-10.78,5.44-24a4,4,0,0,0-4.59-5.39A104.16,104.16,0,0,0,24.07,131.66C26,186.72,71.23,231,126.32,231.9a104,104,0,0,0,7.84-207.8ZM80,127.91a12,12,0,1,1,12,12A12,12,0,0,1,80,127.91Zm80.27,54.77a61,61,0,0,1-64.54,0,8,8,0,0,1,8.54-13.54,45,45,0,0,0,47.46,0,8,8,0,0,1,8.54,13.54ZM164,139.91a12,12,0,1,1,12-12A12,12,0,0,1,164,139.91Z"/>',
+      'income': '<path d="M128.09,57.38a36,36,0,0,1,55.17-27.82,4,4,0,0,1-.56,7A52.06,52.06,0,0,0,152,84c0,1.17,0,2.34.12,3.49a4,4,0,0,1-6,3.76A36,36,0,0,1,128.09,57.38ZM240,160.61a24.47,24.47,0,0,1-13.6,22l-.44.2-38.83,16.54a6.94,6.94,0,0,1-1.19.4l-64,16A7.93,7.93,0,0,1,120,216H16A16,16,0,0,1,0,200V160a16,16,0,0,1,16-16H44.69l22.62-22.63A31.82,31.82,0,0,1,89.94,112H140a28,28,0,0,1,27.25,34.45l41.84-9.62A24.61,24.61,0,0,1,240,160.61Zm-16,0a8.61,8.61,0,0,0-10.87-8.3l-.31.08-67,15.41a8.32,8.32,0,0,1-1.79.2H112a8,8,0,0,1,0-16h28a12,12,0,0,0,0-24H89.94a15.86,15.86,0,0,0-11.31,4.69L56,155.31V200h63l62.43-15.61,38-16.18A8.56,8.56,0,0,0,224,160.61ZM168,84a36,36,0,1,0,36-36A36,36,0,0,0,168,84Z"/>',
+      'wage-invoices': '<path d="M28,128a8,8,0,0,1,0-16H56a8,8,0,0,0,0-16H40a24,24,0,0,1,0-48,8,8,0,0,1,16,0h8a8,8,0,0,1,0,16H40a8,8,0,0,0,0,16H56a24,24,0,0,1,0,48,8,8,0,0,1-16,0ZM224,48H96a8,8,0,0,0,0,16H216V96H104a8,8,0,0,0,0,16h56v32H80a8,8,0,0,0,0,16h80v32H40V152a8,8,0,0,0-16,0v40a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48Z"/>',
+      'interests-dividends': '<path d="M176,172a12,12,0,1,1-12-12A12,12,0,0,1,176,172ZM92,96A12,12,0,1,0,80,84,12,12,0,0,0,92,96ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM64,84A28,28,0,1,0,92,56,28,28,0,0,0,64,84Zm128,88a28,28,0,1,0-28,28A28,28,0,0,0,192,172ZM189.66,66.34a8,8,0,0,0-11.32,0l-112,112a8,8,0,0,0,11.32,11.32l112-112A8,8,0,0,0,189.66,66.34Z"/>',
+      'sale': '<path d="M243.31,136,144,36.69A15.86,15.86,0,0,0,132.69,32H40a8,8,0,0,0-8,8v92.69A15.86,15.86,0,0,0,36.69,144L136,243.31a16,16,0,0,0,22.63,0l84.68-84.68a16,16,0,0,0,0-22.63ZM84,96A12,12,0,1,1,96,84,12,12,0,0,1,84,96Z"/>',
+      'rental-income': '<path d="M224,120v96a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V120a15.87,15.87,0,0,1,4.69-11.32l80-80a16,16,0,0,1,22.62,0l80,80A15.87,15.87,0,0,1,224,120Z"/>',
+      'dues-grants': '<path d="M225.86,102.82c-3.77-3.94-7.67-8-9.14-11.57-1.36-3.27-1.44-8.69-1.52-13.94-.15-9.76-.31-20.82-8-28.51s-18.75-7.85-28.51-8c-5.25-.08-10.67-.16-13.94-1.52-3.56-1.47-7.63-5.37-11.57-9.14C146.28,23.51,138.44,16,128,16s-18.27,7.51-25.18,14.14c-3.94,3.77-8,7.67-11.57,9.14C88,40.64,82.56,40.72,77.31,40.8c-9.76.15-20.82.31-28.51,8S41,67.55,40.8,77.31c-.08,5.25-.16,10.67-1.52,13.94-1.47,3.56-5.37,7.63-9.14,11.57C23.51,109.72,16,117.56,16,128s7.51,18.27,14.14,25.18c3.77,3.94,7.67,8,9.14,11.57,1.36,3.27,1.44,8.69,1.52,13.94.15,9.76.31,20.82,8,28.51s18.75,7.85,28.51,8c5.25.08,10.67.16,13.94,1.52,3.56,1.47,7.63,5.37,11.57,9.14C109.72,232.49,117.56,240,128,240s18.27-7.51,25.18-14.14c3.94-3.77,8-7.67,11.57-9.14,3.27-1.36,8.69-1.44,13.94-1.52,9.76-.15,20.82-.31,28.51-8s7.85-18.75,8-28.51c.08-5.25.16-10.67,1.52-13.94,1.47-3.56,5.37-7.63,9.14-11.57C232.49,146.28,240,138.44,240,128S232.49,109.73,225.86,102.82Zm-52.2,6.84-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/>',
+      'lending-renting': '<path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM90.34,114.34a8,8,0,0,1,11.32,0L120,132.69V72a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32A8,8,0,0,1,90.34,114.34ZM208,208H48V168H76.69L96,187.32A15.89,15.89,0,0,0,107.31,192h41.38A15.86,15.86,0,0,0,160,187.31L179.31,168H208v40Z"/>',
+      'checks-coupons': '<path d="M224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Zm5.66-58.34-96,96A8,8,0,0,1,128,168H96a8,8,0,0,1-8-8V128a8,8,0,0,1,2.34-5.66l96-96a8,8,0,0,1,11.32,0l32,32A8,8,0,0,1,229.66,69.66Zm-17-5.66L192,43.31,179.31,56,200,76.69Z"/>',
+      'income-lottery': '<path d="M192,32H64A32,32,0,0,0,32,64V192a32,32,0,0,0,32,32H192a32,32,0,0,0,32-32V64A32,32,0,0,0,192,32ZM92,176a12,12,0,1,1,12-12A12,12,0,0,1,92,176Zm0-72a12,12,0,1,1,12-12A12,12,0,0,1,92,104Zm36,36a12,12,0,1,1,12-12A12,12,0,0,1,128,140Zm36,36a12,12,0,1,1,12-12A12,12,0,0,1,164,176Zm0-72a12,12,0,1,1,12-12A12,12,0,0,1,164,104Z"/>',
+      'refunds': '<path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L60.63,81.29l17,17A8,8,0,0,1,72,112H24a8,8,0,0,1-8-8V56A8,8,0,0,1,29.66,50.3L49.31,70,60.25,60A96,96,0,0,1,224,128Z"/>',
+      'income-child-support': '<path d="M134.16,24.1a4,4,0,0,0-3.56,1.81C120.3,41.48,120,55.79,120,56a8,8,0,0,0,9.68,7.79A8.24,8.24,0,0,0,136,55.68,8,8,0,0,1,144.8,48a8.14,8.14,0,0,1,7.2,8.23,24,24,0,0,1-48-.27c0-.63.09-10.78,5.44-24a4,4,0,0,0-4.59-5.39A104.16,104.16,0,0,0,24.07,131.66C26,186.72,71.23,231,126.32,231.9a104,104,0,0,0,7.84-207.8ZM80,127.91a12,12,0,1,1,12,12A12,12,0,0,1,80,127.91Zm80.27,54.77a61,61,0,0,1-64.54,0,8,8,0,0,1,8.54-13.54,45,45,0,0,0,47.46,0,8,8,0,0,1,8.54,13.54ZM164,139.91a12,12,0,1,1,12-12A12,12,0,0,1,164,139.91Z"/>',
+      'income-gifts': '<path d="M216,72H180.92c.39-.33.79-.65,1.17-1A29.53,29.53,0,0,0,192,49.57,32.62,32.62,0,0,0,158.44,16,29.53,29.53,0,0,0,137,25.91a54.94,54.94,0,0,0-9,14.48,54.94,54.94,0,0,0-9-14.48A29.53,29.53,0,0,0,97.56,16,32.62,32.62,0,0,0,64,49.57,29.53,29.53,0,0,0,73.91,71c.38.33.78.65,1.17,1H40A16,16,0,0,0,24,88v32a16,16,0,0,0,16,16v64a16,16,0,0,0,16,16h60a4,4,0,0,0,4-4V120H40V88h80v32h16V88h80v32H136v92a4,4,0,0,0,4,4h60a16,16,0,0,0,16-16V136a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72ZM84.51,59a13.69,13.69,0,0,1-4.5-10A16.62,16.62,0,0,1,96.59,32h.49a13.69,13.69,0,0,1,10,4.5c8.39,9.48,11.35,25.2,12.39,34.92C109.71,70.39,94,67.43,84.51,59Zm87,0c-9.49,8.4-25.24,11.36-35,12.4C137.7,60.89,141,45.5,149,36.51a13.69,13.69,0,0,1,10-4.5h.49A16.62,16.62,0,0,1,176,49.08,13.69,13.69,0,0,1,171.49,59Z"/>',
+      'debts': '<path d="M248,208a8,8,0,0,1-8,8H16a8,8,0,0,1,0-16H240A8,8,0,0,1,248,208ZM16.3,98.18a8,8,0,0,1,3.51-9l104-64a8,8,0,0,1,8.38,0l104,64A8,8,0,0,1,232,104H208v64h16a8,8,0,0,1,0,16H32a8,8,0,0,1,0-16H48V104H24A8,8,0,0,1,16.3,98.18ZM144,160a8,8,0,0,0,16,0V112a8,8,0,0,0-16,0Zm-48,0a8,8,0,0,0,16,0V112a8,8,0,0,0-16,0Z"/>',
+      'transfer': '<path d="M42.34,85.66a8,8,0,0,1,0-11.32l32-32A8,8,0,0,1,88,48V72H208a8,8,0,0,1,0,16H88v24a8,8,0,0,1-13.66,5.66Zm171.32,84.68-32-32A8,8,0,0,0,168,144v24H48a8,8,0,0,0,0,16H168v24a8,8,0,0,0,13.66,5.66l32-32A8,8,0,0,0,213.66,170.34Z"/>',
+      'shopping-list': '<path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM117.66,149.66l-32,32a8,8,0,0,1-11.32,0l-16-16a8,8,0,0,1,11.32-11.32L80,164.69l26.34-26.35a8,8,0,0,1,11.32,11.32Zm0-64-32,32a8,8,0,0,1-11.32,0l-16-16A8,8,0,0,1,69.66,90.34L80,100.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM192,168H144a8,8,0,0,1,0-16h48a8,8,0,0,1,0,16Zm0-64H144a8,8,0,0,1,0-16h48a8,8,0,0,1,0,16Z"/>',
+      'oneclick': '<path d="M213.85,125.46l-112,120a8,8,0,0,1-13.69-7l14.66-73.33L45.19,143.49a8,8,0,0,1-3-13l112-120a8,8,0,0,1,13.69,7L153.18,90.9l57.63,21.61a8,8,0,0,1,3,12.95Z"/>',
+      'bank-statements': '<path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,176H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Zm0-32H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Zm-8-56V44l44,44Z"/>',
+      'unknown': '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a12,12,0,1,1,12-12A12,12,0,0,1,128,192Zm8-48.72V144a8,8,0,0,1-16,0v-8a8,8,0,0,1,8-8c13.23,0,24-9,24-20s-10.77-20-24-20-24,9-24,20v4a8,8,0,0,1-16,0v-4c0-19.85,17.94-36,40-36s40,16.15,40,36C168,125.38,154.24,139.93,136,143.28Z"/>',
+    };
+
+    // A category the tables have never heard of still gets a marker: a dot, in
+    // the muted tone the pie already uses for "everything else".
+    const ICON_FALLBACK = '<circle cx="128" cy="128" r="34" />';
+
+    // The tile every transaction badge wears: one solid brown under a white
+    // glyph, sampled from the reference the row anatomy came from. Deliberately
+    // not the group's colour — a screenful of rows then reads as one family,
+    // the way the reference's own rows do. The pie is untouched: it has always
+    // drawn its wedges from PIE_COLORS rather than from the groups.
+    const BADGE_COLOR = '#866845';
+
+    // The marker: one filled glyph, white, on one solid tile. The picker's rows
+    // wear the same fill as the transaction rows, so a category looks the same
+    // wherever the mockup shows it.
+    const markerHtml = (slug, className) => {
+      const icon = CATEGORY_ICONS[slug] || ICON_FALLBACK;
+      return `<span class="${className}" style="background:${BADGE_COLOR};color:#ffffff">`
+        + `<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">${icon}</svg>`
+        + `</span>`;
+    };
+
+    // The same mark at legend size, drawn in a given colour rather than on a
+    // tile — the pie's wedges are not the groups' colours.
+    const legendIconHtml = (slug, colour) =>
+      `<svg class="cat-legend__icon" style="color:${colour}" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">${CATEGORY_ICONS[slug] || ICON_FALLBACK}</svg>`;
+
+    // The mockup's "now" — October 2026, matching the Home header.
+    const TODAY = new Date(2026, 9, 12);
+
+    const isoOf = (date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    const shiftDays = (date, days) => {
+      const copy = new Date(date);
+      copy.setDate(copy.getDate() + days);
+      return copy;
+    };
+
+    const dayIso = (daysAgo) => isoOf(shiftDays(TODAY, -daysAgo));
+    const TODAY_ISO = dayIso(0);
+
+    // The owner's own Wallet export, expense rows only, newest first — money is
+    // already in rupees and nothing is converted. Regenerate with
+    // `python3 tools/wallet-import.py <export.json>` (see tools/wallet-import.py).
+    const importedExpenses = () => [
+      { id: 1, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 20900, auto: false, date: '2026-10-11' },
+      { id: 2, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-10-09' },
+      { id: 3, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 7000, auto: false, date: '2026-10-09' },
+      { id: 4, title: 'Culture, sport events', kind: 'expense', account: 'upi', category: 'culture-sport', cents: 11870, auto: false, date: '2026-10-06' },
+      { id: 5, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 7500, auto: false, date: '2026-10-06' },
+      { id: 6, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 500, auto: false, date: '2026-10-06' },
+      { id: 7, title: 'Public transport', kind: 'expense', account: 'upi', category: 'public-transport', cents: 6000, auto: false, date: '2026-10-06' },
+      { id: 8, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-10-05' },
+      { id: 9, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-10-05' },
+      { id: 10, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 13100, auto: false, date: '2026-10-04' },
+      { id: 11, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 2000, auto: false, date: '2026-10-03' },
+      { id: 12, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-10-02' },
+      { id: 13, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 5000, auto: false, date: '2026-10-02' },
+      { id: 14, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 27800, auto: false, date: '2026-09-30' },
+      { id: 15, title: 'Books, audio, subscriptions', kind: 'expense', account: 'upi', category: 'books-subs', cents: 6900, auto: true, date: '2026-09-30' },
+      { id: 16, title: 'Wellness, beauty', kind: 'expense', account: 'upi', category: 'wellness', cents: 7000, auto: false, date: '2026-09-29' },
+      { id: 17, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 6000, auto: false, date: '2026-09-29' },
+      { id: 18, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 4500, auto: false, date: '2026-09-27' },
+      { id: 19, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-09-26' },
+      { id: 20, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 14900, auto: false, date: '2026-09-25' },
+      { id: 21, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 13900, auto: false, date: '2026-09-23' },
+      { id: 22, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 13600, auto: false, date: '2026-09-21' },
+      { id: 23, title: 'Mobile Recharge', kind: 'expense', account: 'upi', category: 'mobile-recharge', cents: 40000, auto: false, date: '2026-09-20' },
+      { id: 24, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 27800, auto: false, date: '2026-09-20' },
+      { id: 25, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-09-19' },
+      { id: 26, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 6000, auto: false, date: '2026-09-18' },
+      { id: 27, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 7800, auto: false, date: '2026-09-17' },
+      { id: 28, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 2500, auto: false, date: '2026-09-17' },
+      { id: 29, title: 'Education, development', kind: 'expense', account: 'upi', category: 'education', cents: 25200, auto: false, date: '2026-09-15' },
+      { id: 30, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-09-14' },
+      { id: 31, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 24000, auto: false, date: '2026-09-13' },
+      { id: 32, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-09-12' },
+      { id: 33, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 3500, auto: false, date: '2026-09-11' },
+      { id: 34, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 13900, auto: false, date: '2026-09-11' },
+      { id: 35, title: 'Education, development', kind: 'expense', account: 'upi', category: 'education', cents: 20100, auto: false, date: '2026-09-11' },
+      { id: 36, title: 'Health and beauty', kind: 'expense', account: 'upi', category: 'health-beauty', cents: 17500, auto: false, date: '2026-09-10' },
+      { id: 37, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 20100, auto: false, date: '2026-09-09' },
+      { id: 38, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 20100, auto: false, date: '2026-09-09' },
+      { id: 39, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-09-08' },
+      { id: 40, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 3000, auto: false, date: '2026-09-08' },
+      { id: 41, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-09-07' },
+      { id: 42, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 4000, auto: false, date: '2026-09-07' },
+      { id: 43, title: 'Allowance', kind: 'income', account: 'upi', category: 'allowance', cents: 500000, auto: true, date: '2026-09-06' },
+      { id: 44, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 15000, auto: false, date: '2026-09-06' },
+      { id: 45, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2500, auto: false, date: '2026-09-05' },
+      { id: 46, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 4800, auto: false, date: '2026-09-05' },
+      { id: 47, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 5000, auto: false, date: '2026-09-03' },
+      { id: 48, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 16000, auto: false, date: '2026-09-02' },
+      { id: 49, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 27800, auto: false, date: '2026-09-01' },
+      { id: 50, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 16000, auto: false, date: '2026-09-01' },
+      { id: 51, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 18000, auto: false, date: '2026-09-01' },
+      { id: 52, title: 'Books, audio, subscriptions', kind: 'expense', account: 'upi', category: 'books-subs', cents: 6900, auto: true, date: '2026-08-31' },
+      { id: 53, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-08-31' },
+      { id: 54, title: 'Restaurant, fast-food', kind: 'expense', account: 'cash', category: 'restaurant', cents: 13900, auto: false, date: '2026-08-29' },
+      { id: 55, title: 'Friends', kind: 'expense', account: 'cash', category: 'friends', cents: 10000, auto: false, date: '2026-08-29' },
+      { id: 56, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-28' },
+      { id: 57, title: 'Public transport', kind: 'expense', account: 'upi', category: 'public-transport', cents: 2000, auto: false, date: '2026-08-27' },
+      { id: 58, title: 'Stationery, tools', kind: 'expense', account: 'cash', category: 'stationery', cents: 2000, auto: false, date: '2026-08-27' },
+      { id: 59, title: 'Public transport', kind: 'expense', account: 'upi', category: 'public-transport', cents: 2000, auto: false, date: '2026-08-26' },
+      { id: 60, title: 'Mobile Recharge', kind: 'expense', account: 'upi', category: 'mobile-recharge', cents: 40090, auto: false, date: '2026-08-26' },
+      { id: 61, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-25' },
+      { id: 62, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-08-25' },
+      { id: 63, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 10000, auto: false, date: '2026-08-25' },
+      { id: 64, title: 'Stationery, tools', kind: 'expense', account: 'cash', category: 'stationery', cents: 3000, auto: false, date: '2026-08-25' },
+      { id: 65, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 10000, auto: false, date: '2026-08-23' },
+      { id: 66, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-08-22' },
+      { id: 67, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 11500, auto: false, date: '2026-08-22' },
+      { id: 68, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-21' },
+      { id: 69, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 500, auto: false, date: '2026-08-21' },
+      { id: 70, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 3900, auto: false, date: '2026-08-20' },
+      { id: 71, title: 'Restaurant, fast-food', kind: 'expense', account: 'cash', category: 'restaurant', cents: 10000, auto: false, date: '2026-08-20' },
+      { id: 72, title: 'Allowance', kind: 'income', account: 'upi', category: 'allowance', cents: 750000, auto: false, date: '2026-08-19' },
+      { id: 73, title: 'Long distance', kind: 'expense', account: 'upi', category: 'long-distance', cents: 734500, auto: false, date: '2026-08-19' },
+      { id: 74, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-19' },
+      { id: 75, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-18' },
+      { id: 76, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 13900, auto: false, date: '2026-08-18' },
+      { id: 77, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-08-18' },
+      { id: 78, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-08-17' },
+      { id: 79, title: 'Public transport', kind: 'expense', account: 'upi', category: 'public-transport', cents: 6000, auto: false, date: '2026-08-16' },
+      { id: 80, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 7000, auto: false, date: '2026-08-16' },
+      { id: 81, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 7500, auto: false, date: '2026-08-14' },
+      { id: 82, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 24500, auto: false, date: '2026-08-14' },
+      { id: 83, title: 'Health and beauty', kind: 'expense', account: 'upi', category: 'health-beauty', cents: 39500, auto: false, date: '2026-08-14' },
+      { id: 84, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 11000, auto: false, date: '2026-08-14' },
+      { id: 85, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-13' },
+      { id: 86, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 4000, auto: false, date: '2026-08-10' },
+      { id: 87, title: 'Allowance', kind: 'income', account: 'upi', category: 'allowance', cents: 500000, auto: true, date: '2026-08-09' },
+      { id: 88, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-09' },
+      { id: 89, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 16900, auto: false, date: '2026-08-09' },
+      { id: 90, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-09' },
+      { id: 91, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 6000, auto: false, date: '2026-08-08' },
+      { id: 92, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 8400, auto: false, date: '2026-08-07' },
+      { id: 93, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 1000, auto: false, date: '2026-08-06' },
+      { id: 94, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-08-05' },
+      { id: 95, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 15000, auto: false, date: '2026-08-02' },
+      { id: 96, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2000, auto: false, date: '2026-08-02' },
+      { id: 97, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-08-01' },
+      { id: 98, title: 'Health and beauty', kind: 'expense', account: 'upi', category: 'health-beauty', cents: 12500, auto: false, date: '2026-07-31' },
+      { id: 99, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 3800, auto: false, date: '2026-07-31' },
+      { id: 100, title: 'Books, audio, subscriptions', kind: 'expense', account: 'upi', category: 'books-subs', cents: 6900, auto: false, date: '2026-07-28' },
+      { id: 101, title: 'Phone, cell phone', kind: 'expense', account: 'upi', category: 'phone', cents: 40000, auto: false, date: '2026-07-28' },
+      { id: 102, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-07-28' },
+      { id: 103, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 4000, auto: false, date: '2026-07-27' },
+      { id: 104, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 2800, auto: false, date: '2026-07-27' },
+      { id: 105, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 4000, auto: false, date: '2026-07-25' },
+      { id: 106, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 16300, auto: false, date: '2026-07-25' },
+      { id: 107, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 16200, auto: false, date: '2026-07-25' },
+      { id: 108, title: 'Food & Drinks', kind: 'expense', account: 'upi', category: 'food-drinks', cents: 10000, auto: false, date: '2026-07-24' },
+      { id: 109, title: 'Friends', kind: 'expense', account: 'upi', category: 'friends', cents: 267, auto: false, date: '2026-07-23' },
+      { id: 110, title: 'Bar, cafe', kind: 'expense', account: 'upi', category: 'bar-cafe', cents: 2800, auto: false, date: '2026-07-23' },
+      { id: 111, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 16100, auto: false, date: '2026-07-23' },
+      { id: 112, title: 'Stationery, tools', kind: 'expense', account: 'cash', category: 'stationery', cents: 2000, auto: false, date: '2026-07-23' },
+      { id: 113, title: 'Stationery, tools', kind: 'expense', account: 'cash', category: 'stationery', cents: 10500, auto: false, date: '2026-07-23' },
+      { id: 114, title: 'Public transport', kind: 'expense', account: 'cash', category: 'public-transport', cents: 6000, auto: false, date: '2026-07-22' },
+      { id: 115, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 3300, auto: false, date: '2026-07-21' },
+      { id: 116, title: 'Stationery, tools', kind: 'expense', account: 'upi', category: 'stationery', cents: 30000, auto: false, date: '2026-07-21' },
+      { id: 117, title: 'Friends', kind: 'income', account: 'upi', category: 'friends', cents: 3000, auto: false, date: '2026-07-19' },
+      { id: 118, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 5000, auto: false, date: '2026-07-19' },
+      { id: 119, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 9000, auto: false, date: '2026-07-19' },
+      { id: 120, title: 'Bar, cafe', kind: 'expense', account: 'upi', category: 'bar-cafe', cents: 2000, auto: false, date: '2026-07-18' },
+      { id: 121, title: 'Restaurant, fast-food', kind: 'expense', account: 'upi', category: 'restaurant', cents: 15000, auto: false, date: '2026-07-16' },
+      { id: 122, title: 'Bar, cafe', kind: 'expense', account: 'upi', category: 'bar-cafe', cents: 2000, auto: false, date: '2026-07-15' },
+    ];
+
+    const byNewestFirst = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+    // --------------------------------------------------------------------
+    // Storage — local-first like the real app, but one localStorage key,
+    // because this mockup is a single file with no IndexedDB helpers.
+    // --------------------------------------------------------------------
+    const STORE_KEY = 'trackit.mockup.expenses.v1';
+
+    // A missing `kind` means an expense, so rows written before income existed
+    // (and hand-written files) keep loading. A missing `account` means the
+    // primary account, for the same reason: accounts came after the first
+    // import, and a balance card cannot invent a third slide.
+    const isStoredExpense = (row) =>
+      !!row &&
+      Number.isInteger(row.cents) &&
+      typeof row.title === 'string' &&
+      typeof row.category === 'string' &&
+      typeof row.date === 'string' &&
+      (row.kind === undefined || row.kind === 'expense' || row.kind === 'income') &&
+      (row.account === undefined || ACCOUNTS.some((account) => account.slug === row.account)) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(row.date);
+
+    // Anything unrecognised falls back to the imported data, not to junk.
+    function loadExpenses() {
+      try {
+        const raw = window.localStorage.getItem(STORE_KEY);
+        if (raw) {
+          const rows = JSON.parse(raw);
+          if (Array.isArray(rows) && rows.length && rows.every(isStoredExpense)) return rows;
+        }
+      } catch (error) {
+        /* private mode, or a corrupted payload — the import is the fallback */
+      }
+
+      // Drop what was there, so a bad payload is not re-parsed on every load.
+      try {
+        window.localStorage.removeItem(STORE_KEY);
+      } catch (error) {
+        /* nothing to repair when storage itself is unavailable */
+      }
+      return null;
+    }
+
+    function persistExpenses() {
+      try {
+        window.localStorage.setItem(STORE_KEY, JSON.stringify(expenses));
+      } catch (error) {
+        /* Storage unavailable: the mockup still works, it just forgets. */
+      }
+    }
+
+    // One dataset for the whole app — every screen filters this same list.
+    const expenses = loadExpenses() || importedExpenses();
+
+    // ====================================================================
+    // Helpers
+    // ====================================================================
+    // Rupees with Indian digit grouping — ₹1,23,456.78, not $123,456.78.
+    const money = (cents) =>
+      '₹' + (cents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // ₹1,23,456.78 -> ₹1,23,456<span>.78</span>, so the paise can be dimmed.
+    const splitAmount = (formatted) => {
+      const at = formatted.lastIndexOf('.');
+      return `${formatted.slice(0, at)}<span>${formatted.slice(at)}</span>`;
+    };
+
+    // Income is a kind of entry, never negative spending: every sum has to ask.
+    const isIncome = (e) => e.kind === 'income';
+
+    // Which account a row moved through; an older row has none of its own.
+    const accountOf = (e) => e.account || ACCOUNT_FALLBACK;
+
+    const escapeHtml = (value) =>
+      String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // Day headings are derived from the stored date, never hard-coded.
+    const dayLabel = (iso) => {
+      if (iso === TODAY_ISO) return 'Today';
+      if (iso === dayIso(1)) return 'Yesterday';
+      return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const longDate = (iso) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    // Every transaction row says the day it happened, the way the reference does.
+    const rowDate = (iso) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    // ====================================================================
+    // Home rendering
+    // ====================================================================
+    const canvas = document.getElementById('goalCanvas');
+    const ctx = canvas.getContext('2d');
+    const catCanvas = document.getElementById('categoryCanvas');
+    const catCtx = catCanvas.getContext('2d');
+
+    // Where a category's wedge sits in the pie. Four is what a card this size
+    // can label; the tail of the ranking is summed into one "other" wedge.
+    const PIE_WEDGES = 4;
+    const PIE_COLORS = ['#f3e07b', '#d4af37', '#c97a4f', '#8c7a65', '#6b6153'];
+
+    function drawRing(percent) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const size = Math.round(rect.width * dpr);
+      if (canvas.width !== size) {
+        canvas.width = size;
+        canvas.height = size;
+      }
+
+      const center = size / 2;
+      const lineWidth = size * 0.09;
+      const radius = center - lineWidth / 2 - size * 0.01;
+
+      ctx.clearRect(0, 0, size, size);
+
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#2d241c';
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+
+      const start = -Math.PI / 2;
+      const end = start + 2 * Math.PI * (Math.min(Math.max(percent, 0), 100) / 100);
+
+      ctx.beginPath();
+      ctx.arc(center, center, radius, start, end);
+      ctx.strokeStyle = '#f3e07b';
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // The October budget as a pie: which category each rupee went to. Slices
+    // arrive biggest first and already coloured, so the legend underneath can
+    // be drawn from exactly what the wedges were filled with.
+    function drawPie(slices) {
+      const rect = catCanvas.getBoundingClientRect();
+      if (!rect.width) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const size = Math.round(rect.width * dpr);
+      if (catCanvas.width !== size) {
+        catCanvas.width = size;
+        catCanvas.height = size;
+      }
+
+      const center = size / 2;
+      const radius = center - size * 0.03;
+      const totalCents = slices.reduce((sum, slice) => sum + slice.cents, 0);
+
+      catCtx.clearRect(0, 0, size, size);
+      if (!totalCents) return;
+
+      let angle = -Math.PI / 2;
+      for (const slice of slices) {
+        const sweep = (slice.cents / totalCents) * 2 * Math.PI;
+        catCtx.beginPath();
+        catCtx.moveTo(center, center);
+        catCtx.arc(center, center, radius, angle, angle + sweep);
+        catCtx.closePath();
+        catCtx.fillStyle = slice.color;
+        catCtx.fill();
+        // A hairline of card between wedges, so two warm browns still read apart.
+        catCtx.strokeStyle = '#1c1611';
+        catCtx.lineWidth = Math.max(1, size * 0.012);
+        catCtx.stroke();
+        angle += sweep;
+      }
+    }
+
+    const balanceEl = document.getElementById('total-balance');
+    const totalEl = document.getElementById('month-total');
+    const listMore = document.getElementById('list-more');
+    const ringPct = document.getElementById('ring-pct');
+    const ringFooter = document.getElementById('ring-footer');
+    const txGroups = document.getElementById('tx-groups');
+    const acctCarousel = document.getElementById('acct-carousel');
+    const acctTrack = document.getElementById('acct-track');
+    const acctDots = document.getElementById('acct-dots');
+    const budgetFooter = document.getElementById('budget-footer');
+    const budgetMonth = document.getElementById('budget-month');
+    const catLegend = document.getElementById('cat-legend');
+
+    // The reference's anatomy: the tile, what it was, the day it happened, and
+    // what it cost. The tile already says which category it was — repeating the
+    // category here printed the title twice on every imported row.
+    const rowHtml = (e) => {
+      const income = isIncome(e);
+      return `<div class="tx-row">
+        ${markerHtml(e.category, `tx-icon${income ? ' tx-icon--income' : ''}`)}
+        <div class="tx-main">
+          <div class="tx-title">${escapeHtml(e.title)}${e.auto ? '<span class="tx-badge">AUTO</span>' : ''}</div>
+          <div class="tx-sub">${rowDate(e.date)}</div>
+        </div>
+        <div class="tx-amount${income ? ' tx-amount--income' : ' tx-amount--expense'}">${income ? '+' : '−'}${money(e.cents)}</div>
+      </div>`;
+    };
+
+    // The month's spending, biggest category first: the pie's wedges.
+    function categorySlices(rows) {
+      const totals = new Map();
+      for (const row of rows) totals.set(row.category, (totals.get(row.category) || 0) + row.cents);
+
+      const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+      const slices = ranked.slice(0, PIE_WEDGES).map(([category, cents], index) => ({
+        category,
+        cents,
+        color: PIE_COLORS[index % PIE_COLORS.length],
+      }));
+
+      const rest = ranked.slice(PIE_WEDGES).reduce((sum, [, cents]) => sum + cents, 0);
+      if (rest) slices.push({ category: null, cents: rest, color: PIE_COLORS[PIE_COLORS.length - 1] });
+      return slices;
+    }
+
+    const catMeta = (slice) =>
+      slice.category ? CATEGORY_META[slice.category] || CATEGORY_META.unknown : null;
+
+    // The pie's key: the wedge's colour worn by the category's icon, the
+    // category's name and what it took. The full label is also the row's title.
+    const catLegendHtml = (slice) => {
+      const meta = catMeta(slice);
+      return `<div class="cat-legend__row" title="${escapeHtml(meta ? meta.label : 'Everything else')}">
+        ${legendIconHtml(slice.category || 'unknown', slice.color)}
+        <span class="cat-legend__name">${escapeHtml(meta ? meta.label : 'Everything else')}</span>
+        <span class="cat-legend__amount">${money(slice.cents)}</span>
+      </div>`;
+    };
+
+    // The pie is pixels, so this is what a screen reader is given instead.
+    const catPieLabel = (slices) =>
+      slices.length
+        ? slices
+            .map((slice) => {
+              const meta = catMeta(slice);
+              return `${meta ? meta.label : 'Everything else'} ${money(slice.cents)}`;
+            })
+            .join(' · ')
+        : 'Nothing spent this month';
+
+    // One slide per account: what it holds, how much of the money that is, and
+    // what it has spent this month.
+    const acctSlideHtml = (account, held) => {
+      const share = held ? Math.round((account.balance / held) * 100) : 0;
+      const foot = account.monthSpent
+        ? `${money(account.monthSpent)} spent this month`
+        : 'Nothing spent this month';
+      return `<div class="acct-slide" role="tabpanel" aria-label="${escapeHtml(account.label)}">
+        <div class="acct-top">
+          <span>${escapeHtml(account.label)}</span>
+          <span>${share}% of total</span>
+        </div>
+        <div class="acct-figure">${splitAmount(money(account.balance))}</div>
+        <div class="acct-foot">${foot}</div>
+      </div>`;
+    };
+
+    // A dot is also the button for its slide, so the second account is not
+    // swipe-only.
+    const acctDotHtml = (account, index) =>
+      `<button type="button" class="acct-dot${index === acctIndex ? ' active' : ''}"
+        data-acct="${account.slug}" aria-selected="${index === acctIndex}"
+        aria-label="Show ${escapeHtml(account.label)}"></button>`;
+
+    function renderHome() {
+      // Four different reads of one dataset: the money the accounts hold (every
+      // entry, ever), this month's spending (the budget's business, income
+      // excluded), where that spending went (the pie) and a short list of the
+      // newest entries.
+      const month = TODAY_ISO.slice(0, 7);
+      const inMonth = expenses.filter((e) => !isIncome(e) && e.date.slice(0, 7) === month);
+      const total = inMonth.reduce((sum, e) => sum + e.cents, 0);
+      const percent = (total / BUDGET_CENTS) * 100;
+      const remaining = BUDGET_CENTS - total;
+
+      // Money in the accounts: each one's own opening balance, plus its own
+      // income, minus its own spending. The headline is the two added up.
+      const balances = ACCOUNTS.map((account) => {
+        const mine = expenses.filter((e) => accountOf(e) === account.slug);
+        const received = mine.filter(isIncome).reduce((sum, e) => sum + e.cents, 0);
+        const spent = mine.filter((e) => !isIncome(e)).reduce((sum, e) => sum + e.cents, 0);
+        const monthSpent = mine
+          .filter((e) => !isIncome(e) && e.date.slice(0, 7) === month)
+          .reduce((sum, e) => sum + e.cents, 0);
+        return { ...account, balance: account.opening + received - spent, monthSpent };
+      });
+      const held = balances.reduce((sum, account) => sum + account.balance, 0);
+
+      balanceEl.innerHTML = splitAmount(money(held));
+      totalEl.innerHTML = splitAmount(money(total));
+
+      acctTrack.innerHTML = balances.map((account) => acctSlideHtml(account, held)).join('');
+      acctDots.innerHTML = balances.map(acctDotHtml).join('');
+      paintAcctDots();
+      settleAcct();   // a rebuild lands on the current slide
+
+      // The budget card became this widget: the same month's money, split by
+      // the category each rupee went to, over the budget it is measured against.
+      const slices = categorySlices(inMonth);
+      // The title is the month it is about, like every other heading here.
+      budgetMonth.textContent = `${new Date(`${month}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long' })} budget`;
+      budgetFooter.textContent = `${money(total)} of ${money(BUDGET_CENTS)}`;
+      catLegend.innerHTML = slices.length
+        ? slices.map(catLegendHtml).join('')
+        : '<div class="cat-legend__row"><span class="cat-legend__name">Nothing spent this month</span></div>';
+      catCanvas.setAttribute('role', 'img');
+      catCanvas.setAttribute('aria-label', catPieLabel(slices));
+      drawPie(slices);
+
+      ringPct.textContent = `${Math.round(percent)}%`;
+      ringFooter.textContent = `${money(Math.max(remaining, 0))} remaining`;
+      drawRing(percent);
+
+      // The cap keeps a four-month history off the first screen; the button is
+      // how the rest stays reachable.
+      const listed = homeShowAll ? expenses : expenses.slice(0, HOME_LIST_LIMIT);
+      txGroups.innerHTML = groupByDate(listed)
+        .map((g) => `<div class="day-label">${escapeHtml(dayLabel(g.date))}</div><div class="tx-list">${g.items.map(rowHtml).join('')}</div>`)
+        .join('');
+
+      listMore.hidden = expenses.length <= listed.length;
+      listMore.textContent = homeShowAll
+        ? 'Show fewer'
+        : `Show all ${expenses.length} entries`;
+    }
+
+    // One block per day, in the order the rows arrive (newest first).
+    function groupByDate(rows) {
+      const groups = [];
+      for (const row of rows) {
+        let group = groups.find((g) => g.date === row.date);
+        if (!group) {
+          group = { date: row.date, items: [] };
+          groups.push(group);
+        }
+        group.items.push(row);
+      }
+      return groups;
+    }
+
+    // ====================================================================
+    // Operations screen — the same expenses, filtered to one day
+    // ====================================================================
+    const opsList = document.getElementById('opsList');
+    const calendarStrip = document.getElementById('calendarStrip');
+    const opsDateLabel = document.getElementById('opsDateLabel');
+    const opsRangeLabel = document.getElementById('opsRangeLabel');
+    const OPS_WINDOW_DAYS = 7;
+    let selectedDate = TODAY_ISO;
+
+    // The filter button cycles these; the list is the same data, re-sliced.
+    const RANGE_MODES = ['day', 'week', 'month'];
+    const RANGE_NAME = { day: 'Day', week: 'Week', month: 'Month' };
+    const RANGE_EMPTY = {
+      day: 'Nothing on this day',
+      week: 'Nothing in this week',
+      month: 'Nothing in this month',
+    };
+    let rangeMode = 'day';
+
+    // When a horizontal drag ends, the click that release fires is swallowed —
+    // but only that one, so a deliberate tap is never affected. The proof is
+    // the gesture itself: a release's trailing click arrives before the next
+    // pointerdown can, and any new gesture clears this first.
+    let dragEndedAt = 0;
+    const DRAG_CLICK_WINDOW = 150;   // ms the trailing click can still be in flight
+
+    // The calendar week (Sunday-first) or month containing a date.
+    function weekRange(iso) {
+      const day = new Date(`${iso}T00:00:00`);
+      const sunday = shiftDays(day, -day.getDay());
+      return { start: isoOf(sunday), end: isoOf(shiftDays(sunday, 6)) };
+    }
+
+    function monthRange(iso) {
+      const day = new Date(`${iso}T00:00:00`);
+      return {
+        start: isoOf(new Date(day.getFullYear(), day.getMonth(), 1)),
+        end: isoOf(new Date(day.getFullYear(), day.getMonth() + 1, 0)),
+      };
+    }
+
+    function currentRange() {
+      if (rangeMode === 'week') return weekRange(selectedDate);
+      if (rangeMode === 'month') return monthRange(selectedDate);
+      return { start: selectedDate, end: selectedDate };
+    }
+
+    const shortDate = (iso) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    function rangeLabel() {
+      const { start, end } = currentRange();
+      if (rangeMode === 'week') return `${shortDate(start)} – ${shortDate(end)}`;
+      if (rangeMode === 'month') {
+        return new Date(`${start}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+      return longDate(selectedDate);
+    }
+
+    function renderCalendar() {
+      const { start, end } = currentRange();
+      const days = [];
+      for (let back = OPS_WINDOW_DAYS - 1; back >= 0; back -= 1) days.push(shiftDays(TODAY, -back));
+
+      calendarStrip.innerHTML = days
+        .map((date) => {
+          const iso = isoOf(date);
+          const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+          const classes = ['cal-day'];
+          if (iso === selectedDate) classes.push('active');
+          else if (iso >= start && iso <= end) classes.push('in-range');
+          return `<button type="button" class="${classes.join(' ')}" data-date="${iso}">
+            <span>${weekday}</span><span class="cal-date">${date.getDate()}</span>
+          </button>`;
+        })
+        .join('');
+    }
+
+    function renderOperations() {
+      renderCalendar();
+      opsDateLabel.textContent = rangeLabel();
+      opsRangeLabel.textContent = RANGE_NAME[rangeMode];
+
+      const { start, end } = currentRange();
+      const inRange = expenses.filter((e) => e.date >= start && e.date <= end);
+      if (!inRange.length) {
+        opsList.innerHTML = `<div class="empty-state">
+          <span class="empty-state__title">${RANGE_EMPTY[rangeMode]}</span>
+          <span class="empty-state__note">Add one and it shows here and on Home.</span>
+        </div>`;
+        return;
+      }
+
+      // Spending and income are both listed, but only spending is a total.
+      const spent = inRange.filter((e) => !isIncome(e));
+      const received = inRange.filter(isIncome);
+      const spentTotal = spent.reduce((sum, e) => sum + e.cents, 0);
+      const receivedTotal = received.reduce((sum, e) => sum + e.cents, 0);
+      const body = rangeMode === 'day'
+        ? `<div class="tx-list">${inRange.map(rowHtml).join('')}</div>`
+        : groupByDate(inRange)
+          .map((g) => `<div class="day-label">${escapeHtml(dayLabel(g.date))}</div><div class="tx-list">${g.items.map(rowHtml).join('')}</div>`)
+          .join('');
+
+      const summary = received.length
+        ? `${inRange.length} entries · spent ${money(spentTotal)} · in ${money(receivedTotal)}`
+        : `${spent.length} ${spent.length === 1 ? 'expense' : 'expenses'} · ${money(spentTotal)}`;
+
+      opsList.innerHTML = `${body}
+        <div class="ops-total">${summary}</div>`;
+    }
+
+    calendarStrip.addEventListener('click', (event) => {
+      const day = event.target.closest('.cal-day');
+      if (!day) return;
+      selectedDate = day.dataset.date;
+      renderOperations();
+    });
+
+    // Day → Week → Month, over the same data.
+    document.getElementById('ops-filter').addEventListener('click', () => {
+      rangeMode = RANGE_MODES[(RANGE_MODES.indexOf(rangeMode) + 1) % RANGE_MODES.length];
+      renderOperations();
+    });
+
+    // ====================================================================
+    // Screen switching — one track, five screens, driven by the finger
+    // ====================================================================
+    const swipeArea = document.querySelector('.app-content');
+    const track = document.getElementById('track');
+    const screens = Array.from(document.querySelectorAll('.screen'));
+    const railItems = document.querySelectorAll('.nav-item[data-screen]');
+    // The third screen is where the money is entered, so it sits right after the
+    // day-by-day view, which is how the owner reaches for it.
+    const SCREEN_ORDER = ['home', 'operations', 'add', 'cards', 'profile'];
+    let screenIndex = 0;
+    let currentScreen = 'home';
+
+    // A tap lands on the next frame; a release eases over this many ms. Long
+    // enough that a flick carrying two or three screens is *seen* to carry them,
+    // short enough that the page is there as the finger leaves — the 300ms this
+    // used to be is what read as a delay.
+    const RELEASE_SLIDE = 120;   // ms a release is eased over
+
+    function trackWidth() {
+      return track.clientWidth || swipeArea.clientWidth || window.innerWidth;
+    }
+
+    function setTrack(offset) {
+      track.style.transform = `translateX(${(-screenIndex * trackWidth()) + offset}px)`;
+      // Older engines fall back to overflow:hidden, which can still be scrolled.
+      swipeArea.scrollLeft = 0;
+    }
+
+    // Land on the current screen: at once (the default, which is what every tap
+    // asks for), or eased over `duration` ms, which is what a release asks for.
+    function settle(duration = 0) {
+      track.style.setProperty('--track-duration', `${duration}ms`);
+      // Commit the duration before the transform moves, so an engine that reads
+      // the before-change style cannot skip the ease a release asked for.
+      void track.offsetWidth;
+      setTrack(0);
+    }
+
+    function showScreen(name, duration = 0) {
+      const index = SCREEN_ORDER.indexOf(name);
+      if (index < 0) return;
+
+      screenIndex = index;
+      currentScreen = name;
+
+      railItems.forEach((item) => {
+        item.classList.toggle('active', item.dataset.screen === name);
+      });
+
+      // Only the visible screen is reachable — no tabbing into an off-canvas one.
+      screens.forEach((screen, i) => {
+        screen.inert = i !== index;
+      });
+
+      settle(duration);
+
+      // The ring canvas measures itself, so redraw whenever Home is shown.
+      if (name === 'home') renderHome();
+      if (name === 'operations') renderOperations();
+      if (name === 'add') renderCategoryList();
+      if (name === 'profile') renderDataPanel();
+    }
+
+    // Reposition — for resize and the first paint.
+    function jumpToScreen() {
+      settle();
+    }
+
+    railItems.forEach((item) => {
+      item.addEventListener('click', () => {
+        if (item.dataset.screen !== currentScreen) showScreen(item.dataset.screen);
+      });
+    });
+
+    // --------------------------------------------------------------------
+    // Swipe — the track follows the thumb, then eases on release
+    // --------------------------------------------------------------------
+    const EDGE_RESISTANCE = 0.32;   // rubber band past the first/last screen
+    const SNAP_DISTANCE = 0.28;     // share of the width that commits a swipe
+    const FLICK_VELOCITY = 0.5;     // px/ms from which a release counts as a flick
+    const FLICK_PROJECTION = 260;   // ms of further travel a flick is still worth
+    const MAX_FLICK_SCREENS = 3;    // never carry further than this on one flick
+    let drag = null;
+
+    // The reset has to live on the document, not on the swipe area: the tap
+    // that follows a swipe is usually on the rail or on one of the add screen's
+    // category rows, neither of which is inside `.app-content`. Scoped there,
+    // those taps left the flag armed and were eaten for the next 150ms.
+    document.addEventListener(
+      'pointerdown',
+      () => {
+        dragEndedAt = 0;
+      },
+      true,
+    );
+
+    // A click can also arrive with no pointerdown at all — Enter or Space on a
+    // focused button — so the keyboard clears it too.
+    document.addEventListener(
+      'keydown',
+      () => {
+        dragEndedAt = 0;
+      },
+      true,
+    );
+
+    swipeArea.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      // A drag that starts on the balance card belongs to the card's own track:
+      // one finger must never move both it and the screens.
+      if (event.target.closest('.acct-carousel')) return;
+      dragEndedAt = 0;   // a new gesture cancels the click the last one owed
+      drag = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        axis: null,
+        offset: 0,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        velocity: 0,
+      };
+    });
+
+    swipeArea.addEventListener('pointermove', (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+
+      // Decide once whether this gesture is a swipe or a vertical scroll.
+      if (!drag.axis) {
+        const slop = 6;
+        if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (drag.axis === 'x') {
+          // The finger owns the track: no ease at all until the release sets one.
+          track.style.setProperty('--track-duration', '0ms');
+          if (swipeArea.setPointerCapture) {
+            try {
+              swipeArea.setPointerCapture(event.pointerId);
+            } catch (error) {
+              /* synthetic pointers cannot be captured */
+            }
+          }
+        }
+      }
+      if (drag.axis !== 'x') return;
+
+      const elapsed = event.timeStamp - drag.lastTime;
+      if (elapsed > 0) drag.velocity = (event.clientX - drag.lastX) / elapsed;
+      drag.lastX = event.clientX;
+      drag.lastTime = event.timeStamp;
+
+      const next = screenIndex + (dx < 0 ? 1 : -1);
+      const past = next < 0 || next >= SCREEN_ORDER.length;
+      drag.offset = past ? dx * EDGE_RESISTANCE : dx;
+
+      setTrack(drag.offset);
+    });
+
+    // How many screens a release should carry: where the thumb left the track,
+    // plus how much further the flick was worth, rounded to whole screens.
+    function screensToMove(offset, velocity) {
+      const width = trackWidth();
+      const flicked =
+        Math.abs(velocity) > FLICK_VELOCITY &&
+        Math.sign(velocity) === Math.sign(offset) &&
+        Math.abs(offset) > width * 0.08;
+
+      if (!flicked) return Math.abs(offset) > width * SNAP_DISTANCE ? 1 : 0;
+
+      const projected = Math.abs(offset) + Math.abs(velocity) * FLICK_PROJECTION;
+      return Math.min(Math.max(1, Math.round(projected / width)), MAX_FLICK_SCREENS);
+    }
+
+    function endDrag(event, cancelled) {
+      if (!drag || event.pointerId !== drag.id) return;
+
+      const { axis, offset, velocity } = drag;
+      drag = null;
+
+      // A tap or a vertical scroll never moves the track.
+      if (axis !== 'x') return;
+
+      // This release fires a click at the release point; arm the swallow for it.
+      dragEndedAt = performance.now();
+
+      const steps = cancelled ? 0 : screensToMove(offset, velocity);
+      const direction = offset < 0 ? 1 : -1;
+      const target = Math.min(Math.max(screenIndex + direction * steps, 0), SCREEN_ORDER.length - 1);
+
+      // A release eases, however far it carries, which is how the screens a flick
+      // crosses are seen to pass; a tap is still instant.
+      if (target !== screenIndex) {
+        showScreen(SCREEN_ORDER[target], RELEASE_SLIDE);
+        return;
+      }
+
+      settle(RELEASE_SLIDE);   // a release that carries nowhere still eases back
+    }
+
+    swipeArea.addEventListener('pointerup', (event) => endDrag(event, false));
+    swipeArea.addEventListener('pointercancel', (event) => endDrag(event, true));
+
+    // Swallow exactly the click a drag release fires, wherever it lands, so a
+    // swipe can never also press the day chip or tab under the finger. It is
+    // armed at the release and disarmed by the next gesture (above) or by being
+    // used once; the time bound is only a safety valve against a stale flag.
+    document.addEventListener(
+      'click',
+      (event) => {
+        if (!dragEndedAt || performance.now() - dragEndedAt > DRAG_CLICK_WINDOW) return;
+        dragEndedAt = 0;
+        event.stopPropagation();
+        event.preventDefault();
+      },
+      true,
+    );
+
+    // ====================================================================
+    // The balance card — a track of its own, one slide per account
+    // ====================================================================
+    // The same feel as the screens (follow the thumb, ease on release, swallow
+    // the click the release fires) on a separate track, so a drag here slides
+    // the accounts and the screen swipe stands down for it.
+    let acctIndex = 0;
+    let acctDrag = null;
+
+    function acctTrackWidth() {
+      return acctTrack.clientWidth || acctTrack.parentElement.clientWidth || window.innerWidth;
+    }
+
+    function setAcctTrack(offset) {
+      acctTrack.style.transform = `translateX(${(-acctIndex * acctTrackWidth()) + offset}px)`;
+    }
+
+    // Land on the current slide: at once, or eased over `duration` ms for a
+    // release, exactly as the screens do it.
+    function settleAcct(duration = 0) {
+      acctTrack.style.setProperty('--acct-duration', `${duration}ms`);
+      void acctTrack.offsetWidth;   // commit the duration before the transform moves
+      setAcctTrack(0);
+    }
+
+    function paintAcctDots() {
+      acctDots.querySelectorAll('.acct-dot').forEach((dot, index) => {
+        const active = index === acctIndex;
+        dot.classList.toggle('active', active);
+        dot.setAttribute('aria-selected', String(active));
+      });
+    }
+
+    // The dots are buttons, not decoration: a swipe is not the only way across.
+    acctDots.addEventListener('click', (event) => {
+      const dot = event.target.closest('.acct-dot');
+      if (!dot) return;
+      acctIndex = Math.max(ACCOUNTS.findIndex((account) => account.slug === dot.dataset.acct), 0);
+      paintAcctDots();
+      settleAcct();   // a tap lands on the next frame, like every other tap
+    });
+
+    function endAcctDrag(event, cancelled) {
+      if (!acctDrag || event.pointerId !== acctDrag.id) return;
+
+      const { axis, offset, velocity } = acctDrag;
+      acctDrag = null;
+
+      // A tap or a vertical scroll never moves the card.
+      if (axis !== 'x') return;
+
+      // This release fires a click at the release point; arm the same swallow
+      // the screens use, so a swipe can never also press the dot under it.
+      dragEndedAt = performance.now();
+
+      const width = acctTrackWidth();
+      const flicked =
+        Math.abs(velocity) > FLICK_VELOCITY &&
+        Math.sign(velocity) === Math.sign(offset) &&
+        Math.abs(offset) > width * 0.08;
+      const carried = !cancelled && (flicked || Math.abs(offset) > width * SNAP_DISTANCE);
+      const step = carried ? (offset < 0 ? 1 : -1) : 0;
+
+      acctIndex = Math.min(Math.max(acctIndex + step, 0), ACCOUNTS.length - 1);
+      paintAcctDots();
+      settleAcct(RELEASE_SLIDE);   // a release eases, the way the screens' does
+    }
+
+    acctCarousel.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      dragEndedAt = 0;   // a new gesture cancels the click the last one owed
+      acctDrag = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        axis: null,
+        offset: 0,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        velocity: 0,
+      };
+    });
+
+    acctCarousel.addEventListener('pointermove', (event) => {
+      if (!acctDrag || event.pointerId !== acctDrag.id) return;
+
+      const dx = event.clientX - acctDrag.startX;
+      const dy = event.clientY - acctDrag.startY;
+
+      // Decide once whether this gesture is a slide or a vertical scroll.
+      if (!acctDrag.axis) {
+        const slop = 6;
+        if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
+        acctDrag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (acctDrag.axis === 'x') {
+          acctTrack.style.setProperty('--acct-duration', '0ms');
+          if (acctCarousel.setPointerCapture) {
+            try {
+              acctCarousel.setPointerCapture(event.pointerId);
+            } catch (error) {
+              /* synthetic pointers cannot be captured */
+            }
+          }
+        }
+      }
+      if (acctDrag.axis !== 'x') return;
+
+      const elapsed = event.timeStamp - acctDrag.lastTime;
+      if (elapsed > 0) acctDrag.velocity = (event.clientX - acctDrag.lastX) / elapsed;
+      acctDrag.lastX = event.clientX;
+      acctDrag.lastTime = event.timeStamp;
+
+      const next = acctIndex + (dx < 0 ? 1 : -1);
+      const past = next < 0 || next >= ACCOUNTS.length;
+      acctDrag.offset = past ? dx * EDGE_RESISTANCE : dx;
+
+      setAcctTrack(acctDrag.offset);
+    });
+
+    acctCarousel.addEventListener('pointerup', (event) => endAcctDrag(event, false));
+    acctCarousel.addEventListener('pointercancel', (event) => endAcctDrag(event, true));
+
+    // ====================================================================
+    // Add expense — the third screen, and the only way in
+    // ====================================================================
+    // Home's button and Operations' "+" both land here. The money is typed
+    // first and the category browser is the last step, so choosing a category
+    // is what saves: a finished entry needs no second confirmation, and a
+    // half-finished one (no amount) cannot be saved by accident.
+    const addScreen = document.querySelector('.screen[data-screen="add"]');
+    const addAmountRow = document.getElementById('add-amount-row');
+    const addAmount = document.getElementById('add-amount');
+    const addKind = document.getElementById('add-kind');
+    const addAccount = document.getElementById('add-account');
+    const addDate = document.getElementById('add-date');
+    const catList = document.getElementById('cat-list');
+    const catTitle = document.getElementById('cat-title');
+    const catBack = document.getElementById('cat-back');
+
+    let entryKind = 'expense';
+    let entryAccount = ACCOUNT_FALLBACK;
+    let openGroup = null;   // the group whose subcategories are on screen
+
+    const groupRowHtml = (group) => `<button type="button" class="cat-row" data-group="${group.slug}">
+      ${markerHtml(group.slug, 'cat-row__icon')}
+      <span class="cat-row__name">${escapeHtml(group.label)}</span>
+      <svg class="cat-row__chev" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></svg>
+    </button>`;
+
+    // A category row. The group's own row comes first, exactly as Wallet puts it
+    // above its "SUBCATEGORIES" heading, because whole outings are logged
+    // against the group itself.
+    const categoryRowHtml = (slug) => {
+      const meta = CATEGORY_META[slug] || CATEGORY_META.unknown;
+      return `<button type="button" class="cat-row" data-category="${slug}">
+      ${markerHtml(slug, 'cat-row__icon')}
+      <span class="cat-row__name">${escapeHtml(meta.label)}</span>
+    </button>`;
+    };
+
+    // The browser: the groups, or one group's categories once it is open.
+    function renderCategoryList() {
+      const group = CATEGORY_GROUPS.find((candidate) => candidate.slug === openGroup);
+      if (!group) {
+        catTitle.textContent = 'All categories';
+        catBack.hidden = true;
+        catList.innerHTML = CATEGORY_GROUPS.map(groupRowHtml).join('');
+        return;
+      }
+      catTitle.textContent = group.label;
+      catBack.hidden = false;
+      catList.innerHTML = group.categories.map((slug) => categoryRowHtml(slug)).join('');
+    }
+
+    // Both toggles are built from the tables, so an account added to Wallet or a
+    // category added to its group appears without touching this code.
+    function paintAddScreen() {
+      addAmount.value = '';
+      // The form always has a day on it: today's, until someone says otherwise.
+      if (!addDate.value) addDate.value = TODAY_ISO;
+      addAmountRow.classList.remove('add-amount--missing');
+      addKind.querySelectorAll('.kind-toggle__btn').forEach((button) => {
+        const active = button.dataset.kind === entryKind;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+      addAccount.innerHTML = ACCOUNTS.map((account) =>
+        `<button type="button" class="acct-toggle__btn${account.slug === entryAccount ? ' active' : ''}"
+          data-account="${account.slug}" aria-pressed="${account.slug === entryAccount}">${escapeHtml(account.name)}</button>`,
+      ).join('');
+      renderCategoryList();
+    }
+
+    // Home logs to today; Operations logs to the day you are looking at. Either
+    // way the screen opens empty, because the last entry was already saved.
+    function openAdd(targetDate = TODAY_ISO) {
+      entryKind = 'expense';
+      entryAccount = ACCOUNT_FALLBACK;
+      openGroup = null;
+      addDate.value = targetDate;
+      paintAddScreen();
+      showScreen('add');
+      addAmount.focus();
+    }
+
+    // The last tap is the save. An empty amount is the one thing a tap cannot
+    // complete, and it says so where the money is typed rather than swallowing
+    // the tap.
+    function commitEntry(slug) {
+      const value = parseFloat(addAmount.value);
+      if (!isFinite(value) || value <= 0) {
+        addAmountRow.classList.add('add-amount--missing');
+        addAmount.focus();
+        return;
+      }
+
+      const meta = CATEGORY_META[slug] || CATEGORY_META.unknown;
+      const cents = Math.round(value * 100);
+      expenses.unshift({
+        id: Date.now(),
+        title: meta.label,
+        kind: entryKind,
+        account: entryAccount,
+        category: slug,
+        cents,
+        auto: false,
+        date: addDate.value || TODAY_ISO,
+      });
+      expenses.sort(byNewestFirst);
+      persistExpenses();
+
+      entryKind = 'expense';
+      entryAccount = ACCOUNT_FALLBACK;
+      openGroup = null;
+      addDate.value = TODAY_ISO;
+
+      // The entry has to be seen where it landed, so the dashboard is where
+      // this finishes — and the line under the header says what was added.
+      renderOperations();
+      showScreen('home');
+      flashStatus(`Added ${money(cents)} · ${meta.label}`);
+      paintAddScreen();
+    }
+
+    catList.addEventListener('click', (event) => {
+      const row = event.target.closest('.cat-row');
+      if (!row) return;
+      if (row.dataset.group) {
+        openGroup = row.dataset.group;
+        renderCategoryList();
+        addScreen.scrollTop = 0;
+        return;
+      }
+      commitEntry(row.dataset.category);
+    });
+
+    catBack.addEventListener('click', () => {
+      openGroup = null;
+      renderCategoryList();
+      addScreen.scrollTop = 0;
+    });
+
+    addKind.addEventListener('click', (event) => {
+      const button = event.target.closest('.kind-toggle__btn');
+      if (!button) return;
+      entryKind = button.dataset.kind;
+      addKind.querySelectorAll('.kind-toggle__btn').forEach((btn) => {
+        const active = btn === button;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    });
+
+    addAccount.addEventListener('click', (event) => {
+      const button = event.target.closest('.acct-toggle__btn');
+      if (!button) return;
+      entryAccount = button.dataset.account;
+      addAccount.querySelectorAll('.acct-toggle__btn').forEach((btn) => {
+        const active = btn === button;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    });
+
+    // Typing the amount is the answer to the complaint, so stop complaining.
+    addAmount.addEventListener('input', () => addAmountRow.classList.remove('add-amount--missing'));
+
+    document.getElementById('add-back').addEventListener('click', () => showScreen('home'));
+
+    // ====================================================================
+    // Operations: the + button and the back arrow
+    // ====================================================================
+    document.getElementById('add-trigger').addEventListener('click', () => openAdd());
+    document.getElementById('ops-add').addEventListener('click', () => openAdd(selectedDate));
+    document.getElementById('ops-back').addEventListener('click', () => showScreen('home'));
+
+    // ====================================================================
+    // Profile: backup — export, import and reset the one dataset
+    // ====================================================================
+    const dataBox = document.getElementById('dataBox');
+    const dataStatus = document.getElementById('dataStatus');
+
+    // The export is exactly what this mockup persists, and a bare JSON array is
+    // what the real app writes, so a demo moves between the two by copy-paste.
+    const expensesJson = () => JSON.stringify(expenses, null, 2);
+
+    function setDataStatus(message, isError) {
+      dataStatus.textContent = message;
+      dataStatus.style.color = isError ? '#ff9a8b' : 'var(--text-muted)';
+    }
+
+    function renderDataPanel() {
+      const count = expenses.length;
+      setDataStatus(`${count} ${count === 1 ? 'expense' : 'expenses'} saved in this browser`, false);
+    }
+
+    // Same technique as the real app's Settings screen.
+    function download(filename, content, mime) {
+      const url = URL.createObjectURL(new Blob([content], { type: mime }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportExpenses() {
+      const json = expensesJson();
+      dataBox.value = json;   // also leave it where it can be copied by hand
+      download(`trackit-${TODAY_ISO}.json`, json, 'application/json');
+      setDataStatus(`Exported ${expenses.length} expenses`, false);
+    }
+
+    // A bare array is what we export; a wrapped one is accepted for hand-written
+    // files. Every row is checked, so a bad import cannot half-replace the data.
+    function readImport(raw) {
+      const parsed = JSON.parse(raw);
+      const rows = Array.isArray(parsed)
+        ? parsed
+        : parsed && Array.isArray(parsed.expenses) ? parsed.expenses : null;
+      if (!rows || !rows.length) throw new Error('expected a JSON array of expenses');
+
+      const bad = rows.filter((row) => !isStoredExpense(row)).length;
+      if (bad) throw new Error(`${bad} of ${rows.length} entries are not expenses`);
+      return rows.slice().sort(byNewestFirst);
+    }
+
+    function importExpenses() {
+      const raw = dataBox.value.trim();
+      if (!raw) {
+        setDataStatus('Nothing to import — paste an export into the box first.', true);
+        return;
+      }
+
+      try {
+        const rows = readImport(raw);
+        expenses.length = 0;   // replaced in place: every screen reads this array
+        expenses.push(...rows);
+        persistExpenses();
+        renderHome();
+        renderOperations();
+        setDataStatus(`Imported ${rows.length} expenses`, false);
+      } catch (error) {
+        setDataStatus(`Import failed: ${error.message}.`, true);
+      }
+    }
+
+    function resetExpenses() {
+      try {
+        window.localStorage.removeItem(STORE_KEY);
+      } catch (error) {
+        /* nothing to clear when storage is unavailable */
+      }
+      expenses.length = 0;
+      expenses.push(...importedExpenses());
+      dataBox.value = '';
+      renderHome();
+      renderOperations();
+      setDataStatus(`Restored the ${expenses.length} imported expenses`, false);
+    }
+
+    document.getElementById('dataExport').addEventListener('click', exportExpenses);
+    document.getElementById('dataImport').addEventListener('click', importExpenses);
+    document.getElementById('dataReset').addEventListener('click', resetExpenses);
+
+    // ====================================================================
+    // Small interactions
+    // ====================================================================
+    // The one line under the header reports whatever just happened on Home — a
+    // sync, or the entry the add screen saved a moment ago.
+    const syncStatus = document.getElementById('sync-status');
+    let statusTimer = 0;
+
+    function flashStatus(message) {
+      syncStatus.textContent = message;
+      syncStatus.classList.add('show');
+      window.clearTimeout(statusTimer);
+      statusTimer = window.setTimeout(() => syncStatus.classList.remove('show'), 1800);
+    }
+
+    document.getElementById('refresh-balance').addEventListener('click', () => flashStatus('Synced just now'));
+
+    // Home lists the newest entries; this reveals the rest of the history.
+    listMore.addEventListener('click', () => {
+      homeShowAll = !homeShowAll;
+      renderHome();
+    });
+
+    window.addEventListener('resize', () => {
+      jumpToScreen();
+      renderHome();
+    });
+
+    // The add screen is built before it is ever shown, so swiping onto it mid-
+    // entry shows the browser rather than an empty list.
+    paintAddScreen();
+
+    jumpToScreen();
+    showScreen('home');
+  </script>
+</body>
+</html>

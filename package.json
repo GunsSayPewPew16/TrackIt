@@ -4,16 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:api": "wrangler dev --port 8787",
-    "build": "tsc -b && vite build",
+    "dev": "vite --config frontend/vite.config.ts",
+    "dev:api": "wrangler dev --config backend/wrangler.toml --port 8787",
+    "build": "tsc -b && vite build --config frontend/vite.config.ts",
     "typecheck": "tsc -b",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "icons": "pwa-assets-generator",
-    "types": "wrangler types",
-    "db:local": "wrangler d1 execute trackit-db --local --file=worker/schema.sql",
-    "deploy": "npm run build && wrangler deploy"
+    "preview": "vite preview --config frontend/vite.config.ts",
+    "icons": "cd frontend && pwa-assets-generator --config pwa-assets.config.ts",
+    "types": "wrangler types backend/worker-configuration.d.ts --config backend/wrangler.toml",
+    "db:local": "wrangler d1 execute trackit-db --local --config backend/wrangler.toml --file=backend/schema.sql",
+    "deploy": "npm run build && wrangler deploy --config backend/wrangler.toml"
   },
   "dependencies": {
     "idb": "^8.0.4",

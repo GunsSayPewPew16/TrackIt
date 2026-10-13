@@ -1,10 +1,12 @@
+# Paths here are relative to this file, so the Worker lives beside its config
+# and the frontend's build output sits one level up.
 name = "trackit"
-main = "worker/index.ts"
+main = "index.ts"
 compatibility_date = "2026-10-01"
 
 # The built PWA is served by the Worker; /api/* is handled first.
 [assets]
-directory = "./dist"
+directory = "../dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 

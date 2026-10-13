@@ -3,7 +3,15 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+//
+// The app lives in frontend/, but the build is started from the repository root
+// so that `dist/` lands where the Worker's assets binding expects it.
 export default defineConfig({
+  root: import.meta.dirname,
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
   plugins: [
     react(),
     VitePWA({

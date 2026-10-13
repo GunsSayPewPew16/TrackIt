@@ -23,11 +23,12 @@ function csvCell(value: string): string {
 }
 
 function toCsv(expenses: Expense[]): string {
-  const header = ['date', 'amount', 'currency', 'category', 'note', 'source', 'id']
+  const header = ['date', 'amount', 'currency', 'kind', 'category', 'note', 'source', 'id']
   const rows = expenses.map((item) => [
     item.spentAt,
     (item.amountCents / 100).toFixed(2),
     item.currency,
+    item.kind,
     item.category,
     item.note,
     item.source,
@@ -71,6 +72,8 @@ function normalizeImported(raw: unknown): Expense[] {
       id: String(item.id),
       amountCents,
       currency: typeof item.currency === 'string' ? item.currency : DEFAULT_CURRENCY,
+      // A file (or an older export) without a kind is all spending.
+      kind: item.kind === 'income' ? 'income' : 'expense',
       category: typeof item.category === 'string' ? item.category : 'unknown',
       note: typeof item.note === 'string' ? item.note : '',
       spentAt,
@@ -134,7 +137,7 @@ export function SettingsScreen({ expenses, onSync, onReload }: Props) {
       const parsed = normalizeImported(JSON.parse(await file.text()))
       await putMany(parsed)
       await onReload()
-      setStatus({ kind: 'ok', message: `Imported ${parsed.length} expenses.` })
+      setStatus({ kind: 'ok', message: `Imported ${parsed.length} entries.` })
     } catch (error) {
       setStatus({
         kind: 'error',
@@ -147,7 +150,7 @@ export function SettingsScreen({ expenses, onSync, onReload }: Props) {
     if (!window.confirm('Delete every expense on this device?')) return
     await clearExpenses()
     await onReload()
-    setStatus({ kind: 'ok', message: 'All local expenses deleted.' })
+    setStatus({ kind: 'ok', message: 'Every local entry deleted.' })
   }
 
   return (
@@ -155,7 +158,7 @@ export function SettingsScreen({ expenses, onSync, onReload }: Props) {
       <header className="app-header">
         <h1 className="app-header__title">Settings</h1>
         <p className="app-header__subtitle">
-          {expenses.length} expense{expenses.length === 1 ? '' : 's'} on this device
+          {expenses.length} entr{expenses.length === 1 ? 'y' : 'ies'} on this device
         </p>
       </header>
 

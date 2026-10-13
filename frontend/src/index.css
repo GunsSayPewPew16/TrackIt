@@ -16,6 +16,10 @@
   --primary-contrast: #ffffff;
   --danger: #e11d48;
   --positive: #059669;
+  /* Money out and money in, as the transaction rows sign them. Deliberately
+     softer than --danger: a list of red warnings is not a list of spending. */
+  --expense: #c8503f;
+  --income: #0f8a5f;
   --shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
 
   --radius: 18px;
@@ -38,6 +42,8 @@
     --primary-contrast: #ffffff;
     --danger: #fb7185;
     --positive: #34d399;
+    --expense: #ff6b5e;
+    --income: #63d69f;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   }
 }
@@ -166,6 +172,25 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+/* Money in the accounts is the headline; this month's spending sits under it. */
+.summary__spent {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.summary__spent-label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.summary__spent-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .summary__meta {
   display: flex;
   gap: 18px;
@@ -193,6 +218,19 @@ select {
   grid-template-columns: 1fr auto;
   gap: 4px 10px;
   font-size: 14px;
+}
+
+.breakdown__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.breakdown__icon {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
 }
 
 .breakdown__bar {
@@ -250,14 +288,22 @@ select {
   border-bottom: 0;
 }
 
-.expense-row__emoji {
+.expense-row__marker {
   display: grid;
   place-items: center;
   flex: 0 0 38px;
   height: 38px;
-  border-radius: 11px;
-  background: var(--surface-2);
-  font-size: 19px;
+  /* A tile, not a dot: the shape the transaction rows wear, and the same solid
+     fill the picker's rows use (set inline by `markerStyle`). */
+  border-radius: 32%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 3px rgba(15, 23, 42, 0.24);
+}
+
+.expense-row__marker svg {
+  width: 20px;
+  height: 20px;
 }
 
 .expense-row__main {
@@ -284,6 +330,34 @@ select {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.expense-row__amount--expense {
+  color: var(--expense);
+}
+
+.expense-row__amount--income {
+  color: var(--income);
+}
+
+/* Reveals the history Home deliberately keeps off the first screen. */
+.list-more {
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.row-delete svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  margin: 0 auto;
 }
 
 .row-delete {
@@ -326,10 +400,13 @@ select {
   color: var(--muted);
 }
 
-.empty__emoji {
-  font-size: 40px;
+.empty__icon {
   display: block;
-  margin-bottom: 10px;
+  margin: 0 auto 12px;
+  width: 46px;
+  height: 46px;
+  color: var(--muted);
+  opacity: 0.6;
 }
 
 .empty__title {
@@ -382,9 +459,10 @@ select {
   color: var(--primary);
 }
 
-.nav__icon {
-  font-size: 20px;
-  line-height: 1;
+.nav__icon svg {
+  width: 23px;
+  height: 23px;
+  display: block;
 }
 
 .nav__spacer {
@@ -402,12 +480,15 @@ select {
   border: 0;
   background: var(--primary);
   color: var(--primary-contrast);
-  font-size: 30px;
-  font-weight: 300;
-  line-height: 1;
   display: grid;
   place-items: center;
   box-shadow: var(--shadow);
+}
+
+.fab svg {
+  width: 26px;
+  height: 26px;
+  display: block;
 }
 
 .fab:active {
@@ -527,25 +608,168 @@ select {
   color: var(--muted);
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* The category browser: Wallet's own groups, then one group's categories.
+   Its list scrolls inside the sheet so the money, the kind and the date stay
+   where they are while the owner looks for a category. */
+.picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  overflow: hidden;
 }
 
-.chip {
-  border: 1px solid var(--border);
+.picker__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+
+.picker__back {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+
+.picker__back svg {
+  width: 18px;
+  height: 18px;
+}
+
+.picker__back:active {
   background: var(--surface-2);
+}
+
+.picker__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.picker__list {
+  max-height: 44dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+}
+
+.cat-row:last-child {
+  border-bottom: 0;
+}
+
+.cat-row:active {
+  background: var(--surface);
+}
+
+.cat-row__marker {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  /* The same solid fill as the row badges, set inline by `markerStyle`. */
+  border-radius: 32%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 1px 4px rgba(15, 23, 42, 0.16);
+}
+
+.cat-row__marker svg {
+  width: 19px;
+  height: 19px;
+}
+
+.cat-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-row__chev,
+.cat-row__check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.cat-row__check {
+  color: var(--primary);
+}
+
+.cat-row--picked .cat-row__name {
+  color: var(--primary);
+}
+
+.field__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field__head .field__label {
+  margin-bottom: 0;
+}
+
+/* What the entry will be filed under, so it is never a guess. */
+.field__value {
+  font-size: 13px;
+  font-weight: 650;
+  text-align: right;
+}
+
+/* Expense or income, picked before the amount. */
+.kinds {
+  display: flex;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 4px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 13px;
+  background: var(--surface-2);
+}
+
+.kind {
+  flex: 1;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
   font-size: 14px;
   font-weight: 600;
-  min-height: 40px;
 }
 
-.chip--active {
+.kind--active {
   background: var(--primary);
-  border-color: var(--primary);
   color: var(--primary-contrast);
 }
 
@@ -581,6 +805,17 @@ select {
 .btn-row {
   display: flex;
   gap: 10px;
+}
+
+/* The pin: Wallet's own category list is 24 entries deep and does not fit a
+   phone screen, so the sheet's buttons stay reachable while the list scrolls
+   under them — the same reason the mockup's sheet pins its own. */
+.sheet .btn-row {
+  position: sticky;
+  bottom: 0;
+  padding-top: 12px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  background: var(--surface);
 }
 
 .link-btn {

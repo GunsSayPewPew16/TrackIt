@@ -1,12 +1,13 @@
 -- TrackIt schema (D1 / SQLite).
 -- The Worker creates this automatically on first request; this file documents
 -- it and can be applied manually with:
---   wrangler d1 execute trackit-db --local --file=worker/schema.sql
+--   wrangler d1 execute trackit-db --local --config backend/wrangler.toml --file=backend/schema.sql
 
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
   amount_cents INTEGER NOT NULL,
   currency TEXT NOT NULL DEFAULT 'INR',
+  kind TEXT NOT NULL DEFAULT 'expense', -- 'expense' | 'income'
   category TEXT NOT NULL DEFAULT 'unknown',
   note TEXT NOT NULL DEFAULT '',
   spent_at TEXT NOT NULL, -- local calendar date, YYYY-MM-DD

@@ -8,10 +8,11 @@ import {
   requestPersistence,
 } from '../lib/db'
 import { syncWithServer, type SyncResult } from '../lib/sync'
-import type { Expense } from '../lib/types'
+import type { Expense, ExpenseKind } from '../lib/types'
 
 export type ExpenseDraft = {
   amountCents: number
+  kind: ExpenseKind
   category: string
   note: string
   spentAt: string
@@ -48,6 +49,7 @@ export function useExpenses() {
         id: newId(),
         amountCents: draft.amountCents,
         currency: draft.currency,
+        kind: draft.kind,
         category: draft.category,
         note: draft.note.trim(),
         spentAt: draft.spentAt,

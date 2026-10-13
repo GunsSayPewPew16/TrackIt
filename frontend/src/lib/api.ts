@@ -14,6 +14,7 @@ type ServerExpense = {
   id: string
   amountCents: number
   currency: string
+  kind: string
   category: string
   note: string
   date: string
@@ -44,6 +45,7 @@ function toExpense(row: ServerExpense): Expense {
     id: row.id,
     amountCents: row.amountCents,
     currency: row.currency,
+    kind: row.kind === 'income' ? 'income' : 'expense',
     category: row.category,
     note: row.note,
     spentAt: row.date,
@@ -58,6 +60,7 @@ function toServerPayload(expense: Expense) {
     id: expense.id,
     amountCents: expense.amountCents,
     currency: expense.currency,
+    kind: expense.kind,
     category: expense.category,
     note: expense.note,
     date: expense.spentAt,

@@ -37,11 +37,15 @@ export function newId(): string {
 export async function listExpenses(): Promise<Expense[]> {
   const db = await getDB()
   const all = await db.getAll('expenses')
-  return all.sort((a, b) =>
-    a.spentAt === b.spentAt
-      ? b.createdAt.localeCompare(a.createdAt)
-      : b.spentAt.localeCompare(a.spentAt),
-  )
+  // Rows written before income existed carry no kind, and they are all
+  // spending — normalising here means no caller has to wonder.
+  return all
+    .map((row) => ({ ...row, kind: row.kind ?? 'expense' }))
+    .sort((a, b) =>
+      a.spentAt === b.spentAt
+        ? b.createdAt.localeCompare(a.createdAt)
+        : b.spentAt.localeCompare(a.spentAt),
+    )
 }
 
 export async function putExpense(expense: Expense): Promise<void> {

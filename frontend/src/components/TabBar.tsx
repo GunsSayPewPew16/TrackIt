@@ -1,3 +1,5 @@
+import { HouseIcon, PlusIcon, SettingsIcon } from '../lib/ui-icons'
+
 export type Tab = 'home' | 'settings'
 
 type Props = {
@@ -17,7 +19,7 @@ export function TabBar({ tab, onTab, onAdd }: Props) {
           onClick={() => onTab('home')}
         >
           <span className="nav__icon" aria-hidden>
-            🏠
+            <HouseIcon />
           </span>
           Home
         </button>
@@ -31,13 +33,13 @@ export function TabBar({ tab, onTab, onAdd }: Props) {
           onClick={() => onTab('settings')}
         >
           <span className="nav__icon" aria-hidden>
-            ⚙️
+            <SettingsIcon />
           </span>
           Settings
         </button>
 
         <button type="button" className="fab" onClick={onAdd} aria-label="Add expense">
-          +
+          <PlusIcon />
         </button>
       </div>
     </nav>

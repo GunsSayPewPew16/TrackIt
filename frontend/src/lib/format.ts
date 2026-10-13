@@ -71,6 +71,19 @@ export function formatDayLabel(iso: string): string {
   })
 }
 
+/**
+ * The day an entry happened, spelled out for a row: `11 Oct 2026`. Every
+ * transaction row says when it happened — the day it was logged is not always
+ * the day it was spent — and the day headings only cover a list grouped by day.
+ */
+export function formatLongDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 export function formatMonthLabel(iso: string): string {
   const date = new Date(`${iso}-01T00:00:00`)
   return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
