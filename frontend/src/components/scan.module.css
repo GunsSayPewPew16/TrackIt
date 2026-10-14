@@ -1,0 +1,344 @@
+/* ------------------------------------------------------------------
+ * Scanning and paying — the shell around the camera, and the sheet that
+ * turns a scanned payee into a logged expense plus a UPI handoff.
+ *
+ * Both are full-screen overlays over the phone, in the app's own dark
+ * palette: the scanner because a camera wants the whole screen, and the
+ * pay sheet because it is the only thing the owner can be doing when it
+ * is open. Tokens come from index.css; no colour is invented here.
+ * ------------------------------------------------------------------ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  padding:
+    calc(env(safe-area-inset-top) + 1.25rem)
+    calc(env(safe-area-inset-right) + 5.1%)
+    calc(env(safe-area-inset-bottom) + 1.25rem)
+    calc(env(safe-area-inset-left) + 5.1%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border: none;
+  border-radius: 62.5rem;
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.back svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.heading {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.03125rem;
+  line-height: 1.1;
+}
+
+.intro {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* The camera frame: square, rounded, and outlined in the gold the app uses
+   for whatever is active — it reads as the viewfinder from across a shop. */
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background-color: #000;
+  border: var(--hairline) solid var(--accent-yellow);
+  flex: none;
+}
+
+/* The cross-hair corners the design's scanner would draw, over the video. */
+.frame::after {
+  content: '';
+  position: absolute;
+  inset: 12%;
+  border-radius: 1rem;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--hairline) rgba(255, 253, 246, 0.28);
+}
+
+.status {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--expense-red);
+}
+
+/* Everything the owner can do instead of pointing the camera at something:
+   a code that will not scan, a screenshot, or a desktop with no camera. */
+.manual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.manualRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.manualInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  border: var(--hairline) solid var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.manualInput::placeholder {
+  color: var(--text-muted);
+}
+
+.manualButton {
+  flex: none;
+  padding: 0 1.125rem;
+  border: none;
+  border-radius: 0.875rem;
+  background-color: var(--accent-yellow);
+  color: var(--gold-ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* --- the pay sheet ------------------------------------------------- */
+
+.payee {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background-color: var(--card-bg);
+  border: var(--hairline) solid var(--border-color);
+}
+
+.payeeMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  border-radius: 0.875rem;
+  background-color: var(--tan);
+  color: #ffffff;
+}
+
+.payeeMark svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+.payeeText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.payeeName {
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payeeId {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amount {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: var(--hairline) solid var(--border-color);
+}
+
+.amountSymbol {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent-yellow);
+}
+
+.amountInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountInput::placeholder {
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.amountInput:focus {
+  outline: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.fieldLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09375rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.select,
+.note {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  border: var(--hairline) solid var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.note::placeholder {
+  color: var(--text-muted);
+}
+
+/* The primary action is the app's gold, full width: one tap logs the
+   expense and hands the amount to the phone's UPI app. */
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0 1rem;
+  margin-top: auto;
+  border: none;
+  border-radius: 1rem;
+  background-color: var(--accent-yellow);
+  color: var(--gold-ink);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  border: var(--hairline) solid var(--border-color);
+  border-radius: 1rem;
+  background-color: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notice {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Shown once the handoff has been attempted: on a phone that has no app
+   for the link, or that silently ignores it, this is the way through. */
+.fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  background-color: var(--card-bg);
+  border: var(--hairline) solid var(--border-color);
+}
+
+.fallbackLink {
+  color: var(--accent-yellow);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.logged {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--income-green);
+}
+
+.logged svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}

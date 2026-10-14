@@ -46,6 +46,9 @@ DESIGN = REPO / "frontend" / "design"
 GOLD_SOURCE = DESIGN / "card-source.png"
 CASH_SOURCE = DESIGN / "cash-source.png"
 MOCKUP = DESIGN / "mockup.html"
+# The app cannot carry a 60 KiB data URI per card the way the one-file mockup
+# does, so the same pixels are also written beside it as importable assets.
+ASSETS = REPO / "frontend" / "src" / "assets"
 
 # The reference card's own proportions (the "5368 **** **** 9154" card on Home):
 # each texture is cropped to that shape so the metal never stretches on the card.
@@ -132,8 +135,8 @@ def cash_texture() -> Image.Image:
 
 
 TEXTURES = (
-    ("--card-texture", gold_texture),
-    ("--cash-texture", cash_texture),
+    ("--card-texture", "card-gold.jpg", gold_texture),
+    ("--cash-texture", "cash-silver.jpg", cash_texture),
 )
 
 
@@ -150,7 +153,9 @@ def splice(name: str, data_uri: str) -> None:
 
 
 def main() -> int:
-    for name, build in TEXTURES:
+    ASSETS.mkdir(parents=True, exist_ok=True)
+
+    for name, filename, build in TEXTURES:
         texture = build()
 
         # JPEG, not PNG: these are photographs of reflections, so the compressed
@@ -161,7 +166,13 @@ def main() -> int:
         data_uri = "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii")
 
         splice(name, data_uri)
-        print(f"  {name}  {texture.width}x{texture.height}  {len(raw) / 1024:.1f} KiB ({len(data_uri) / 1024:.1f} KiB encoded)")
+
+        asset = ASSETS / filename
+        asset.write_bytes(raw)
+        print(
+            f"  {name}  {texture.width}x{texture.height}  {len(raw) / 1024:.1f} KiB "
+            f"({len(data_uri) / 1024:.1f} KiB encoded)  + {asset.relative_to(REPO)}"
+        )
     print(f"  written into {MOCKUP.relative_to(REPO)}")
     return 0
 

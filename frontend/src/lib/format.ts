@@ -52,6 +52,21 @@ export function currentDayOfMonth(): number {
   return new Date().getDate()
 }
 
+/**
+ * Today, printed the way the design prints it under the greeting.
+ *
+ * A function rather than a call inside a component: both screens that wear a
+ * greeting want the same words, and a component body is not the place to be
+ * reading the clock (React's own lint rules flag exactly that).
+ */
+export function formatTodayLong(): string {
+  return new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 export function formatDayLabel(iso: string): string {
   const today = todayISO()
   if (iso === today) return 'Today'

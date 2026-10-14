@@ -8,7 +8,7 @@ import {
   requestPersistence,
 } from '../lib/db'
 import { syncWithServer, type SyncResult } from '../lib/sync'
-import type { Expense, ExpenseKind } from '../lib/types'
+import type { Expense, ExpenseKind, ExpenseSource } from '../lib/types'
 
 export type ExpenseDraft = {
   amountCents: number
@@ -17,6 +17,8 @@ export type ExpenseDraft = {
   note: string
   spentAt: string
   currency: string
+  /** Defaults to `manual`; the scan-and-pay flow logs its rows as `upi`. */
+  source?: ExpenseSource
 }
 
 export function useExpenses() {
@@ -53,7 +55,7 @@ export function useExpenses() {
         category: draft.category,
         note: draft.note.trim(),
         spentAt: draft.spentAt,
-        source: 'manual',
+        source: draft.source ?? 'manual',
         createdAt: now,
         updatedAt: now,
       }

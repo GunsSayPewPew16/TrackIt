@@ -1,6 +1,11 @@
 /** Shared domain types for TrackIt. */
 
-export type ExpenseSource = 'manual' | 'shortcut'
+/**
+ * Where a row came from. `upi` is a row logged by the scan-and-pay flow, which
+ * is worth marking: it is the one row whose amount the owner confirmed against
+ * a payment they were about to make, and the one that may never have been paid.
+ */
+export type ExpenseSource = 'manual' | 'shortcut' | 'upi'
 
 /** Spending or income. Income is money in, and never counts as spending. */
 export type ExpenseKind = 'expense' | 'income'
@@ -193,5 +198,13 @@ export const DEFAULT_CURRENCY = 'INR'
  * entry, minus every expense.
  */
 export const OPENING_BALANCE_CENTS = 1808407
+
+/**
+ * The month's budget, and the one figure the app does not derive from the data:
+ * the mockup carries the same ₹1,500 line, and a real budget (set by the owner,
+ * stored per month) is a feature of its own. Until then this is what the ring on
+ * Home measures against, so the screen the owner agreed on looks like itself.
+ */
+export const MONTHLY_BUDGET_CENTS = 150000
 
 export const isIncome = (expense: Expense): boolean => expense.kind === 'income'

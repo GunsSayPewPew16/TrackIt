@@ -16,6 +16,7 @@
     "deploy": "npm run build && wrangler deploy --config backend/wrangler.toml"
   },
   "dependencies": {
+    "@yudiel/react-qr-scanner": "^2.6.0",
     "idb": "^8.0.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
