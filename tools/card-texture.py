@@ -13,9 +13,15 @@ card is made of.
 
 The cash card is that same owner's foil (``cash-source.png``), and it is
 deliberately *not* graded: they asked for the photo as it is, so all this does to
-it is crop it to the card's shape, scale it and save it. That is what makes the
-two cards read as two materials — warm gold beside cold silver — instead of one
-material twice.
+it is turn it on its side, frame it and scale it — no colour reaches it at all.
+That is what makes the two cards read as two materials — warm gold beside cold
+silver — instead of one material twice.
+
+The turning matters, and it is not decoration. The card is 3.15:1 and the foil is
+portrait, so a window of the upright photo is a thin band across one crease or
+two; the same window on the rotated photo takes in its whole width and most of
+its height, which is how the card ends up showing the *pressed surface* — more of
+the wrinkles, each one smaller — instead of one crease blown up large.
 
 Both results are spliced into the mockup as data URIs rather than written beside
 it, because the mockup is one hand-written file with no build step and no assets
@@ -59,6 +65,14 @@ BLUR = 0.7               # softens the chrome's own reflections into the card's
 CONTRAST = 1.06
 SATURATION = 0.9
 
+# The cash card's own framing. The quarter turn is clockwise, which lays the
+# foil's creases across the card rather than up it. `CASH_WINDOW` is the zoom:
+# 1 takes the widest window the photo can give (the most wrinkles, each one
+# smallest), and anything below 1 closes in on the photo's middle for a larger,
+# calmer pattern — drop it to 0.7 if the foil ever reads as too busy.
+CASH_ROTATION = -90
+CASH_WINDOW = 1.0
+
 
 def load(source: pathlib.Path) -> Image.Image:
     if not source.exists():
@@ -94,8 +108,27 @@ def gold_texture() -> Image.Image:
 
 
 def cash_texture() -> Image.Image:
-    """The owner's foil, untinted: cropped to the card and scaled, nothing else."""
-    return resize(card_crop(load(CASH_SOURCE), CASH_SOURCE))
+    """The owner's foil, untinted: turned on its side, framed wide, scaled.
+
+    No colour step runs here at all — that is the whole difference between this
+    function and `gold_texture`, and the reason the two cards read as two
+    materials.
+    """
+    image = load(CASH_SOURCE)
+
+    # A quarter turn, expanded: the foil is portrait and the card is wide, and the
+    # window below can only ever take a band of whatever it is handed.
+    image = image.rotate(CASH_ROTATION, expand=True)
+
+    # The widest 3.15:1 window this photo can give, centred — the whole width of
+    # the rotated foil and as much of its height as the card's shape allows, which
+    # is the most wrinkles that fit on one card. `CASH_WINDOW` narrows it towards
+    # the middle of the photo for a bigger, calmer pattern.
+    width = int(min(image.width, image.height * CARD_RATIO) * CASH_WINDOW)
+    height = round(width / CARD_RATIO)
+    left = (image.width - width) // 2
+    top = (image.height - height) // 2
+    return resize(image.crop((left, top, left + width, top + height)))
 
 
 TEXTURES = (

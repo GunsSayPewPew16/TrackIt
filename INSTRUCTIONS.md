@@ -191,12 +191,18 @@ is tolerance for hand-written files, not the format to produce.
   bakes *both* into the mockup's `:root`, and neither data URI is ever hand-edited —
   change the tool and re-run it. **The UPI card** wears the owner's chrome
   (`frontend/design/card-source.png`) graded to the reference card's gold as
-  `--card-texture`. **The cash card** wears the owner's own foil
+  `--card-texture`.  **The cash card** wears the owner's own foil
   (`frontend/design/cash-source.png`) as `--cash-texture`, and that one is
-  **deliberately untinted**: the owner asked for it as it is, so the tool only crops it
-  to the card's shape and scales it. That is what makes the two slides read as two
-  materials — warm gold beside cold silver — rather than one material twice, so do not
-  grade the foil to match its neighbour.
+  **deliberately untinted**: the owner asked for it as it is, so the only things the
+  tool does to it are mechanical — a quarter turn clockwise, the widest 3.15:1 window
+  the photo allows, and a scale to the card's width. **The turn is the framing, not
+  decoration**: the foil is portrait and the card is wide, so a window of the upright
+  photo is one crease blown up large, while the same window on the rotated photo shows
+  the whole pressed surface — more wrinkles, each one smaller. `CASH_ROTATION` and
+  `CASH_WINDOW` in the tool are the two knobs (0.7 closes in for a calmer, bigger
+  pattern). That is what makes the two slides read as two materials — warm gold beside
+  cold silver — rather than one material twice, so do not grade the foil to match its
+  neighbour.
   Each slide wears the material its account names (`.acct-slide--<slug>`, which is also
   why the slides carry `acct-slide--upi` / `acct-slide--cash`), and **a white veil sits
   over whichever one it is**, as the first background layer, declared once on
