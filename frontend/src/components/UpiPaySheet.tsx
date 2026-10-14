@@ -1,19 +1,25 @@
 import { useMemo, useState } from 'react'
 import { formatMoney, parseAmountToCents } from '../lib/format'
 import { CATEGORY_GROUPS, categoryFor, DEFAULT_CATEGORY } from '../lib/types'
-import { buildUpiUri, canHandOffToUpiApp, type UpiPayee } from '../lib/upi'
+import { buildGooglePayUri, buildUpiUri, canHandOffToUpiApp, type UpiPayee } from '../lib/upi'
 import styles from './scan.module.css'
 
 /**
  * The sheet that opens on a scanned payee.
  *
  * Two things happen on one tap, in this order and for a reason: the expense is
- * **logged first**, and only then is the payment handed to the phone's UPI app.
- * The order matters because the handoff is one-way — the app that opens tells
- * this one nothing about what was paid — so a record written afterwards would
- * be a record that a crash, a back-swipe or a cancelled payment could lose. A
- * logged expense the owner decided not to pay is a row they can delete; a
- * payment with no row is the thing this app exists to prevent.
+ * **logged first**, and only then is the payment handed to **Google Pay**. The
+ * order matters because the handoff is one-way — the app that opens tells this
+ * one nothing about what was paid — so a record written afterwards would be a
+ * record that a crash, a back-swipe or a cancelled payment could lose. A logged
+ * expense the owner decided not to pay is a row they can delete; a payment with
+ * no row is the thing this app exists to prevent.
+ *
+ * Google Pay is named rather than left to the scheme, because a bare `upi://`
+ * link is claimed by whichever app last took the scheme — on this owner's
+ * iPhone that was WhatsApp, offering a payment screen for an account they do
+ * not pay from. The generic link is not thrown away, though: it stays under the
+ * button for the times the named app is not the one they want.
  */
 
 type Props = {
@@ -112,12 +118,14 @@ export function UpiPaySheet({ payee, currency, onPay, onCancel }: Props) {
 
       // The link the phone's UPI apps understand. Built from what the owner
       // just confirmed, not from the code: the amount is theirs to set.
-      const uri = buildUpiUri({ pa: payee.pa, pn: payee.pn, amountCents: cents, note: trimmed }, currency)
-      setLink(uri)
+      const payment = { pa: payee.pa, pn: payee.pn, amountCents: cents, note: trimmed }
+      // What stays on screen is the generic link, which any UPI app can take;
+      // a `gpay://` link shown to someone without Google Pay would help nobody.
+      setLink(buildUpiUri(payment, currency))
       // A scripted assignment, as the owner asked. It is a user gesture — the
       // tap that got here — so iOS and Android both honour it; where nothing
       // answers it, the sheet stays open with the link and the UPI ID below.
-      window.location.href = uri
+      window.location.href = buildGooglePayUri(payment, currency)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The expense could not be saved.')
     } finally {
@@ -143,7 +151,7 @@ export function UpiPaySheet({ payee, currency, onPay, onCancel }: Props) {
             <path d="M19 12H5" />
           </svg>
         </button>
-        <h1 className={styles.heading}>{logged ? 'Logged — pay now' : 'Confirm and pay'}</h1>
+        <h1 className={styles.heading}>{logged ? 'Logged — pay in Google Pay' : 'Confirm and pay'}</h1>
       </div>
 
       {/* The payee, exactly as the code described them. */}
@@ -172,7 +180,7 @@ export function UpiPaySheet({ payee, currency, onPay, onCancel }: Props) {
           <div className={styles.fallback}>
             <p className={styles.notice}>
               {handoffPossible
-                ? 'If no payment app opened, use the link below — or pay by UPI ID.'
+                ? 'If Google Pay did not open, use the link below — it opens whichever UPI app you have — or pay by UPI ID.'
                 : 'This device has no UPI app, so the payment has to be made on your phone. The expense is logged.'}
             </p>
             {link && (
@@ -246,8 +254,8 @@ export function UpiPaySheet({ payee, currency, onPay, onCancel }: Props) {
           )}
 
           <p className={styles.notice}>
-            The expense is logged first, then this opens your UPI app for the
-            payment. Paying is what makes the two agree.
+            The expense is logged first, then Google Pay opens for the payment.
+            Paying is what makes the two agree.
           </p>
 
           <button type="submit" className={styles.primary} disabled={busy}>
