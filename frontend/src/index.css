@@ -35,6 +35,21 @@
   font-size: clamp(0.9rem, 4.1vmin, 1.15rem);
 }
 
+/* The height of the phone's own status bar, as a value the app can pad with.
+   A browser reports a real inset for it; the installed app has been seen
+   reporting none at all, which slid the header under the clock where nothing
+   can be tapped. Standalone therefore keeps a floor set at the tallest status
+   bar a phone has — a device that reports a taller one still gets its own. */
+:root {
+  --safe-top: env(safe-area-inset-top);
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top), 3rem);
+  }
+}
+
 /* The palette is the reference photo's own, sampled off its screens: a
    near-black warm ground, a brown surface lifted out of it, one pale gold
    for what is active, and the reference's tan — the same brown its
@@ -170,7 +185,14 @@ svg {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* `vh` first, so an engine that has never heard of `dvh` still stretches the
+     shell instead of letting it collapse to the height of its own content —
+     which is what left the rail floating a centimetre above the bottom of the
+     phone. Where `dvh` is understood it takes over below, because that is the
+     one that knows about the toolbars a mobile browser still has to hide. The
+     percentage floor catches the same collapse from the parent chain. */
+  height: 100vh;
+  min-height: 100%;
   background-color: var(--bg-color);
   overflow: hidden;
   /* The operations page is placed against the phone rather than the window,
@@ -187,6 +209,27 @@ svg {
   overflow: hidden;
   overflow: clip;
   touch-action: pan-y;
+}
+
+/* The one unit that knows about toolbars — everywhere except the installed app.
+
+   Written as its own block rather than as a second `height` in the rule above,
+   because a minifier is entitled to drop a declaration the next line overrides
+   — which is exactly what it did to the `vh`, leaving the fallback in the
+   source and not in the build.
+
+   The installed app is left on `vh` deliberately. It has no toolbars to hide,
+   so the two units should agree — but on the owner's phone they did not: the
+   installed app reported a dynamic viewport 47px shorter than its own screen,
+   which hoisted the rail (and the whole shell) that far off the bottom, above
+   nothing but background. `vh` is the full screen there, which is what the app
+   is. The status bar is dealt with by `--safe-top`, not by the viewport. */
+@supports (height: 100dvh) {
+  @media not all and (display-mode: standalone) {
+    .app {
+      height: 100dvh;
+    }
+  }
 }
 
 /* The screens' sliding track, if the shell uses one. */
@@ -206,7 +249,7 @@ svg {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding:
-    calc(env(safe-area-inset-top) + 1.5rem)
+    calc(var(--safe-top) + 1.5rem)
     calc(env(safe-area-inset-right) + 5.1%)
     calc(env(safe-area-inset-bottom) + 1.25rem)
     calc(env(safe-area-inset-left) + 5.1%);
@@ -899,7 +942,7 @@ svg {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding:
-    calc(env(safe-area-inset-top) + 1.5rem)
+    calc(var(--safe-top) + 1.5rem)
     calc(env(safe-area-inset-right) + 5.1%)
     calc(env(safe-area-inset-bottom) + 1.25rem)
     calc(env(safe-area-inset-left) + 5.1%);
@@ -1390,6 +1433,11 @@ svg {
    ------------------------------------------------------------------ */
 .nav-wrap {
   flex: none;
+  /* The rail belongs against the bottom of the phone. The screens above it
+     grow to fill the shell, so this only bites when a screen is shorter than
+     the space it was given — the case that used to leave the rail sitting a
+     centimetre above the bottom, under nothing but background. */
+  margin-top: auto;
   padding:
     0
     calc(env(safe-area-inset-right) + 3%)
@@ -1631,7 +1679,7 @@ svg {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: calc(env(safe-area-inset-top) + 10px) 0 10px;
+  padding: calc(var(--safe-top) + 10px) 0 10px;
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
