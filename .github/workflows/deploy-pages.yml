@@ -1,0 +1,63 @@
+name: Deploy to GitHub Pages
+
+# A phone can only open the camera on a secure origin, and GitHub Pages gives
+# the app an HTTPS URL of its own for free — that is what this workflow is for.
+# The Cloudflare Worker deployment (`npm run deploy`) is untouched by it.
+#
+# The app is served from a sub-path here, so the build is told the same thing
+# the Pages URL says: PAGES_BASE feeds `frontend/vite.config.ts`, which derives
+# every asset URL, the service worker's scope and the manifest from it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time: a newer push replaces a queued one rather than
+# racing it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          PAGES_BASE: /TrackIt/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

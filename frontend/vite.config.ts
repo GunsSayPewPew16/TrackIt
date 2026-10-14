@@ -6,8 +6,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 //
 // The app lives in frontend/, but the build is started from the repository root
 // so that `dist/` lands where the Worker's assets binding expects it.
+//
+// It is served from two places: the domain root by the Worker, and
+// /TrackIt/ by GitHub Pages. Every URL the browser resolves on its own — the
+// hashed asset paths, the service worker's scope, the manifest's short cuts —
+// hangs off `base`, so the Pages build is this same build with
+// `PAGES_BASE=/TrackIt/` in the environment rather than a second config.
+const base = process.env.PAGES_BASE ?? '/'
+
 export default defineConfig({
   root: import.meta.dirname,
+  base,
   build: {
     outDir: '../dist',
     emptyOutDir: true,
@@ -21,8 +30,8 @@ export default defineConfig({
         name: 'TrackIt — Expense Tracker',
         short_name: 'TrackIt',
         description: 'A fast, private, offline-first expense tracker.',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#0b1220',
@@ -40,12 +49,13 @@ export default defineConfig({
           },
         ],
         shortcuts: [
-          { name: 'Add an expense', short_name: 'Add', url: '/?action=add' },
+          { name: 'Add an expense', short_name: 'Add', url: `${base}?action=add` },
+          { name: 'Scan & pay', short_name: 'Scan', url: `${base}?action=scan` },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         // Never let the app shell swallow API calls.
         navigateFallbackDenylist: [/^\/api\//],
       },
