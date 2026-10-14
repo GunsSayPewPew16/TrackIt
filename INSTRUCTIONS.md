@@ -187,15 +187,24 @@ is tolerance for hand-written files, not the format to produce.
   nothing may overflow sideways at either width.
 - **The fixed "now" is 12 October 2026** (`const TODAY`). The imported data is real
   and dated, which keeps screenshots stable across sessions.
-- **The bank card's material is generated, not hand-written.** `tools/card-texture.py`
-  grades the owner's chrome source (`frontend/design/card-source.png`) into the card's
-  gold and writes the `--card-texture` data URI at the top of the mockup — never
-  hand-edit that line, change the tool and re-run it. The card then lays **a white veil
-  over it as the first background layer**, thicker where the small words are and
-  thinnest across the middle, because the metal's own dark valleys are too deep to carry
-  small type: the ink keeps its contrast instead of depending on what the texture
-  happens to be doing underneath it. Keep that veil (and the ink alphas that go with
-  it) in step with the texture if either changes.
+- **The cards' materials are generated, not hand-written.** `tools/card-texture.py`
+  bakes *both* into the mockup's `:root`, and neither data URI is ever hand-edited —
+  change the tool and re-run it. **The UPI card** wears the owner's chrome
+  (`frontend/design/card-source.png`) graded to the reference card's gold as
+  `--card-texture`. **The cash card** wears the owner's own foil
+  (`frontend/design/cash-source.png`) as `--cash-texture`, and that one is
+  **deliberately untinted**: the owner asked for it as it is, so the tool only crops it
+  to the card's shape and scales it. That is what makes the two slides read as two
+  materials — warm gold beside cold silver — rather than one material twice, so do not
+  grade the foil to match its neighbour.
+  Each slide wears the material its account names (`.acct-slide--<slug>`, which is also
+  why the slides carry `acct-slide--upi` / `acct-slide--cash`), and **a white veil sits
+  over whichever one it is**, as the first background layer, declared once on
+  `.acct-slide` so both cards share it: thicker where the small words are and thinnest
+  across the middle, because the metal's own dark valleys are too deep to carry small
+  type. The ink keeps its contrast instead of depending on what the texture happens to
+  be doing underneath it — so keep that veil (and the ink alphas that go with it) in
+  step with the textures if either changes.
 - **No hardcoded currency.** `money()` is the only place that formats money, and it
   prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78). The one
   exception is the statistics chart's `axisMoney()`, which sits beside it and only
