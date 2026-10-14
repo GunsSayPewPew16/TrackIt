@@ -151,6 +151,23 @@ colour still colours Home's breakdown, where telling categories apart is the job
 `tools/wallet-import.py` checks the two marker tables against each other on every run
 — and names any category with no marker in either — so a marker cannot drift.
 
+**The reference's own tiles are that same family, and that was measured, not assumed.**
+The owner's screenshot of the reference's marker rows — a renewals list whose four tiles
+are a bolt, a briefcase, a camera and a `$` — is Phosphor `fill` as well: drawn white on
+`BADGE_COLOR` at the tile's size, read back with one threshold, and scored against the
+screenshot's own four tiles, Phosphor takes first place for the bolt (`lightning-fill`),
+the camera (`camera-fill`) and the money (`currency-dollar-fill`) out of every
+keyword-matched glyph in sixteen packs — about a thousand candidates each — and
+`currency-dollar-fill` lands within 0.001 of the screenshot's own ink ratio (0.583
+against 0.582). The markers in both tables are byte-identical to Phosphor's shipped
+`fill` files, so "the pack in the reference" and "the pack the markers wear" are already
+the same one; do not swap the family looking for a closer match. The one visible gap is
+size, not family: a tile there measures 81px carrying about 28px of white, while ours is
+44px carrying about 25px — same brown, same rounded square, the glyph a fifth larger in
+its tile. Re-check a glyph choice by rendering candidates on the tile colour at the
+tile's own size rather than at icon size; a crisp 256px render against a blurred
+screenshot tile scores shapes apart that are in fact the same drawing.
+
 Its data interchange format is deliberately the same one the real app writes in
 `frontend/src/components/SettingsScreen.tsx`: a bare JSON array of expenses, downloaded as
 `trackit-<date>.json` through a blob URL and a temporary anchor. Do not invent a
