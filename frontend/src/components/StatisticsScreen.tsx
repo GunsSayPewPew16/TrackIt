@@ -173,6 +173,18 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
   const min = values.length ? Math.min(...values) : last.cents
   const max = values.length ? Math.max(...values) : last.cents
 
+  // A window nothing moved in — a ledger with no entries yet, or a month they
+  // were all the same — has no range to draw in, and the rounds that come off
+  // that range land outside it. Half a percent either side gives the line
+  // somewhere to sit and the axis its usual rungs, without pretending the
+  // figure itself is anything other than what it is.
+  const flat = max - min < 1
+  const slack = Math.max(Math.round(Math.abs(last.cents) * 0.005), 100)
+  const floor = flat ? min - slack : min
+  const ceiling = flat ? max + slack : max
+  const spanOf = Math.max(ceiling - floor, 1)
+  const shareOf = (cents: number) => (((cents - floor) / spanOf) * 100).toFixed(2)
+
   // The same label the reference prints over the figure, told the truth: a
   // closed month's closing balance is not "current".
   const windowLabel =
@@ -202,11 +214,14 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
     }
 
     ctx.clearRect(0, 0, width, height)
-    if (shown.length < 2) return
 
-    const span = Math.max(max - min, 1)
-    const xOf = (index: number) => (index / (shown.length - 1)) * width
-    const yOf = (cents: number) => height - ((cents - min) / span) * height
+    // One day of history still has a balance on it, and a plot with no line in
+    // it reads as a broken plot — which is exactly how a ledger with nothing in
+    // it yet looked. The line is drawn flat across the window instead.
+    const plot = shown.length >= 2 ? shown : [...shown, ...shown]
+
+    const xOf = (index: number) => (index / (plot.length - 1)) * width
+    const yOf = (cents: number) => height - ((cents - floor) / spanOf) * height
 
     // One faint upright per day, the way the reference rules its plot. Every ink
     // here is the tan card's own dark brown rather than the page's white: the
@@ -214,7 +229,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
     ctx.lineWidth = dpr
     ctx.strokeStyle = 'rgba(43, 30, 13, 0.07)'
     ctx.beginPath()
-    shown.forEach((_point, index) => {
+    plot.forEach((_point, index) => {
       const x = Math.round(xOf(index)) + 0.5 * dpr
       ctx.moveTo(x, 0)
       ctx.lineTo(x, height)
@@ -225,7 +240,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
     ctx.setLineDash([5 * dpr, 5 * dpr])
     ctx.strokeStyle = 'rgba(43, 30, 13, 0.18)'
     ctx.beginPath()
-    for (const value of gridValues(min, max)) {
+    for (const value of gridValues(floor, ceiling)) {
       const y = Math.round(yOf(value)) + 0.5 * dpr
       ctx.moveTo(0, y)
       ctx.lineTo(width, y)
@@ -235,7 +250,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
 
     const trace = () => {
       ctx.beginPath()
-      shown.forEach((point, index) => {
+      plot.forEach((point, index) => {
         const x = xOf(index)
         const y = yOf(point.cents)
         if (index === 0) ctx.moveTo(x, y)
@@ -260,7 +275,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
     ctx.stroke()
-  }, [shown, min, max])
+  }, [shown, floor, ceiling, spanOf])
 
   useEffect(() => {
     draw()
@@ -277,7 +292,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
   }, [draw])
 
   return (
-    <>
+    <main className="screen">
       <div className="header">
         <div className="user-info">
           <div className="brand-badge" aria-hidden="true">
@@ -349,12 +364,8 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
 
         <div className="trend">
           <div className="trend__axis" aria-hidden="true">
-            {gridValues(min, max).map((value) => (
-              <span
-                key={value}
-                className="trend__tick"
-                style={{ bottom: `${(((value - min) / Math.max(max - min, 1)) * 100).toFixed(2)}%` }}
-              >
+            {gridValues(floor, ceiling).map((value) => (
+              <span key={value} className="trend__tick" style={{ bottom: `${shareOf(value)}%` }}>
                 {axisMoney(value)}
               </span>
             ))}
@@ -362,6 +373,7 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
           <div className="trend__frame" ref={frameRef}>
             <canvas
               ref={canvasRef}
+              className="trend__canvas"
               role="img"
               aria-label={`${shown.length} days to ${longDate(last.iso)}: low ${formatMoney(
                 min,
@@ -383,6 +395,6 @@ export function StatisticsScreen({ expenses }: { expenses: Expense[] }) {
           Total balance
         </div>
       </div>
-    </>
+    </main>
   )
 }
