@@ -67,15 +67,14 @@ the mockup must stay quoted, because several contain a dash.
 python3 tools/wallet-import.py ~/Downloads/wallet_unlocked_export.json
 ```
 
-Two siblings own the icons, and they are two families on purpose:
-`tools/phosphor-icons.py` vendors the **category markers** out of
-`@phosphor-icons/core`'s `fill` weight into both clients, and `tools/lucide-icons.py`
-vendors the **chrome** (the rail, the buttons, the browser's arrows) out of
-`lucide-static` into `frontend/src/lib/ui-icons.tsx`. Install both catalogues first —
-`npm install --no-save @phosphor-icons/core lucide-static`, in one command, because
-npm prunes a `--no-save` package the next time it installs another — and re-run the
-matching script after any icon mapping change. The catalogues are build-time inputs,
-not dependencies of the app.
+One script owns the icons: `tools/lucide-icons.py` vendors **both** the markers (every
+category's glyph on its tile) and the **chrome** (the rail, the buttons, the browser's
+arrows) out of `lucide-static` — into the mockup's `CATEGORY_ICONS` table,
+`frontend/src/lib/icons.tsx`, and `frontend/src/lib/ui-icons.tsx`. Install the
+catalogue first (`npm install --no-save lucide-static`) and re-run the script after
+any icon mapping change; it is a build-time input, not a dependency of the app.
+Phosphor's `fill` set was here for a while and is gone: two scripts writing one table
+is how the two clients drift apart.
 
 Decisions the script makes, so nobody has to guess: amounts are *already* rupees
 (Wallet stores paise, and INR is its referential currency, so nothing is converted);
@@ -126,47 +125,48 @@ belongs to one group, so a repeat carries the group in its id
 (`income-child-support`) while the label stays the owner's own, and `EXPORT_LABELS`
 makes sure an import still lands each export document on the unqualified row it always
 had. Ask the owner before inventing a category that is not in the export or the
-screenshots — and note that only one glyph had to be substituted, because Phosphor
-has no parking sign: `parking` wears `map-pin`.
+screenshots — and note that no glyph has to stand in for another any more: `parking`
+wears Lucide's own `circle-parking`, which the Phosphor set it replaced had to
+substitute a map pin for.
 
-**The markers are solid, the chrome is line art, and both are generated.** Every
-category's glyph sits on the same solid tile — one warm brown, `BADGE_COLOR` in
-`frontend/src/lib/markers.ts`, sampled from the reference's own rows — and an emoji
-cannot sit on one: it brings its own palette, so the glyph fights the tile, and every
-platform draws it differently. The owner asked for solid symbols rather than the line
-art the markers started as, so the markers are **Phosphor's `fill` weight**:
-`tools/phosphor-icons.py` writes the mockup's `CATEGORY_ICONS` table and the app's
-`frontend/src/lib/icons.tsx` from `@phosphor-icons/core`, one family on one 256px
-grid, each glyph exactly as Phosphor draws it — which is why the marker `<svg>` in
-both clients carries `viewBox="0 0 256 256"` and `fill="currentColor"` and no
-stroke. The app's chrome keeps Lucide's line art in `frontend/src/lib/ui-icons.tsx`
-(`tools/lucide-icons.py`), because a screenful of filled buttons would shout as
-loudly as the content they sit under. Do not hand-edit any of the three: change the
-mapping in the script that owns it and re-run it, after
-`npm install --no-save @phosphor-icons/core lucide-static` (one command — the second
-install otherwise prunes the first catalogue). `frontend/src/lib/markers.ts` owns the
-badge's look: one solid fill with the glyph in white, so there is no ink rule per
-colour, and a tile reads as part of one family instead of a paint chart — a group's
-colour still colours Home's breakdown, where telling categories apart is the job.
+**The markers are one white glyph on one brown tile, and the glyph is Lucide's line
+art.** Every category's glyph sits on the same solid tile — one warm brown,
+`BADGE_COLOR` in `frontend/src/lib/markers.ts`, sampled from the reference's own rows
+— and an emoji cannot sit on one: it brings its own palette, so the glyph fights the
+tile, and every platform draws it differently. The markers were Phosphor's `fill`
+weight for a while, when solid silhouettes were what the owner wanted; the owner has
+since asked for Lucide's line art on the tile again, so `tools/lucide-icons.py` writes
+the mockup's `CATEGORY_ICONS` table and the app's `frontend/src/lib/icons.tsx` (and
+the chrome) out of `lucide-static` — one family on one 24px grid at one stroke weight,
+each glyph exactly as Lucide draws it, which is why the marker `<svg>` in both clients
+carries `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"` and
+`stroke-width="2"`. Nothing else about the marker moved: same tile, same brown, same
+white. Do not hand-edit any of the three generated files — change the mapping in the
+script that owns them and re-run it, after `npm install --no-save lucide-static`.
+`frontend/src/lib/markers.ts` owns the tile's look: one solid fill with the glyph in
+white, so there is no ink rule per colour, and a tile reads as part of one family
+instead of a paint chart — a group's colour still colours Home's breakdown, where
+telling categories apart is the job.
 `tools/wallet-import.py` checks the two marker tables against each other on every run
 — and names any category with no marker in either — so a marker cannot drift.
 
-**The reference's own tiles are that same family, and that was measured, not assumed.**
-The owner's screenshot of the reference's marker rows — a renewals list whose four tiles
-are a bolt, a briefcase, a camera and a `$` — is Phosphor `fill` as well: drawn white on
-`BADGE_COLOR` at the tile's size, read back with one threshold, and scored against the
-screenshot's own four tiles, Phosphor takes first place for the bolt (`lightning-fill`),
-the camera (`camera-fill`) and the money (`currency-dollar-fill`) out of every
-keyword-matched glyph in sixteen packs — about a thousand candidates each — and
-`currency-dollar-fill` lands within 0.001 of the screenshot's own ink ratio (0.583
-against 0.582). The markers in both tables are byte-identical to Phosphor's shipped
-`fill` files, so "the pack in the reference" and "the pack the markers wear" are already
-the same one; do not swap the family looking for a closer match. The one visible gap is
-size, not family: a tile there measures 81px carrying about 28px of white, while ours is
-44px carrying about 25px — same brown, same rounded square, the glyph a fifth larger in
-its tile. Re-check a glyph choice by rendering candidates on the tile colour at the
-tile's own size rather than at icon size; a crisp 256px render against a blurred
-screenshot tile scores shapes apart that are in fact the same drawing.
+**The reference's own tiles are Phosphor's `fill` set, which was measured, not assumed —
+and that measurement is what makes our Lucide markers a decision rather than an
+oversight.** The owner's screenshot of the reference's marker rows — a renewals list
+whose four tiles are a bolt, a briefcase, a camera and a `$` — is Phosphor: drawn white
+on `BADGE_COLOR` at the tile's own size, read back with one threshold, and scored
+against the screenshot's own four tiles, Phosphor takes first place for the bolt
+(`lightning-fill`), the camera (`camera-fill`) and the money (`currency-dollar-fill`)
+out of every keyword-matched glyph in sixteen packs — about a thousand candidates each —
+and `currency-dollar-fill` lands within 0.001 of the screenshot's own ink ratio (0.583
+against 0.582). Do not treat that as a case for putting Phosphor back: the owner has
+been shown these numbers and asked for Lucide's line art on our tiles anyway, so the
+markers here are Lucide and the reference's tiles are Phosphor, on purpose. (The tiles
+agree about everything else: a reference tile measures 81px, ours 44px, both the same
+brown and the same rounded square.) Re-check a glyph choice by rendering candidates on
+the tile colour at the tile's own size rather than at icon size; a crisp 256px render
+against a blurred screenshot tile scores shapes apart that are in fact the same
+drawing.
 
 Its data interchange format is deliberately the same one the real app writes in
 `frontend/src/components/SettingsScreen.tsx`: a bare JSON array of expenses, downloaded as
@@ -187,6 +187,15 @@ is tolerance for hand-written files, not the format to produce.
   nothing may overflow sideways at either width.
 - **The fixed "now" is 12 October 2026** (`const TODAY`). The imported data is real
   and dated, which keeps screenshots stable across sessions.
+- **The bank card's material is generated, not hand-written.** `tools/card-texture.py`
+  grades the owner's chrome source (`frontend/design/card-source.png`) into the card's
+  gold and writes the `--card-texture` data URI at the top of the mockup — never
+  hand-edit that line, change the tool and re-run it. The card then lays **a white veil
+  over it as the first background layer**, thicker where the small words are and
+  thinnest across the middle, because the metal's own dark valleys are too deep to carry
+  small type: the ink keeps its contrast instead of depending on what the texture
+  happens to be doing underneath it. Keep that veil (and the ink alphas that go with
+  it) in step with the texture if either changes.
 - **No hardcoded currency.** `money()` is the only place that formats money, and it
   prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78). The one
   exception is the statistics chart's `axisMoney()`, which sits beside it and only
@@ -204,21 +213,31 @@ is tolerance for hand-written files, not the format to produce.
 
 - **One expense dataset.** Home and every other screen render the same array, and
   anything that adds an expense adds it there through the shared add screen
-  (`openAdd(targetDate)`). There is no per-screen data.
-- **The past records are a page over the phone, not a screen of it.** They were the
-  rail's second tab and are now what Home's **Reports** button opens, because the
-  months wanted a rail tab of their own. The page is `position: fixed` against the
-  phone rather than the sliding track — it covers the rail as well as the screen, which
-  is what "the whole screen" means — and it is still a date-filtered view of the one
-  dataset, not a bank ledger: nothing on it offers Transfer or Request, its filter
-  still cycles Day → Week → Month, and its back arrow is the way out, back to the
-  dashboard. Everything behind it is `inert` while it is open, so no tap and no tab
-  reaches the dashboard through it. **It lives outside `.track` on purpose**: the track
-  carries `will-change: transform`, which also makes it a containing block for
-  fixed-position descendants — kept inside, the page would slide along with the screens
-  and cover one of them only. Its own `+` leaves the page first (`closeRecords()`, then
+  (`openAdd(targetDate)`). There is no per-screen data.- **Financial Operations is a page over the phone, not a screen of it.** It is what
+  the total balance opens — the figure is a button and its chevron says so — and Home's
+  Transfer/Request pair opens it too, because that pair is the money-movement action and
+  this is the money-movement page. It replaced the old "Spending by day" records page:
+  the reference's screen 2 is the same shape, so its title is the reference's own two
+  lines and its pill row is the reference's three controls — a pale **Transfer**, the
+  tile's tan for **Request**, and one gold `+`. **The two money-movement pills are named
+  and shaped but answer nothing yet**: the owner is wiring them to UPI, and until that
+  lands a control that pretends to move money would be worse than one that waits. The
+  `+` is the way to log an entry, and it leaves the page first (`closeRecords()`, then
   `openAdd(selectedDate)`), because the add screen is a screen of the track that the
   page would otherwise be covering.
+  - The page is `position: fixed` against the phone rather than the sliding track — it
+    covers the rail as well as the screen, which is what "the whole screen" means — and
+    it is still a date-filtered view of the one dataset. Its filter cycles
+    Day → Week → Month and its back arrow is the way out. Everything behind it is
+    `inert` while it is open, so no tap and no tab reaches the dashboard through it.
+  - **It opens on the newest day the data has**, not on the mockup's fixed now: the
+    import says nothing about 12 October 2026, and a ledger that greets the owner with
+    "Nothing on this day" reads as broken. Any day they pick from the strip is what they
+    get from then on.
+  - **It lives outside `.track` on purpose**: the track carries
+    `will-change: transform`, which also makes it a containing block for fixed-position
+    descendants — kept inside, the page would slide along with the screens and cover one
+    of them only.
 - **Logging persists** to `localStorage` under `trackit.mockup.expenses.v1`.
 - **The dataset is the owner's own Wallet import** (122 entries — 112 expenses and
   10 income, July–October 2026), embedded in the file as `importedExpenses()`. There
@@ -226,15 +245,18 @@ is tolerance for hand-written files, not the format to produce.
   browser sees. Income only shows once a range holding it is on screen, and the
   calendar strip is a 7-day window, so reaching it means expanding Home's list or
   driving the strip's handler with an earlier date.
-- **Home leads with the balance, then this month's spending, then five entries.**
-  The headline is `ACCOUNTS` added up (each account's opening balance plus its own
-  income minus its own spending), "Spent this month" sits directly under it, and the
-  list is capped at five rows with a "Show all N entries" button — a four-month
-  history must never fill the first screen. Everything below the balance still sums
-  this month's *expenses* only, or the ring would blow up on load. The button pair
-  under it is how the mockup's other two pages are reached: **Add expense** opens the
-  add screen (the rail and a swipe reach that one too) and **Reports** opens the past
-  records, which nothing else opens.
+- **Home wears the reference's own anatomy, top to bottom.** The greeting header (the
+  brand disc, "Hi, Priyansh", the fixed date) with the wallet button that opens Cards;
+  then `ACCOUNTS` added up as the headline — each account's opening balance plus its own
+  income minus its own spending — as a *button* whose chevron says it opens the
+  operations page, with the sync button beside it, and "Spent this month" directly under
+  it. The list below is capped at five rows with a "Show all N entries" button, because
+  a four-month history must never fill the first screen, and everything below the
+  balance still sums this month's *expenses* only, or the ring would blow up on load.
+  The pair under the balance card is the reference's **Transfer** and **Request**, which
+  open the operations page and are the controls the owner is wiring to UPI (see the page
+  above); the **Add expense** screen is reached from the rail's third tab and from that
+  page's `+`.
 - **The card under the balance swipes between accounts.** One slide per entry in
   `ACCOUNTS` — what it holds, its share of the money, and what it has spent this
   month — over a dot per slide. It is a track of its own: it follows the thumb and
@@ -248,19 +270,28 @@ is tolerance for hand-written files, not the format to produce.
   summary is the balance at the end of every day from the first entry to the fixed now
   (`dailyBalances`), which is the same figure Home leads with — so the two can never
   disagree, and the falls in the line are the days that spent more than they took in.
-  It replaces the savings screen the reference's pot cards were built on: those pots
-  were placeholders (the app has no savings goal of its own), so they went rather than
-  staying as decoration. A month of days is what fits legibly (`TREND_WINDOW_DAYS`) and
-  **Show more** opens the whole history — the same line with more of its past on screen.
+  It gives the savings screen the reference's pot cards were built on the reference's
+  *look* without its pots: those pots were placeholders (the app has no savings goal of
+  its own), so what the screen borrows is the anatomy — the dashboard's own greeting
+  header, the big title, the range chips, one figure over one label, and a card in the
+  reference's tan. **The range is the chips**, one per month the data covers plus
+  **All time**, read from the same daily balances the line is drawn from so a chip can
+  never name a month with nothing behind it. That is why there is no **Show more** any
+  more: "All time" *is* the whole history, and the chips say so in one row instead of a
+  link at the foot of the card. The figure's label follows the range — "Current balance"
+  while the range ends today, "<Month> balance" for a month already closed, because a
+  closing balance is not "today's".
   The dashed rounds are round rupees, the day labels are ~six of them with today always
   last, and each value label is placed by the same fraction of the height the chart
   draws its line at, so a label can never drift off the round it names (the value
   column and the canvas take their height from one variable for the same reason).
-  Everything is the app's own palette: a gold line with a translucent gold wash under
-  it, dashed grey-white rounds, muted labels. The drawing itself is canvas, sized for
-  the device pixel ratio like the ring and the pie, and redrawn on `showScreen` and on
-  a resize; the canvas carries an `aria-label` with the window's low, high and current
-  figure, because a plot is pixels no screen reader can read.
+  **Everything on that card is the card's own dark ink, not the page's white**: it sits
+  on light tan now, so the line, its wash, the uprights and the dashed rounds are all
+  dark (`#6d5527` and rgba of `43, 30, 13`), and the labels and swatch follow via
+  `.stat-card--tan`. The drawing itself is canvas, sized for the device pixel ratio like
+  the ring and the pie, and redrawn on `showScreen` and on a resize; the canvas carries
+  an `aria-label` with the window's low, high and current figure, because a plot is
+  pixels no screen reader can read.
 - **The month's budget is the pie, not a progress bar.** The old October-budget card
   is gone: its slot holds the account carousel, and its figures are the widget that
   replaced "Auto-log with Shortcuts" — this month's spending as a pie over the

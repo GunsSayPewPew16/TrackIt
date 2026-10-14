@@ -54,7 +54,7 @@ frontend/
       sync.ts     two-way merge (last-write-wins on updatedAt)
       format.ts   money/date helpers (money is stored as integer cents)
       types.ts    domain types, categories, category groups, currency, balance
-      icons.tsx   the category markers, Phosphor fill icons (generated)
+      icons.tsx   the category markers, Lucide line icons (generated)
       ui-icons.tsx  the rail, buttons and arrows, Lucide line icons (generated)
       markers.ts  the one solid colour every marker badge is drawn in
   public/         icons, favicon, PWA assets
@@ -70,8 +70,8 @@ backend/
 tools/
   wallet-import.py     a Wallet export → TrackIt data, and the one category table
                        both clients' tables are written from
-  phosphor-icons.py    vendors the filled category markers into both clients
-  lucide-icons.py      vendors the Lucide line icons into the app's chrome
+  lucide-icons.py      vendors the line icons into both clients — the chrome and
+                       every category's marker
 ```
 
 ## Apple Shortcuts → TrackIt
@@ -139,20 +139,19 @@ across sets (Child Support, Lottery, Gifts); a slug belongs to one group, so tho
 repeats carry the group in their id (`income-child-support`) and the export's own row
 keeps the plain one.
 
-Every category is marked with a **solid glyph on one brown tile**, not an emoji:
-emoji arrive with their own palette and fight the tile, and each platform draws them
-differently. The glyphs are **Phosphor's `fill` weight** — the owner asked for solid
-symbols, and Lucide (which still draws the app's rail, buttons and arrows) is a
-line-only family — so the markers read as one family of filled silhouettes in white,
-and the app's chrome stays line art so it does not compete with them.
-`tools/phosphor-icons.py` vendors the markers into both clients and
-`tools/lucide-icons.py` the chrome into the app, each from its own package
-(`npm install --no-save @phosphor-icons/core lucide-static`), and
-`tools/wallet-import.py` compares the two marker tables on every run — and names any
-category with no marker at all — so the clients cannot end up marking the same
-category two ways. The tile is the same brown everywhere: `BADGE_COLOR` in
-`frontend/src/lib/markers.ts`, sampled from the reference's own rows, so a category's
-group colour is left to the Home breakdown.
+Every category is marked with a **white glyph on one brown tile**, not an emoji: emoji
+arrive with their own palette and fight the tile, and each platform draws them
+differently. The glyphs are **Lucide's line art** — the same 24px grid and stroke
+weight as the rail, buttons and arrows — so markers and chrome read as one family. They
+were Phosphor's `fill` weight for a while, when solid silhouettes were what the owner
+wanted; the owner asked for the line art back, knowing the reference's own tiles are
+Phosphor's filled set (the measurement that shows it is in INSTRUCTIONS.md).
+`tools/lucide-icons.py` vendors both the chrome and the markers out of `lucide-static`
+(`npm install --no-save lucide-static`), and `tools/wallet-import.py` compares the two
+marker tables on every run — and names any category with no marker at all — so the
+clients cannot end up marking the same category two ways. The tile is the same brown
+everywhere: `BADGE_COLOR` in `frontend/src/lib/markers.ts`, sampled from the reference's
+own rows, so a category's group colour is left to the Home breakdown.
 
 A transaction row is the tile, what it was, the day it happened, and what it cost:
 a minus in the soft expense red for money out, a plus in the green for money in. The

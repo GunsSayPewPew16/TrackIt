@@ -23,9 +23,9 @@ The category tables are not pasted by hand any more: the mockup's
 ``CATEGORY_GROUPS``, are written straight into ``frontend/design/mockup.html`` and
 ``frontend/src/lib/types.ts`` from the one table below, so the ids, labels and
 groups cannot drift apart. The markers are the other half of that promise:
-``tools/phosphor-icons.py`` writes both clients' marker tables from Phosphor's
-``fill`` weight (the app's chrome stays Lucide's line art, in
-``tools/lucide-icons.py``), and ``check_icons`` here proves the two tables agree
+``tools/lucide-icons.py`` writes both
+clients' marker tables out of ``lucide-static`` (the app's chrome comes from the same
+script), and ``check_icons`` here proves the two tables agree
 *and* that every category has one, which is what catches a table edited by hand.
 Every run also proves the groups against the colours in the export
 (``check_group_colors``), because Wallet ships no list of its own.
@@ -399,8 +399,8 @@ def splice_array(path: Path, anchor: str, rows: list[str], expected: int) -> Non
 def check_icons(repo_root: Path, slugs: list[str]) -> tuple[int, list[str]]:
     """Prove the two clients mark a category the same way — and mark all of them.
 
-    ``tools/phosphor-icons.py`` writes both tables from ``@phosphor-icons/core``,
-    and this is what catches either of them being edited afterwards: the mockup is
+    ``tools/lucide-icons.py`` writes both tables from ``lucide-static``, and this
+    is what catches either of them being edited afterwards: the mockup is
     hand-written HTML, and a table can be changed by hand. Same slugs, same
     shapes, or it says which category disagrees — and a category with no row in
     either table is named too, because the fallback dot is a placeholder rather
