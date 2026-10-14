@@ -4,6 +4,16 @@ import { useCallback, useRef, useState } from 'react'
 import { parseUpiCode, UPI_PARSE_MESSAGE, type UpiPayee } from '../lib/upi'
 import styles from './scan.module.css'
 
+/*
+ * One thing this screen does not control: the decoder's own WASM. On a phone
+ * without a native `BarcodeDetector` — an iPhone — the library fetches that
+ * file from the jsDelivr CDN on the first scan. Its `prepareZXingModule` hook,
+ * and the `locateFile` override that goes with it, were tried and did not reach
+ * the read path the scanner actually uses, so the app ships the library's
+ * default rather than a setting that looks like it works and does not. The
+ * scanner still decodes offline once that file has been fetched once.
+ */
+
 /**
  * The camera, pointed at a merchant's QR code.
  *
