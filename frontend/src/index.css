@@ -36,18 +36,24 @@
 }
 
 /* The height of the phone's own status bar, as a value the app can pad with.
-   A browser reports a real inset for it; the installed app has been seen
-   reporting none at all, which slid the header under the clock where nothing
-   can be tapped. Standalone therefore keeps a floor set at the tallest status
-   bar a phone has — a device that reports a taller one still gets its own. */
+
+   A phone that reports a real inset keeps it. One that reports none — which is
+   what the owner's iPhone did, and which left the greeting sitting under the
+   clock where nothing can be read or tapped — gets a floor set at the tallest
+   status bar a phone has: a Dynamic Island iPhone's is round 59pt, so 3.5rem
+   clears the clock on the widest phone as well as the narrow. The floor is the
+   same everywhere rather than only in the installed app, because the browser is
+   where the inset went missing. */
 :root {
-  --safe-top: env(safe-area-inset-top);
+  --safe-top: max(env(safe-area-inset-top), 3.5rem);
 }
 
-@media (display-mode: standalone) {
-  :root {
-    --safe-top: max(env(safe-area-inset-top), 3rem);
-  }
+/* What the rail takes off the bottom of a screen: the bar's own height plus the
+   home-bar inset it clears. Screens reserve it, so the last row is never hidden
+   behind the bar now that the bar is pinned to the phone rather than sitting in
+   the shell's flow. */
+:root {
+  --rail-space: calc(env(safe-area-inset-bottom) + 4.25rem);
 }
 
 /* The palette is the reference photo's own, sampled off its screens: a
@@ -251,7 +257,7 @@ svg {
   padding:
     calc(var(--safe-top) + 1.5rem)
     calc(env(safe-area-inset-right) + 5.1%)
-    calc(env(safe-area-inset-bottom) + 1.25rem)
+    calc(var(--rail-space) + 1.25rem)
     calc(env(safe-area-inset-left) + 5.1%);
 }
 
@@ -871,24 +877,6 @@ svg {
 }
 
 /* Home shows a handful of rows; this reveals the rest of the history. */
-.list-more {
-  width: 100%;
-  margin-top: 0.875rem;
-  padding: 0.8125rem;
-  border-radius: 0.875rem;
-  border: var(--hairline) solid var(--border-color);
-  background-color: var(--card-bg-light);
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.list-more:active {
-  background-color: #33281f;
-}
-
 /* The provenance pill a row wears (a Shortcut's `AUTO`, a UPI payment's own
    mark): gold on the page's dark ground, small and quiet. */
 .tx-badge,
@@ -929,12 +917,13 @@ svg {
 }
 
 /* ------------------------------------------------------------------
-   Financial Operations — the page over the whole phone
-   Home's balance opens it and its back arrow is the way out. It covers the
-   rail too, which is what "the whole screen" means, so it is placed against
-   the phone and never inside the shell's content area.
+   A page over the whole phone — Financial Operations, the add form, Request.
+   The thing that opens one has its own way out (a back arrow, or the rail),
+   and it covers the rail too, which is what "the whole screen" means: it is
+   placed against the phone and never inside the shell's content area.
    ------------------------------------------------------------------ */
-.records-overlay {
+.records-overlay,
+.page-overlay {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -954,11 +943,13 @@ svg {
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
 
-.records-overlay::-webkit-scrollbar {
+.records-overlay::-webkit-scrollbar,
+.page-overlay::-webkit-scrollbar {
   display: none;
 }
 
-.records-overlay.is-open {
+.records-overlay.is-open,
+.page-overlay.is-open {
   opacity: 1;
   visibility: visible;
   transform: none;
@@ -1432,16 +1423,28 @@ svg {
    Bottom rail — controls which screen is shown
    ------------------------------------------------------------------ */
 .nav-wrap {
-  flex: none;
-  /* The rail belongs against the bottom of the phone. The screens above it
-     grow to fill the shell, so this only bites when a screen is shorter than
-     the space it was given — the case that used to leave the rail sitting a
-     centimetre above the bottom, under nothing but background. */
-  margin-top: auto;
+  /* The rail belongs against the bottom of the phone, so it is pinned to the
+     phone rather than left to the shell's height.
+
+     In the shell's flow it was only as low as the shell was tall, and the shell
+     is `vh`/`dvh` — which on a phone is not always the screen you can see. The
+     rail was reported floating a finger's width above the bottom, over nothing
+     but background, while the shell was shorter than the display. Pinned, it is
+     at the bottom of whatever the phone is showing, and the screens above it
+     reserve room for it through `--rail-space`. */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Under the pages and the camera, which are 20 and 40: a page is the whole
+     phone, the rail included. */
+  z-index: 10;
+  /* As low as the safe area allows: nothing between the bar and the bottom of
+     the screen but the home indicator's own inset. */
   padding:
     0
     calc(env(safe-area-inset-right) + 3%)
-    calc(env(safe-area-inset-bottom) + 0.75rem)
+    env(safe-area-inset-bottom)
     calc(env(safe-area-inset-left) + 3%);
 }
 
@@ -1913,27 +1916,6 @@ svg {
   background: var(--surface-2);
 }
 
-.empty {
-  text-align: center;
-  padding: 46px 20px;
-  color: var(--muted);
-}
-
-.empty__icon {
-  display: block;
-  margin: 0 auto 12px;
-  width: 46px;
-  height: 46px;
-  color: var(--muted);
-  opacity: 0.6;
-}
-
-.empty__title {
-  color: var(--text);
-  font-weight: 650;
-  margin: 0 0 4px;
-}
-
 /* The app's original two-tab bar and its floating add button. The rail above
    supersedes them, but they stay until the shell stops rendering them. */
 .nav {
@@ -2013,51 +1995,11 @@ svg {
 }
 
 /* ---------------------------------------------------------------- *
- * Bottom sheet (add expense)
+ * The add form and Request are pages, not sheets: there used to be a
+ * backdrop and a panel that slid up over the dashboard, and the owner asked
+ * for the rail's bolt to open a screen of its own instead. Their styles were
+ * the `.page-overlay` block above with the `.records-overlay` one.
  * ---------------------------------------------------------------- */
-
-.sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: fade 0.18s ease;
-}
-
-.sheet {
-  width: 100%;
-  max-width: 520px;
-  max-height: 92dvh;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 22px 22px 0 0;
-  padding: 10px 18px calc(env(safe-area-inset-bottom) + 20px);
-  animation: slide-up 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sheet__grabber {
-  width: 40px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--border);
-  margin: 4px auto 14px;
-}
-
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes slide-up {
-  from {
-    transform: translateY(100%);
-  }
-}
 
 /* ---------------------------------------------------------------- *
  * Forms
@@ -2341,17 +2283,6 @@ svg {
   gap: 10px;
 }
 
-/* The pin: Wallet's own category list is 24 entries deep and does not fit a
-   phone screen, so the sheet's buttons stay reachable while the list scrolls
-   under them — the same reason the mockup's sheet pins its own. */
-.sheet .btn-row {
-  position: sticky;
-  bottom: 0;
-  padding-top: 12px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
-  background: var(--surface);
-}
-
 .link-btn {
   border: 0;
   background: transparent;
@@ -2434,4 +2365,34 @@ svg {
 
 .install-steps li {
   margin-bottom: 6px;
+}
+
+/* The dashboard's way into the records, where the newest rows used to be
+   listed. It is a card-wide button rather than a pill, because it stands where
+   a section of the page was. */
+.records-open {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 1.0625rem 0.5rem;
+  border-radius: 1rem;
+  border: var(--hairline) solid var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.records-open svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--accent-yellow);
+}
+
+.records-open:active {
+  background-color: var(--card-bg-light);
 }

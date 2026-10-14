@@ -20,12 +20,15 @@ import {
   OPENING_BALANCE_CENTS,
   type Expense,
 } from '../lib/types'
-import { ExpenseRow } from './ExpenseRow'
 
 /**
  * Home, in the design the mockup agreed on: the greeting header, the balance as
  * a gold rupee coin over the figure, one account card in the owner's own metal,
- * the Transfer/Request pair, the two budget widgets and the newest rows.
+ * the Transfer/Request pair and the two budget widgets.
+ *
+ * The rows used to be listed here too. They are not any more: the dashboard is
+ * a glance at the money, and the day-by-day ledger is Financial Operations,
+ * one tap away behind the button where the list was.
  *
  * The anatomy is the mockup's; the numbers are the app's. The one place the app
  * has less to say than the mockup did is the card: the mockup has two accounts
@@ -34,21 +37,19 @@ import { ExpenseRow } from './ExpenseRow'
  * else on this screen moves.
  */
 
-/** Home is a glance, not a ledger: the newest entries, the rest a tap away. */
-const HOME_LIST_LIMIT = 5
-
 /** How many category slices the pie names before it says "Everything else". */
 const PIE_WEDGES = 4
 
 type Props = {
   expenses: Expense[]
-  loading: boolean
-  onDelete: (id: string) => void
   onSync: () => Promise<unknown>
   /** Open the scanner: the Transfer button's job in this app. */
   onScan: () => void
-  /** Open the Financial Operations page — the balance figure's job. */
+  /** Open the Financial Operations page — the balance figure's and the
+      records button's job, since both go to the same ledger. */
   onOperations: () => void
+  /** Request has a page of its own now, however empty it is for the moment. */
+  onRequest: () => void
   /** The header's wallet button, which the rail also owns. */
   onCards: () => void
 }
@@ -101,15 +102,13 @@ function splitMoney(formatted: string): [string, string] {
 
 export function HomeScreen({
   expenses,
-  loading,
-  onDelete,
   onSync,
   onScan,
   onOperations,
+  onRequest,
   onCards,
 }: Props) {
   const month = currentMonthKey()
-  const [showAll, setShowAll] = useState(false)
   const [syncNote, setSyncNote] = useState('Synced just now')
 
   const { total, monthCount, byCategory, dailyAverage, balance } = useMemo(() => {
@@ -206,22 +205,6 @@ export function HomeScreen({
     [pie],
   )
 
-  // Capped by row, not by day, so "the last five" means five rows on screen.
-  const visible = useMemo(
-    () => (showAll ? expenses : expenses.slice(0, HOME_LIST_LIMIT)),
-    [expenses, showAll],
-  )
-
-  const groups = useMemo(() => {
-    const map = new Map<string, Expense[]>()
-    for (const item of visible) {
-      const bucket = map.get(item.spentAt)
-      if (bucket) bucket.push(item)
-      else map.set(item.spentAt, [item])
-    }
-    return [...map.entries()]
-  }, [visible])
-
   async function handleSync() {
     setSyncNote('Syncing…')
     try {
@@ -236,7 +219,7 @@ export function HomeScreen({
   const [spentWhole, spentPaise] = splitMoney(formatMoney(total, currency))
 
   return (
-    <>
+    <main className="screen">
       <div className="header">
         <div className="user-info">
           <div className="brand-badge" aria-hidden>
@@ -263,193 +246,179 @@ export function HomeScreen({
         {syncNote}
       </div>
 
-      <main className="screen">
-        <div className="balance-section">
-          <div className="balance-title">Total balance</div>
-          <div className="balance-row">
-            <div className="coin-icon" aria-hidden>
-              ₹
-            </div>
-            <button
-              type="button"
-              className="balance-open"
-              onClick={onOperations}
-              title="Money in and out"
-              aria-label="Open Financial Operations"
-            >
-              <span className="balance-amount">
-                {whole}
-                <span>{paise}</span>
-              </span>
-              <svg
-                className="balance-open__go"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="icon-btn icon-btn--round balance-sync"
-              onClick={handleSync}
-              title="Sync with the server"
-              aria-label="Sync with the server"
-            >
-              <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M8 16H3v5" />
-              </svg>
-            </button>
+      <div className="balance-section">
+        <div className="balance-title">Total balance</div>
+        <div className="balance-row">
+          <div className="coin-icon" aria-hidden>
+            ₹
           </div>
-          <div className="balance-second">
-            <span className="balance-second__label">Spent this month</span>
-            <span className="balance-second__value">
-              {spentWhole}
-              <span>{spentPaise}</span>
-            </span>
-          </div>
-        </div>
-
-        {/* The owner's own metal, with the veil over it that the design puts
-            under the card's ink so a small line of type stays readable. */}
-        <div className="acct-carousel">
-          <div className="acct-slide">
-            <div className="acct-top">
-              <span>All accounts</span>
-              <span>
-                {monthCount} {monthCount === 1 ? 'entry' : 'entries'} this month
-              </span>
-            </div>
-            <div className="acct-figure">
+          <button
+            type="button"
+            className="balance-open"
+            onClick={onOperations}
+            title="Money in and out"
+            aria-label="Open Financial Operations"
+          >
+            <span className="balance-amount">
               {whole}
               <span>{paise}</span>
-            </div>
-            <div className="acct-foot">
-              {formatMoney(total, currency)} spent this month ·{' '}
-              {formatMoney(dailyAverage, currency)} a day
-            </div>
-          </div>
-        </div>
-
-        <div className="action-row">
-          {/* Transfer is the scanner: the owner's plan is to pay from the same
-              tap that logs the expense, so the camera is one tap from Home. */}
-          <button type="button" className="action-btn btn-transfer" onClick={onScan} title="Scan a UPI code and pay" aria-label="Scan a UPI code and pay">
-            <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <path d="M8 3 4 7l4 4" />
-              <path d="M4 7h16" />
-              <path d="m16 21 4-4-4-4" />
-              <path d="M20 17H4" />
+            </span>
+            <svg
+              className="balance-open__go"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path d="m9 18 6-6-6-6" />
             </svg>
-            Transfer
           </button>
-          <button type="button" className="action-btn btn-request" onClick={onOperations} title="Request" aria-label="Request">
+          <button
+            type="button"
+            className="icon-btn icon-btn--round balance-sync"
+            onClick={handleSync}
+            title="Sync with the server"
+            aria-label="Sync with the server"
+          >
             <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
             </svg>
-            Request
           </button>
         </div>
+        <div className="balance-second">
+          <span className="balance-second__label">Spent this month</span>
+          <span className="balance-second__value">
+            {spentWhole}
+            <span>{spentPaise}</span>
+          </span>
+        </div>
+      </div>
 
-        <div className="widgets-grid">
-          <div className="widget-card">
-            <div className="widget-header">
-              <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4" />
-                <path d="M12 8h.01" />
-              </svg>
-              Budget used
-            </div>
-            <div className="goal-container">
-              <canvas ref={ringRef} />
-              <div className="goal-text">
-                <span className="goal-text__value">{Math.round(budgetUsed * 100)}%</span>
-                <span>used</span>
-              </div>
-            </div>
-            <div className="goal-footer">{formatMoney(budgetLeft, currency)} remaining</div>
+      {/* The owner's own metal, with the veil over it that the design puts
+          under the card's ink so a small line of type stays readable. */}
+      <div className="acct-carousel">
+        <div className="acct-slide">
+          <div className="acct-top">
+            <span>All accounts</span>
+            <span>
+              {monthCount} {monthCount === 1 ? 'entry' : 'entries'} this month
+            </span>
           </div>
-
-          <div className="widget-card">
-            <div className="widget-header">
-              <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-              {formatMonthLabel(month)} budget
-            </div>
-            <div className="cat-pie">
-              <canvas ref={pieRef} />
-            </div>
-            <div className="cat-legend">
-              {pie.map((slice) => {
-                const category = categoryFor(slice.id)
-                return (
-                  <div className="cat-legend__row" key={slice.id}>
-                    <CategoryIcon id={category.id} className="cat-legend__icon" color={slice.color} />
-                    <span className="cat-legend__name">{category.label}</span>
-                    <span className="cat-legend__amount">{formatMoney(slice.cents, currency)}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="goal-footer">
-              {formatMoney(total, currency)} of {formatMoney(MONTHLY_BUDGET_CENTS, currency)}
-            </div>
+          <div className="acct-figure">
+            {whole}
+            <span>{paise}</span>
+          </div>
+          <div className="acct-foot">
+            {formatMoney(total, currency)} spent this month ·{' '}
+            {formatMoney(dailyAverage, currency)} a day
           </div>
         </div>
+      </div>
 
-        {expenses.length === 0 ? (
-          loading ? null : (
-            <div className="empty">
-              <p className="empty__title">No expenses yet</p>
-              <p>Tap the bolt in the rail to log your first one.</p>
+      <div className="action-row">
+        {/* Transfer is the scanner: the owner's plan is to pay from the same
+            tap that logs the expense, so the camera is one tap from Home. */}
+        <button type="button" className="action-btn btn-transfer" onClick={onScan} title="Scan a UPI code and pay" aria-label="Scan a UPI code and pay">
+          <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <path d="M8 3 4 7l4 4" />
+            <path d="M4 7h16" />
+            <path d="m16 21 4-4-4-4" />
+            <path d="M20 17H4" />
+          </svg>
+          Transfer
+        </button>
+        <button type="button" className="action-btn btn-request" onClick={onRequest} title="Request" aria-label="Request">
+          <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+          </svg>
+          Request
+        </button>
+      </div>
+
+      <div className="widgets-grid">
+        <div className="widget-card">
+          <div className="widget-header">
+            <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            Budget used
+          </div>
+          <div className="goal-container">
+            <canvas ref={ringRef} />
+            <div className="goal-text">
+              <span className="goal-text__value">{Math.round(budgetUsed * 100)}%</span>
+              <span>used</span>
             </div>
-          )
-        ) : (
-          <>
-            {groups.map(([day, items]) => (
-              <div key={day}>
-                <div className="day-label">{formatDayLabel(day)}</div>
-                <div className="tx-list">
-                  {items.map((item) => (
-                    <ExpenseRow
-                      key={item.id}
-                      expense={item}
-                      fallbackCurrency={currency}
-                      onDelete={onDelete}
-                    />
-                  ))}
+          </div>
+          <div className="goal-footer">{formatMoney(budgetLeft, currency)} remaining</div>
+        </div>
+
+        <div className="widget-card">
+          <div className="widget-header">
+            <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            {formatMonthLabel(month)} budget
+          </div>
+          <div className="cat-pie">
+            <canvas ref={pieRef} />
+          </div>
+          <div className="cat-legend">
+            {pie.map((slice) => {
+              const category = categoryFor(slice.id)
+              return (
+                <div className="cat-legend__row" key={slice.id}>
+                  <CategoryIcon id={category.id} className="cat-legend__icon" color={slice.color} />
+                  <span className="cat-legend__name">{category.label}</span>
+                  <span className="cat-legend__amount">{formatMoney(slice.cents, currency)}</span>
                 </div>
-              </div>
-            ))}
+              )
+            })}
+          </div>
+          <div className="goal-footer">
+            {formatMoney(total, currency)} of {formatMoney(MONTHLY_BUDGET_CENTS, currency)}
+          </div>
+        </div>
+      </div>
 
-            {expenses.length > HOME_LIST_LIMIT && (
-              <button
-                type="button"
-                className="list-more"
-                onClick={() => setShowAll((value) => !value)}
-                aria-expanded={showAll}
-              >
-                {showAll ? 'Show fewer' : `Show all ${expenses.length} entries`}
-              </button>
-            )}
-          </>
-        )}
+      {/* Where the newest rows used to be listed. They live behind this
+          button now: the dashboard stays a glance at the money, and the
+          day-by-day ledger is one tap away. */}
+      <button
+        type="button"
+        className="records-open"
+        onClick={onOperations}
+        title="Financial operations"
+        aria-label="Open Financial operations"
+      >
+        <svg
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h10" />
+        </svg>
+        Financial operations
+      </button>
 
-        {/* The date Home is built around, in the mockup's own words. */}
-        <p className="goal-footer">{formatDayLabel(todayISO())} · {formatMonthLabel(month)}</p>
-      </main>
-    </>
+      {/* The date Home is built around, in the mockup's own words. */}
+      <p className="goal-footer">{formatDayLabel(todayISO())} · {formatMonthLabel(month)}</p>
+    </main>
   )
 }

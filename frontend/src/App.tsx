@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AddExpenseSheet } from './components/AddExpenseSheet'
+import { AddExpensePage } from './components/AddExpensePage'
 import { CardsScreen } from './components/CardsScreen'
 import { HomeScreen } from './components/HomeScreen'
 import { OperationsScreen } from './components/OperationsScreen'
 import { QrScanner } from './components/QrScanner'
+import { RequestScreen } from './components/RequestScreen'
 import { SettingsScreen } from './components/SettingsScreen'
 import { StatisticsScreen } from './components/StatisticsScreen'
 import { TabBar, type Tab } from './components/TabBar'
@@ -28,10 +29,14 @@ function requestedAction(): string | null {
 }
 
 export default function App() {
-  const { expenses, loading, add, remove, reload, sync } = useExpenses()
+  const { expenses, add, reload, sync } = useExpenses()
   const [tab, setTab] = useState<Tab>('home')
-  const [sheetOpen, setSheetOpen] = useState(() => requestedAction() === 'add')
+  // The add form and Request are pages over the shell rather than screens
+  // inside it: neither is a tab, and both are asked for from a control that
+  // keeps its place (the rail's bolt, Home's Request button).
+  const [addOpen, setAddOpen] = useState(() => requestedAction() === 'add')
   const [opsOpen, setOpsOpen] = useState(false)
+  const [requestOpen, setRequestOpen] = useState(false)
   // "Scan & pay" is a shortcut on the phone's home screen, so the scanner can
   // be the first thing the app opens — that is the whole point of it.
   const [scan, setScan] = useState<ScanState>(() =>
@@ -49,12 +54,13 @@ export default function App() {
   const currency = expenses[0]?.currency ?? DEFAULT_CURRENCY
 
   /**
-   * The rail's third entry is the add flow, which in this app is a sheet rather
-   * than a screen: tapping it opens the sheet and leaves the rail where it was.
+   * The rail's third entry is the add flow, which is a page of its own rather
+   * than a tab: tapping it opens that page over the shell and leaves the rail
+   * showing wherever the owner already was.
    */
   const handleTab = useCallback((next: Tab) => {
     if (next === 'add') {
-      setSheetOpen(true)
+      setAddOpen(true)
       return
     }
     setTab(next)
@@ -93,11 +99,10 @@ export default function App() {
       {tab === 'home' && (
         <HomeScreen
           expenses={expenses}
-          loading={loading}
-          onDelete={remove}
           onSync={sync}
           onScan={startScan}
           onOperations={() => setOpsOpen(true)}
+          onRequest={() => setRequestOpen(true)}
           onCards={() => setTab('cards')}
         />
       )}
@@ -125,10 +130,12 @@ export default function App() {
           }}
           onAdd={() => {
             setOpsOpen(false)
-            setSheetOpen(true)
+            setAddOpen(true)
           }}
         />
       )}
+
+      {requestOpen && <RequestScreen onClose={() => setRequestOpen(false)} />}
 
       {scan.phase === 'scanning' && (
         <QrScanner onPayee={(payee) => setScan({ phase: 'paying', payee })} onCancel={stopScan} />
@@ -143,13 +150,13 @@ export default function App() {
         />
       )}
 
-      {sheetOpen && (
-        <AddExpenseSheet
+      {addOpen && (
+        <AddExpensePage
           currency={currency}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => setAddOpen(false)}
           onSave={async (draft) => {
             await add(draft)
-            setSheetOpen(false)
+            setAddOpen(false)
           }}
         />
       )}
