@@ -76,6 +76,15 @@ any icon mapping change; it is a build-time input, not a dependency of the app.
 Phosphor's `fill` set was here for a while and is gone: two scripts writing one table
 is how the two clients drift apart.
 
+One script owns the typeface as well: `tools/vendor-font.py` fetches **Nunito**, the
+rounded sans the reference's own labels are set in, and writes it into
+`frontend/src/assets/fonts/` with its OFL licence beside it. It writes two files —
+the latin subset, one variable font carrying the whole 200–1000 weight range, and a
+1.5 KiB file holding the rupee sign alone, which the app writes on every amount and
+the latin subset leaves out. The app is offline-first, so the font is vendored into
+the build rather than linked from fonts.googleapis.com, and the app's `@font-face`
+rules live at the top of `frontend/src/index.css`; do not hand-edit the files.
+
 Decisions the script makes, so nobody has to guess: amounts are *already* rupees
 (Wallet stores paise, and INR is its referential currency, so nothing is converted);
 income arrives as `kind: 'income'` and internal transfers are dropped; soft-deleted
@@ -268,10 +277,14 @@ is tolerance for hand-written files, not the format to produce.
   it. The list below is capped at five rows with a "Show all N entries" button, because
   a four-month history must never fill the first screen, and everything below the
   balance still sums this month's *expenses* only, or the ring would blow up on load.
-  The pair under the balance card is the reference's **Transfer** and **Request**, which
-  open the operations page and are the controls the owner is wiring to UPI (see the page
-  above); the **Add expense** screen is reached from the rail's third tab and from that
-  page's `+`.
+  The account card and that pair sit together in `.home-group` — one panel of the same
+  brown the two budget cards below wear, because in the reference the money you have and
+  the money you move are one block rather than three floating parts. The mat around them
+  is deliberately thin (the reference's nine pixels) and the two buttons are equal
+  halves. They are the reference's **Transfer** and **Request**, which open the
+  operations page and are the controls the owner is wiring to UPI (see the page above);
+  the **Add expense** screen is reached from the rail's third tab and from that page's
+  `+`.
 - **The card under the balance swipes between accounts.** One slide per entry in
   `ACCOUNTS` — what it holds, its share of the money, and what it has spent this
   month — over a dot per slide. It is a track of its own: it follows the thumb and
@@ -312,7 +325,9 @@ is tolerance for hand-written files, not the format to produce.
   replaced "Auto-log with Shortcuts" — this month's spending as a pie over the
   category each rupee went to (`PIE_WEDGES` of them, the tail summed as "other"),
   with `₹X of ₹1,500.00` underneath, while the "Budget used" ring stays the
-  at-a-glance percent. The Shortcuts endpoint is documentation rather than a glance,
+  at-a-glance percent — drawn as the reference's own three circles: one big brown disc,
+  the gold band cut into its rim, and the smaller brown circle the band leaves in the
+  middle, with the part of the band the month has not reached left dark. The Shortcuts endpoint is documentation rather than a glance,
   so it lives on Profile beside the Backup card.
 - **Adding an expense is a screen, not a sheet.** It is the third screen — right
   after the statistics view, where the owner reaches for it — and both the Home button

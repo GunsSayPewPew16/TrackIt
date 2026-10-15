@@ -157,22 +157,50 @@ export function HomeScreen({
     return slices
   }, [byCategory])
 
-  // The ring: one gold arc over a faint track, starting at twelve o'clock.
+  // The ring, in the reference's own anatomy: one big brown circle, the gold
+  // graph on it, and the smaller brown circle the graph leaves in the middle.
+  //
+  // Those three are one filled disc with a band cut out of it, which is how the
+  // reference draws them: the disc's rim is the big brown circle, the band is
+  // where the gold lives, and the disc showing through the band's middle is the
+  // smaller one. Sampled off the reference: 80px of disc radius, a band running
+  // from 60px to 70px, so the band's centre line sits at 0.8125 of the disc and
+  // the band is 0.1375 of it wide. The disc's brown is a step lighter than the
+  // card under it, and the band is dark where the month has not reached, so the
+  // gold reads as a bar laid into the disc's rim rather than as a stroke on the
+  // card.
+  //
+  // The arc starts at half past seven and sweeps clockwise — where the
+  // reference's own arc starts, with its gap across the lower right.
+  //
+  // The three colours are literals because a canvas cannot read a custom
+  // property. The disc wears the ring's own brown, which nothing else in the app
+  // uses; the band's unused part is `--gold-ink`; the arc is `--accent-yellow`.
   const ringRef = useCanvas(
     (ctx, size) => {
-      const stroke = size * 0.1
-      const radius = (size - stroke) / 2
-      ctx.lineWidth = stroke
-      ctx.lineCap = 'round'
+      const centre = size / 2
+      const disc = size * 0.5
+      const bandWidth = disc * 0.1375
+      const bandRadius = disc * 0.8125
 
       ctx.beginPath()
-      ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'
+      ctx.arc(centre, centre, disc, 0, Math.PI * 2)
+      ctx.fillStyle = '#46351f'
+      ctx.fill()
+
+      // The band: the month's spending in gold, the rest left in the dark the
+      // unspent part of a track wears.
+      ctx.lineWidth = bandWidth
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.arc(centre, centre, bandRadius, 0, Math.PI * 2)
+      ctx.strokeStyle = '#241c0e'
       ctx.stroke()
 
       if (budgetUsed <= 0) return
+      const start = Math.PI * 0.75
       ctx.beginPath()
-      ctx.arc(size / 2, size / 2, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * budgetUsed)
+      ctx.arc(centre, centre, bandRadius, start, start + Math.PI * 2 * budgetUsed)
       ctx.strokeStyle = '#f5e79b'
       ctx.stroke()
     },
@@ -300,46 +328,50 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* The owner's own metal, with the veil over it that the design puts
-          under the card's ink so a small line of type stays readable. */}
-      <div className="acct-carousel">
-        <div className="acct-slide">
-          <div className="acct-top">
-            <span>All accounts</span>
-            <span>
-              {monthCount} {monthCount === 1 ? 'entry' : 'entries'} this month
-            </span>
-          </div>
-          <div className="acct-figure">
-            {whole}
-            <span>{paise}</span>
-          </div>
-          <div className="acct-foot">
-            {formatMoney(total, currency)} spent this month ·{' '}
-            {formatMoney(dailyAverage, currency)} a day
+      {/* The reference's grouping: the account card and the two money buttons
+          share one brown panel, the same brown the budget cards below wear. */}
+      <div className="home-group">
+        {/* The owner's own metal, with the veil over it that the design puts
+            under the card's ink so a small line of type stays readable. */}
+        <div className="acct-carousel">
+          <div className="acct-slide">
+            <div className="acct-top">
+              <span>All accounts</span>
+              <span>
+                {monthCount} {monthCount === 1 ? 'entry' : 'entries'} this month
+              </span>
+            </div>
+            <div className="acct-figure">
+              {whole}
+              <span>{paise}</span>
+            </div>
+            <div className="acct-foot">
+              {formatMoney(total, currency)} spent this month ·{' '}
+              {formatMoney(dailyAverage, currency)} a day
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="action-row">
-        {/* Transfer is the scanner: the owner's plan is to pay from the same
-            tap that logs the expense, so the camera is one tap from Home. */}
-        <button type="button" className="action-btn btn-transfer" onClick={onScan} title="Scan a UPI code and pay" aria-label="Scan a UPI code and pay">
-          <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-            <path d="M8 3 4 7l4 4" />
-            <path d="M4 7h16" />
-            <path d="m16 21 4-4-4-4" />
-            <path d="M20 17H4" />
-          </svg>
-          Transfer
-        </button>
-        <button type="button" className="action-btn btn-request" onClick={onRequest} title="Request" aria-label="Request">
-          <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-          </svg>
-          Request
-        </button>
+        <div className="action-row">
+          {/* Transfer is the scanner: the owner's plan is to pay from the same
+              tap that logs the expense, so the camera is one tap from Home. */}
+          <button type="button" className="action-btn btn-transfer" onClick={onScan} title="Scan a UPI code and pay" aria-label="Scan a UPI code and pay">
+            <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M8 3 4 7l4 4" />
+              <path d="M4 7h16" />
+              <path d="m16 21 4-4-4-4" />
+              <path d="M20 17H4" />
+            </svg>
+            Transfer
+          </button>
+          <button type="button" className="action-btn btn-request" onClick={onRequest} title="Request" aria-label="Request">
+            <svg fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+            </svg>
+            Request
+          </button>
+        </div>
       </div>
 
       <div className="widgets-grid">

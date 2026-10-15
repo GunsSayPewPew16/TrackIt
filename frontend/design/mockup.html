@@ -20,17 +20,40 @@
       font-size: clamp(0.9rem, 4.1vmin, 1.15rem);
     }
 
-    /* The palette is the reference photo's own, sampled off its screens: a
-       near-black warm ground, a brown surface lifted out of it, one pale gold
-       for what is active, and the reference's tan — the same brown its
-       transaction tiles wear — for the cards.
-       NOTE: the gold, the muted grey and the spending red are duplicated as
-       literals in the canvases below (the ring, the pie, the trend), because a
-       canvas cannot read a custom property; keep them in step. */
+    /* The typeface is the vendored one the app itself ships, read from the same
+       file by a relative path so the mockup stays a single hand-written page
+       with no build step and no CDN: `../src/assets/fonts/` is where
+       tools/vendor-font.py puts it. Nunito is under the SIL Open Font License,
+       and its licence travels beside the file it covers. */
+    @font-face {
+      font-family: 'Nunito';
+      font-style: normal;
+      font-weight: 200 1000;
+      font-display: swap;
+      src: url('../src/assets/fonts/nunito-var-latin.woff2') format('woff2');
+    }
+
+    @font-face {
+      font-family: 'Nunito';
+      font-style: normal;
+      font-weight: 200 1000;
+      font-display: swap;
+      src: url('../src/assets/fonts/nunito-var-rupee.woff2') format('woff2');
+      unicode-range: U+20B9;
+    }
+
+    /* The palette is the reference's own, sampled off its screens: a near-black
+       warm ground, the brown surface lifted out of it — the one shade the
+       reference cuts both its grouped panel and its two budget cards from, so the
+       money you have and the money you move read as one block — one pale gold for
+       what is active, and the reference's tan for its second button.
+       NOTE: the browns, the gold, the muted grey and the spending red are also
+       written as literals inside the app's canvases — the ring alone needs three
+       — because a canvas cannot read a custom property; keep them in step. */
     :root {
       --bg-color: #100d08;
-      --card-bg: #2c2117;
-      --card-bg-light: #3a2c1d;
+      --card-bg: #332718;
+      --card-bg-light: #413222;
       --accent-yellow: #f5e79b;
       --accent-yellow-hover: #e9d97f;
       --text-main: #ffffff;
@@ -64,7 +87,7 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Nunito', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
     html,
@@ -486,16 +509,38 @@
       background: var(--accent-yellow);
     }
 
+    /* The reference groups its account card and its two money buttons inside one
+       panel of the same brown its two budget cards wear, so the money you have
+       and the money you move read as one block rather than as three floating
+       parts. The padding is small on purpose: in the reference the card sits in
+       a narrow mat of that brown — nine of its pixels in a 453-wide panel — and
+       the gap between the card and the buttons under it is that same nine. */
+    .home-group {
+      background-color: var(--card-bg);
+      border-radius: 1.25rem;
+      padding: 0.5rem;
+      border: var(--hairline) solid var(--border-color);
+      margin-bottom: 1.5rem;
+    }
+
+    .home-group .acct-carousel {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Two buttons of one width, the way the reference lays them out: neither of
+       the two jobs is the lesser one, and an unequal pair would say it was. */
     .action-row {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
 
     .action-btn {
       padding: 1rem 0.5rem;
-      border-radius: 1rem;
+      /* The reference's own family radius: its pills, its cards and its panel are
+         all cut with the one corner. */
+      border-radius: 1.25rem;
       border: none;
       font-weight: 600;
       font-size: 0.875rem;
@@ -537,9 +582,13 @@
       background-color: #9a7750;
     }
 
+    /* Two halves, like the reference's own pair of cards. `minmax(0, 1fr)` and not
+       a bare `1fr`: the pie card's legend cannot wrap its amounts, so a bare `1fr`
+       lets that card's min-content pull its column wide and squeeze the ring's card
+       down to whatever is left. */
     .widgets-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
@@ -547,7 +596,10 @@
     .widget-card {
       background-color: var(--card-bg);
       border-radius: 1.25rem;
-      padding: 1.125rem;
+      /* The reference's own inset: 28 of its pixels in a 221-wide card, about an
+         eighth of the width. The ring below is the card's whole middle, so the
+         margin around it is what decides how big the ring gets to be. */
+      padding: 1.375rem;
       border: var(--hairline) solid var(--border-color);
       display: flex;
       flex-direction: column;
@@ -582,24 +634,32 @@
     }
 
     .goal-container canvas {
-      width: 58%;
+      width: 100%;
       height: auto;
       aspect-ratio: 1;
       display: block;
     }
 
+    /* The two lines the reference centres in the ring's middle circle: the figure,
+       and its label under it. The figure's rule is written on the bare `span`
+       below, so the number needs this class to win against it. */
     .goal-text {
       position: absolute;
       display: flex;
       flex-direction: column;
       align-items: center;
-      font-size: 1.25rem;
-      font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
 
+    .goal-text > .goal-text__value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--text-main);
+    }
+
     .goal-text span {
-      font-size: 0.625rem;
+      font-size: 0.6875rem;
       color: var(--text-muted);
       font-weight: 400;
     }
@@ -1665,9 +1725,12 @@
             </div>
           </div>
 
-          <!-- One account at a time; the total above is these two added up.
-               Swipe the card sideways, or tap a dot, to reach Cash, which the
-               strip below the card is there to advertise. -->
+          <!-- The reference's grouping: the account card and the two money
+               buttons share one brown panel — the same brown the budget cards
+               below wear. One account at a time inside it; swipe the card
+               sideways, or tap a dot, to reach Cash, which the strip below the
+               card is there to advertise. -->
+          <div class="home-group">
           <div class="acct-carousel" id="acct-carousel">
             <div class="acct-viewport">
               <div class="acct-track" id="acct-track"></div>
@@ -1688,6 +1751,7 @@
               Request
             </button>
           </div>
+          </div>
 
           <div class="widgets-grid">
             <div class="widget-card">
@@ -1698,7 +1762,7 @@
               <div class="goal-container">
                 <canvas id="goalCanvas"></canvas>
                 <div class="goal-text">
-                  <span id="ring-pct" style="font-size:1.25rem;color:var(--text-main);font-weight:700;">0%</span>
+                  <span class="goal-text__value" id="ring-pct">0%</span>
                   <span>used</span>
                 </div>
               </div>
@@ -2510,19 +2574,32 @@
         canvas.height = size;
       }
 
+      // The reference's own anatomy: one big brown circle, the gold graph on it,
+      // and the smaller brown circle the graph leaves in the middle. Those three
+      // are one filled disc with a band cut out of it — 0.8125 of the disc's
+      // radius out from its centre, 0.1375 of the disc wide — and the band is
+      // dark where the month has not reached, so the gold reads as a bar laid
+      // into the disc's rim. Sampled off the reference: the disc's brown is a
+      // step lighter than the card's, and the arc starts at half past seven.
       const center = size / 2;
-      const lineWidth = size * 0.09;
-      const radius = center - lineWidth / 2 - size * 0.01;
+      const disc = size * 0.5;
+      const lineWidth = disc * 0.1375;
+      const radius = disc * 0.8125;
 
       ctx.clearRect(0, 0, size, size);
 
       ctx.beginPath();
+      ctx.arc(center, center, disc, 0, 2 * Math.PI);
+      ctx.fillStyle = '#46351f';
+      ctx.fill();
+
+      ctx.beginPath();
       ctx.arc(center, center, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#2d241c';
+      ctx.strokeStyle = '#241c0e';
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      const start = -Math.PI / 2;
+      const start = Math.PI * 0.75;
       const end = start + 2 * Math.PI * (Math.min(Math.max(percent, 0), 100) / 100);
 
       ctx.beginPath();
@@ -2564,7 +2641,7 @@
         catCtx.fillStyle = slice.color;
         catCtx.fill();
         // A hairline of card between wedges, so two warm browns still read apart.
-        catCtx.strokeStyle = '#2c2117';
+        catCtx.strokeStyle = '#332718';
         catCtx.lineWidth = Math.max(1, size * 0.012);
         catCtx.stroke();
         angle += sweep;

@@ -35,6 +35,42 @@
   font-size: clamp(0.9rem, 4.1vmin, 1.15rem);
 }
 
+/* ------------------------------------------------------------------
+   The typeface — Nunito, vendored rather than fetched
+   ------------------------------------------------------------------
+   The reference's own labels — its card, its two pills, the goals card — are
+   set in a rounded geometric sans: round terminals, a double-storey `a`, a
+   round dot on the `i`, a single-storey `g` with an open tail, and wide round
+   numerals. Nunito is the closest free face to it, and it is vendored into the
+   build instead of linked from fonts.googleapis.com, because the installed app
+   has to keep its typeface offline the way it keeps everything else — the
+   service worker precaches `woff2`, so one file is enough.
+
+   That one file carries the whole 200–1000 weight range, which is what lets the
+   600, 650, 700 and 750 the UI is written in land exactly instead of rounding to
+   the nearest static face. The rupee sign is the one glyph the latin subset
+   leaves out, and the app writes it on every amount, so a second 1.5 KiB file
+   holds that character alone and `unicode-range` asks for it only then.
+
+   tools/vendor-font.py writes both, with the licence beside them; do not
+   hand-edit either file. Nunito is under the SIL Open Font License. */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('./assets/fonts/nunito-var-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('./assets/fonts/nunito-var-rupee.woff2') format('woff2');
+  unicode-range: U+20B9;
+}
+
 /* The height of the phone's own status bar, as a value the app can pad with.
 
    A phone that reports a real inset keeps it. One that reports none — which is
@@ -56,19 +92,20 @@
   --rail-space: calc(env(safe-area-inset-bottom) + 4.25rem);
 }
 
-/* The palette is the reference photo's own, sampled off its screens: a
-   near-black warm ground, a brown surface lifted out of it, one pale gold
-   for what is active, and the reference's tan — the same brown its
-   transaction tiles wear — for the cards.
-   NOTE: the gold, the muted grey and the spending red are duplicated as
-   literals in the app's canvases (the ring, the pie, the trend), because a
-   canvas cannot read a custom property; keep them in step. */
+/* The palette is the reference's own, sampled off its screens: a near-black
+   warm ground, the brown surface lifted out of it — the one shade the
+   reference cuts both its grouped panel and its two budget cards from, so the
+   money you have and the money you move read as one block — one pale gold for
+   what is active, and the reference's tan for its second button.
+   NOTE: the browns, the gold, the muted grey and the spending red are also
+   written as literals inside the app's canvases — the ring alone needs three
+   of them — because a canvas cannot read a custom property; keep them in step. */
 :root {
   color-scheme: dark;
 
   --bg-color: #100d08;
-  --card-bg: #2c2117;
-  --card-bg-light: #3a2c1d;
+  --card-bg: #332718;
+  --card-bg-light: #413222;
   --accent-yellow: #f5e79b;
   --accent-yellow-hover: #e9d97f;
   --text-main: #ffffff;
@@ -145,7 +182,9 @@ body {
 body {
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Nunito first, the phone's own UI face behind it: if the vendored file is
+     ever missing the app still sets its type, it just loses the design's. */
+  font-family: 'Nunito', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   /* The app shell owns scrolling; the page itself never moves, so a scroll
@@ -480,6 +519,36 @@ svg {
 /* The accounts carousel: one card per account, following the thumb and
    landing on release. The wrapper itself is bare — the display panel it used
    to be is the card each slide has become. */
+/* The reference groups its account card and its two money buttons inside one
+   panel of the same brown its two budget cards wear, so the money you have and
+   the money you move read as one block rather than as three floating parts.
+   That panel is this: the brown is `--card-bg` — the budget cards' own — and
+   nothing else about it is special.
+
+   The padding is small on purpose. In the reference the card sits inside a
+   narrow mat of that brown — nine of its pixels in a 453-wide panel — rather
+   than the card being one more inset object with a wide margin around it. That
+   mat is what makes the panel legible as one surface the card rests on, and it
+   is why the gap between the card and the buttons under it is the same nine
+   pixels: the panel's own spacing, not a margin between two things. */
+.home-group {
+  background-color: var(--card-bg);
+  border-radius: 1.25rem;
+  padding: 0.5rem;
+  border: var(--hairline) solid var(--border-color);
+  margin-bottom: 1.5rem;
+}
+
+/* Inside the panel the two parts space each other by that same mat; the panel
+   owns the gap to the cards below. */
+.home-group .acct-carousel {
+  margin-bottom: 0.5rem;
+}
+
+.home-group .action-row {
+  margin-bottom: 0;
+}
+
 .acct-carousel {
   width: 100%;
   margin-bottom: 1.25rem;
@@ -606,16 +675,21 @@ svg {
   background: var(--accent-yellow);
 }
 
+/* Two buttons of one width, the way the reference lays them out: neither of the
+   two jobs is the lesser one, and an unequal pair would say that it was. */
 .action-row {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
 .action-btn {
   padding: 1rem 0.5rem;
-  border-radius: 1rem;
+  /* The reference's own family radius: its pills, its cards and its panel are
+     all cut with the one corner, so the buttons read as part of the group
+     rather than as a pair of small objects parked inside it. */
+  border-radius: 1.25rem;
   border: none;
   font-weight: 600;
   font-size: 0.875rem;
@@ -657,9 +731,13 @@ svg {
   background-color: #9a7750;
 }
 
+/* Two halves, like the reference's own pair of cards. `minmax(0, 1fr)` and not
+   a bare `1fr`: the pie card's legend cannot wrap its amounts, so a bare `1fr`
+   lets that card's min-content pull its column wide and squeeze the ring's card
+   down to whatever is left. */
 .widgets-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
@@ -667,7 +745,10 @@ svg {
 .widget-card {
   background-color: var(--card-bg);
   border-radius: 1.25rem;
-  padding: 1.125rem;
+  /* The reference's own inset: 28 of its pixels in a 221-wide card, about an
+     eighth of the width. The ring below is the card's whole middle, so the
+     margin around it is what decides how big the ring gets to be. */
+  padding: 1.375rem;
   border: var(--hairline) solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -701,25 +782,43 @@ svg {
   position: relative;
 }
 
+/* The reference's ring is the card's whole middle: it fills the space between
+   the heading and the footer, so the number inside it is the thing the card
+   says. This used to be 58%, which left the ring looking like a badge in the
+   corner of a much larger card; at the card's own inset the ring's disc is the
+   full width of what is left, exactly as the reference's is. */
 .goal-container canvas {
-  width: 58%;
+  width: 100%;
   height: auto;
   aspect-ratio: 1;
   display: block;
 }
 
+/* The two lines the reference centres in the ring's middle circle: the figure,
+   and its label under it. */
 .goal-text {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 1.25rem;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
+/* Sized with the ring rather than beside it: the reference's own figure stands
+   about a quarter of the middle circle's height. The label's rule below is
+   written on the bare `span`, so the figure needs this class to win against it
+   — without it the number inside the ring is set at the label's own size. */
+.goal-text > .goal-text__value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  /* White, as the reference's own figure is: the label under it is the muted
+     line, and the number is the thing the card says. */
+  color: var(--text-main);
+}
+
 .goal-text span {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   font-weight: 400;
 }
