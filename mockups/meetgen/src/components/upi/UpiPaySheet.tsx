@@ -66,7 +66,7 @@ export function UpiPaySheet({ payee, initialCategory, categories, onPay, onClose
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close without paying">
           <ArrowLeft />
         </Button>
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="font-display text-2xl font-bold tracking-tight">
           {link ? "Logged. Pay next." : "Confirm and pay"}
         </h2>
       </div>

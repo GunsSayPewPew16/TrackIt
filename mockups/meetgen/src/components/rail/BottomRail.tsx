@@ -1,0 +1,105 @@
+import { House, QrCode, ReceiptText, type LucideIcon } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+/** The screens the rail can show. `pay` opens the scan flow instead of a screen. */
+export type RailTab = "home" | "ledger" | "pay"
+
+type Item = { id: RailTab; label: string; icon: LucideIcon }
+
+const ITEMS: Item[] = [
+  { id: "home", label: "Home", icon: House },
+  { id: "ledger", label: "Ledger", icon: ReceiptText },
+  { id: "pay", label: "Scan and pay", icon: QrCode },
+]
+
+/*
+ * Geometry, in px on a 340 x 72 pill. Every tab owns a centre x. The active
+ * screen's centre cuts a scoop into the top edge; the tab's disc sits in the
+ * scoop with a gap of canvas colour between the two, as in the reference.
+ */
+const WIDTH = 340
+const HEIGHT = 72
+const RADIUS = 36
+const SCOOP_HALF = 50 // half the scoop's width along the top edge
+const SCOOP_DEPTH = 43 // how far the scoop reaches down
+const DISC = 48
+const DISC_CENTRE_Y = 12 // the active disc's centre sits near the top edge
+
+// Centres keep the whole scoop inside the straight part of the top edge.
+const CENTRES = [86, 170, 254]
+
+/** The pill's outline, with a scoop at `centre` (or none). */
+function railPath(centre: number | null): string {
+  const left = RADIUS
+  const right = WIDTH - RADIUS
+  const top =
+    centre === null
+      ? `H${right}`
+      : [
+          `H${centre - SCOOP_HALF}`,
+          `C${centre - 28},0 ${centre - 26},${SCOOP_DEPTH} ${centre},${SCOOP_DEPTH}`,
+          `C${centre + 26},${SCOOP_DEPTH} ${centre + 28},0 ${centre + SCOOP_HALF},0`,
+          `H${right}`,
+        ].join(" ")
+  return [
+    `M${left},0`,
+    top,
+    `A${RADIUS},${RADIUS} 0 0 1 ${right},${HEIGHT}`,
+    `H${left}`,
+    `A${RADIUS},${RADIUS} 0 0 1 ${left},0`,
+    "Z",
+  ].join(" ")
+}
+
+type Props = {
+  /** The screen on show. `pay` is never a screen, so it never takes the scoop. */
+  active: Exclude<RailTab, "pay">
+  onSelect: (tab: RailTab) => void
+}
+
+export function BottomRail({ active, onSelect }: Props) {
+  const activeIndex = ITEMS.findIndex((item) => item.id === active)
+  const scoop = CENTRES[activeIndex] ?? null
+
+  return (
+    <nav
+      aria-label="Screens"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-40 -translate-x-1/2"
+      style={{ width: WIDTH, height: HEIGHT }}
+    >
+      <svg
+        aria-hidden="true"
+        width={WIDTH}
+        height={HEIGHT}
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        className="absolute inset-0 block"
+      >
+        <path d={railPath(scoop)} className="fill-ink" />
+      </svg>
+
+      {ITEMS.map((item, i) => {
+        const Icon = item.icon
+        const isActive = item.id === active
+        const centre = CENTRES[i]
+        const top = isActive ? DISC_CENTRE_Y - DISC / 2 : HEIGHT / 2 - DISC / 2
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "absolute flex size-12 cursor-pointer items-center justify-center rounded-full outline-none transition-[left,top,background-color,color] duration-300 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
+              isActive ? "bg-tangerine text-ink" : "bg-transparent text-cream/70 hover:text-cream",
+            )}
+            style={{ left: centre - DISC / 2, top }}
+          >
+            <Icon className="size-[22px]" aria-hidden="true" />
+            <span className="sr-only">{item.label}</span>
+          </button>
+        )
+      })}
+    </nav>
+  )
+}

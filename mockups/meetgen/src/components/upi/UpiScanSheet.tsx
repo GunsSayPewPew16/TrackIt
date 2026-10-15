@@ -77,7 +77,7 @@ export function UpiScanSheet({ onPayee, onClose }: Props) {
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close the scanner">
           <ArrowLeft />
         </Button>
-        <h2 className="text-2xl font-bold tracking-tight">Scan to pay</h2>
+        <h2 className="font-display text-2xl font-bold tracking-tight">Scan to pay</h2>
       </div>
 
       <div className="relative h-[320px] shrink-0 overflow-hidden rounded-[32px] bg-ink">

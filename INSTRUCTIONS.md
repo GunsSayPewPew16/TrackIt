@@ -85,6 +85,16 @@ the latin subset leaves out. The app is offline-first, so the font is vendored i
 the build rather than linked from fonts.googleapis.com, and the app's `@font-face`
 rules live at the top of `frontend/src/index.css`; do not hand-edit the files.
 
+The mockup's headings are a second face. `tools/vendor-neue-haas.py` converts the
+Medium (500) and Bold (700) weights of **Neue Haas Grotesk Display** from the owner's
+Commercial Type zip into `mockups/meetgen/src/assets/fonts/` as woff2, and writes the
+licence beside them (`neue-haas-grotesk-LICENSE.txt`). The `@font-face` rules are at
+the top of `mockups/meetgen/src/index.css`. The face has no rupee sign (U+20B9), so
+amounts fall back to Helvetica Neue for it. **Licence:** the zip is a trial, and its
+EULA forbids web embedding (`@font-face`) and redistribution without a separate web
+licence. The owner has chosen to publish it on the personal Pages site anyway; buy
+the web licence, or drop the files, before the site is shared more widely.
+
 Decisions the script makes, so nobody has to guess: amounts are *already* rupees
 (Wallet stores paise, and INR is its referential currency, so nothing is converted);
 income arrives as `kind: 'income'` and internal transfers are dropped; soft-deleted

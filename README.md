@@ -72,7 +72,24 @@ tools/
                        both clients' tables are written from
   lucide-icons.py      vendors the line icons into both clients — the chrome and
                        every category's marker
+  vendor-neue-haas.py  converts the mockup's heading face (Neue Haas Grotesk) to woff2
+                       and writes its trial licence beside it
 ```
+
+## Fonts
+
+The mockup at `mockups/meetgen` (the live Pages site) sets its headings in
+**Neue Haas Grotesk Display**. Everything else uses the system sans.
+
+- `tools/vendor-neue-haas.py` converts the Medium (500) and Bold (700) weights from
+  the Commercial Type zip into `mockups/meetgen/src/assets/fonts/` (woff2), and writes
+  the licence beside them as `neue-haas-grotesk-LICENSE.txt`.
+- The `@font-face` rules are at the top of `mockups/meetgen/src/index.css`.
+- The face has no rupee sign (U+20B9), so amounts fall back to Helvetica Neue for ₹.
+- **Licence:** the zip is a trial. Its EULA forbids web embedding (`@font-face`) and
+  redistribution without a separate web licence. The owner has chosen to publish it
+  on the personal Pages site anyway. Buy the web licence, or drop the files, before
+  the site is shared more widely.
 
 ## Apple Shortcuts → TrackIt
 

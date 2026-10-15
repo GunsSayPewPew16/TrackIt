@@ -4,7 +4,8 @@ import { Bus, Cpu, Plus, ShoppingBag, UtensilsCrossed, type LucideIcon } from "l
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BottomRail, type RailTab } from "@/components/rail/BottomRail"
 import { UpiPaySheet, type PaySubmit } from "@/components/upi/UpiPaySheet"
 import { UpiScanSheet } from "@/components/upi/UpiScanSheet"
 import { type UpiPayee } from "@/lib/upi"
@@ -18,13 +19,14 @@ import { cn } from "@/lib/utils"
 
 type Period = "today" | "week" | "month"
 type Category = "food" | "transit" | "saas" | "shopping"
+type Screen = "home" | "ledger"
 
 type Expense = {
   id: string
   title: string
   category: Category
   amount: number
-  /** 0 = today. Drives the Today / Week / Month filter and the weekly bars. */
+  /** 0 = today. Drives the Today / Week / Month filter. */
   daysAgo: number
   time: string
   tags: string[]
@@ -32,12 +34,6 @@ type Expense = {
 }
 
 const PERIOD_DAYS: Record<Period, number> = { today: 1, week: 7, month: 30 }
-
-const PERIOD_LABEL: Record<Period, string> = {
-  today: "Spent today",
-  week: "Spent this week",
-  month: "Spent this month",
-}
 
 const CATEGORIES: Record<
   Category,
@@ -52,7 +48,7 @@ const CATEGORIES: Record<
   transit: {
     label: "Transit",
     icon: Bus,
-    cell: "bg-oat",
+    cell: "bg-khaki",
     chip: "bg-tangerine text-ink",
   },
   saas: {
@@ -131,6 +127,7 @@ function dayLabel(daysAgo: number) {
  * ------------------------------------------------------------------ */
 
 export default function ExpenseTracker() {
+  const [screen, setScreen] = useState<Screen>("home")
   const [period, setPeriod] = useState<Period>("month")
   const [expenses, setExpenses] = useState<Expense[]>(EXPENSES)
   // The scan-and-pay flow: scan a code, then confirm the payee and amount.
@@ -160,20 +157,6 @@ export default function ExpenseTracker() {
     [period, expenses],
   )
 
-  const total = visible.reduce((sum, e) => sum + e.amount, 0)
-  const overCount = visible.filter((e) => e.overBudget).length
-
-  // Weekly velocity: spend per day for the last seven days, oldest first.
-  const weekBars = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => {
-        const day = 6 - i
-        return expenses.filter((e) => e.daysAgo === day).reduce((s, e) => s + e.amount, 0)
-      }),
-    [expenses],
-  )
-  const peak = Math.max(...weekBars, 1)
-
   const categoryTotals = (Object.keys(CATEGORIES) as Category[]).map((key) => {
     const rows = visible.filter((e) => e.category === key)
     return {
@@ -184,14 +167,50 @@ export default function ExpenseTracker() {
     }
   })
 
+  // The month's spend for the summary box, and the last seven days for its bar strip.
+  const monthRows = expenses.filter((e) => e.daysAgo < PERIOD_DAYS.month)
+  const monthTotal = monthRows.reduce((s, e) => s + e.amount, 0)
+  const monthOver = monthRows.filter((e) => e.overBudget).length
+  const dayTotals = Array.from({ length: 7 }, (_, i) => {
+    const daysAgo = 6 - i
+    return {
+      daysAgo,
+      amount: expenses.filter((e) => e.daysAgo === daysAgo).reduce((s, e) => s + e.amount, 0),
+    }
+  })
+  const peak = Math.max(...dayTotals.map((d) => d.amount), 1)
+  const weekBars = dayTotals.map((d) => ({
+    day: d.daysAgo,
+    today: d.daysAgo === 0,
+    height: Math.max(8, Math.round((d.amount / peak) * 100)),
+  }))
+
   const openScanner = () => setFlow({ step: "scan" })
+
+  function selectTab(tab: RailTab) {
+    if (tab === "pay") {
+      openScanner()
+      return
+    }
+    setScreen(tab)
+  }
+
+  const periodTabs = (
+    <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+      <TabsList>
+        <TabsTrigger value="today">Today</TabsTrigger>
+        <TabsTrigger value="week">Week</TabsTrigger>
+        <TabsTrigger value="month">Month</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
 
   return (
     <div className="min-h-svh bg-canvas text-ink">
-      <header className="border-b border-ink/10">
+      <header className="border-b border-ink/10 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex items-baseline gap-3">
-            <span className="text-xl font-bold tracking-tight">TrackIt</span>
+            <span className="font-display text-xl font-bold tracking-tight">TrackIt</span>
             <span className="hidden font-mono text-[11px] tracking-wide uppercase opacity-60 sm:inline">
               Wallet · INR
             </span>
@@ -203,167 +222,158 @@ export default function ExpenseTracker() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-6 md:px-8 md:py-10">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">Expenses</h1>
-          <p className="max-w-xl text-base text-ink/70">
-            See where the money went, log a spend, or pay a UPI code from one screen.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:items-start">
-          {/* Hero: the balance, the weekly bars and the Quick Log corner. */}
-          <Card className="relative gap-5 rounded-[32px] border-ink bg-ink p-5 text-cream md:sticky md:top-6">
-            <Button
-              variant="accent"
-              size="icon-lg"
-              className="absolute top-4 right-4"
-              aria-label="Quick log an expense"
-              onClick={openScanner}
-            >
-              <Plus />
-            </Button>
-
-            <CardTitle className="opacity-70">{PERIOD_LABEL[period]}</CardTitle>
-
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pt-6 pb-36 md:px-8 md:pt-10">
+        {screen === "home" && (
+          <section aria-labelledby="home-title" className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <div className="text-[44px] leading-none font-bold tracking-tight tabular-nums">
-                {formatMoney(total)}
-              </div>
-              <p className="font-mono text-[11px] tracking-wide uppercase opacity-70">
-                {visible.length} transactions ·{" "}
-                <span className="text-tangerine">{overCount} over budget</span>
-              </p>
+              <h1 id="home-title" className="font-display text-4xl font-bold tracking-tight md:text-5xl">
+                Expenses
+              </h1>
+              <p className="text-sm text-ink/60">Where your money went, by category.</p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div
-                role="img"
-                aria-label="Weekly spend, last seven days"
-                className="flex h-16 items-end gap-1.5"
-              >
-                {weekBars.map((amount, i) => (
-                  <div
-                    key={i}
-                    className={cn("flex-1 rounded-[4px]", i === 6 ? "bg-tangerine" : "bg-cream/30")}
-                    style={{ height: `${Math.max(10, (amount / peak) * 100)}%` }}
-                  />
-                ))}
+            {/* Placeholder for the total account balance, until accounts are linked. */}
+            <Card className="gap-4 rounded-[32px] border-ink bg-ink p-6 text-cream">
+              <CardTitle className="opacity-70">Total account balance</CardTitle>
+              <div className="font-display text-[56px] leading-none font-bold tracking-tight tabular-nums">
+                ₹ —
               </div>
-              <p className="font-mono text-[10px] tracking-wide uppercase opacity-70">
-                Weekly velocity · last 7 days
+              <p className="text-sm text-cream/70">
+                Placeholder. Your linked accounts will show their total here.
               </p>
-            </div>
-          </Card>
+            </Card>
 
-          {/* Time-frame pill toggle, then the categories and the ledger. */}
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)} className="min-w-0 gap-5">
-            <TabsList>
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-            </TabsList>
+            {periodTabs}
 
-            <TabsContent value={period} className="flex flex-col gap-5">
-              {/* Category bento: each category is its own flat cell. */}
-              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-                {categoryTotals.map((c) => {
-                  const meta = CATEGORIES[c.key]
-                  const Icon = meta.icon
-                  return (
-                    <Card key={c.key} className={cn("gap-3 p-4", meta.cell)}>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={cn(
-                            "flex size-9 items-center justify-center rounded-[12px]",
-                            meta.chip,
-                          )}
-                        >
-                          <Icon className="size-4" aria-hidden="true" />
-                        </span>
-                        {c.over && <Badge variant="accent">Over</Badge>}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
-                          {meta.label}
-                        </span>
-                        <span className="text-xl font-bold tracking-tight tabular-nums">
-                          {formatMoney(c.amount)}
-                        </span>
-                        <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
-                          {c.count} {c.count === 1 ? "item" : "items"}
-                        </span>
-                      </div>
-                    </Card>
-                  )
-                })}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] tracking-wide uppercase">Ledger</span>
-                <Badge variant="outline">{visible.length}</Badge>
-              </div>
-
-              {visible.length === 0 && (
-                <p className="py-6 text-center text-sm text-ink/60">Nothing logged in this period.</p>
-              )}
-
-              <div className="flex flex-col gap-2.5">
-                {visible.map((e) => {
-                  const meta = CATEGORIES[e.category]
-                  const Icon = meta.icon
-                  return (
-                    <Card
-                      key={e.id}
-                      className="relative flex-row items-center gap-3 overflow-hidden p-3.5 pl-5"
-                    >
-                      {e.overBudget && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-y-0 left-0 w-2 rounded-l-full bg-tangerine"
-                        />
-                      )}
+            {/* Category bento: flat cells on an oat well, like the reference's calendar panel. */}
+            <div className="grid grid-cols-2 gap-2.5 rounded-[32px] bg-oat p-2.5 md:grid-cols-4">
+              {categoryTotals.map((c) => {
+                const meta = CATEGORIES[c.key]
+                const Icon = meta.icon
+                return (
+                  <Card key={c.key} className={cn("gap-3 p-4", meta.cell)}>
+                    <div className="flex items-center justify-between">
                       <span
-                        className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-[12px]",
-                          meta.chip,
-                        )}
+                        className={cn("flex size-9 items-center justify-center rounded-[12px]", meta.chip)}
                       >
                         <Icon className="size-4" aria-hidden="true" />
                       </span>
-
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className="truncate text-sm font-semibold">{e.title}</span>
-                        <span className="font-mono text-[10px] tracking-wide uppercase opacity-60">
-                          {e.time} · {dayLabel(e.daysAgo)}
-                        </span>
-                        <div className="flex flex-wrap gap-1">
-                          {e.tags.map((tag) => (
-                            <Badge key={tag} variant="outline">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {e.overBudget && <Badge variant="accent">Over budget</Badge>}
-                        </div>
-                      </div>
-
-                      <span className="shrink-0 text-sm font-bold tabular-nums">
-                        {formatMoney(e.amount)}
+                      {c.over && <Badge variant="accent">Over</Badge>}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
+                        {meta.label}
                       </span>
-                    </Card>
-                  )
-                })}
+                      <span className="font-display text-xl font-bold tracking-tight tabular-nums">
+                        {formatMoney(c.amount)}
+                      </span>
+                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
+                        {c.count} {c.count === 1 ? "item" : "items"}
+                      </span>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {screen === "ledger" && (
+          <section aria-labelledby="ledger-title" className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <h1 id="ledger-title" className="font-display text-4xl font-bold tracking-tight md:text-5xl">
+                Ledger
+              </h1>
+              <p className="text-sm text-ink/60">Every transaction, newest first.</p>
+            </div>
+
+            {/* Spend summary: the month's total, a count, and a seven-day bar strip. */}
+            <Card className="relative gap-0 rounded-[32px] border-ink bg-ink p-6 text-cream">
+              <button
+                type="button"
+                onClick={openScanner}
+                aria-label="Quick log"
+                className="absolute top-5 right-5 flex size-14 cursor-pointer items-center justify-center rounded-full bg-tangerine text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream"
+              >
+                <Plus className="size-6" aria-hidden="true" />
+              </button>
+              <CardTitle className="opacity-70">Spent this month</CardTitle>
+              <div className="mt-5 font-display text-[56px] leading-none font-bold tracking-tight tabular-nums">
+                {formatMoney(monthTotal)}
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+              <p className="mt-3 font-mono text-xs tracking-wide uppercase text-cream/70">
+                {monthRows.length} transactions ·{" "}
+                <span className="text-tangerine">{monthOver} over budget</span>
+              </p>
+              <div className="mt-8 flex h-20 items-end gap-2" aria-hidden="true">
+                {weekBars.map((bar) => (
+                  <span
+                    key={bar.day}
+                    className={cn("flex-1 rounded-[6px]", bar.today ? "bg-tangerine" : "bg-cream/20")}
+                    style={{ height: `${bar.height}%` }}
+                  />
+                ))}
+              </div>
+              <CardTitle className="mt-3 opacity-60">Weekly velocity · last 7 days</CardTitle>
+            </Card>
+
+            {periodTabs}
+
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] tracking-wide uppercase">Transactions</span>
+              <Badge variant="outline">{visible.length}</Badge>
+            </div>
+
+            {visible.length === 0 && (
+              <p className="py-6 text-center text-sm text-ink/60">Nothing logged in this period.</p>
+            )}
+
+            <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2">
+              {visible.map((e) => {
+                const meta = CATEGORIES[e.category]
+                const Icon = meta.icon
+                return (
+                  <Card key={e.id} className="relative flex-row items-center gap-3 overflow-hidden p-3.5 pl-5">
+                    {e.overBudget && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-y-0 left-0 w-2 rounded-l-full bg-tangerine"
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-[12px]",
+                        meta.chip,
+                      )}
+                    >
+                      <Icon className="size-4" aria-hidden="true" />
+                    </span>
+
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="truncate text-sm font-semibold">{e.title}</span>
+                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-60">
+                        {e.time} · {dayLabel(e.daysAgo)}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {e.tags.map((tag) => (
+                          <Badge key={tag} variant="outline">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {e.overBudget && <Badge variant="accent">Over budget</Badge>}
+                      </div>
+                    </div>
+
+                    <span className="shrink-0 text-sm font-bold tabular-nums">{formatMoney(e.amount)}</span>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
-      <footer className="border-t border-ink/10">
-        <div className="mx-auto max-w-5xl px-4 py-6 font-mono text-[11px] tracking-wide uppercase opacity-60 md:px-8">
-          TrackIt · amounts in INR · money stored as paise
-        </div>
-      </footer>
+      <BottomRail active={screen} onSelect={selectTab} />
 
       {flow?.step === "scan" && (
         <UpiScanSheet

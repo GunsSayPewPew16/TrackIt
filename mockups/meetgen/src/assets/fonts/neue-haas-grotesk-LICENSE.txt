@@ -1,0 +1,19 @@
+Neue Haas Grotesk Display — the mockup's heading face.
+
+Supplied to this repository by the app's owner from Commercial Type's trial
+collection (`Neue_Haas_Grotesk_Collection.zip`). The trial's end-user licence (EULA) states, in part:
+
+  * Use is for the customary personal or internal purposes of the licensee; the
+    commercial distribution or use of the font software is not granted.
+  * The use of @font-face or other forms of web embedding "each require the
+    purchase of a" web licence. This repository embeds the font that way.
+  * Redistribution of the font software files is not granted.
+
+Full licence: http://commercialtype.com/license
+
+The owner has decided to publish these files on the personal GitHub Pages site
+without a web licence. That is a knowing breach of the trial terms, not a
+licence. Buy the web licence, or drop these files, before the site is shared.
+
+Written by `tools/vendor-neue-haas.py`, which also converts the weights to woff2;
+do not hand-edit the font files. Re-run the tool if the owner supplies a newer cut.

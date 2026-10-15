@@ -1,15 +1,44 @@
 @import "tailwindcss";
 
+/*
+ * Neue Haas Grotesk Display, the heading face. Medium and Bold only, converted by
+ * tools/vendor-neue-haas.py from Commercial Type's trial. The licence it travels
+ * under is in src/assets/fonts/neue-haas-grotesk-LICENSE.txt and restricts web
+ * embedding; the owner has chosen to ship it on the live site.
+ */
+@font-face {
+  font-family: "Neue Haas Grotesk Display";
+  src: url("./assets/fonts/neue-haas-grotesk-display-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesk Display";
+  src: url("./assets/fonts/neue-haas-grotesk-display-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* MeetGen palette. Flat colour blocks only: no gradients, no blurs, no shadows. */
 @theme {
-  --color-canvas: #edE5d4;
-  --color-ink: #0d0d0d;
-  --color-cream: #edE5d4;
-  --color-paper: #f7f2e8;
-  --color-oat: #d9cfba;
-  --color-tangerine: #e84e1b;
+  --color-canvas: #efebdc;
+  --color-ink: #1f1f1b;
+  --color-cream: #f4f0e2;
+  --color-paper: #f8f5ea;
+  --color-oat: #e2ddc6;
+  --color-khaki: #cdc7a5;
+  --color-muted: #77735f;
+  --color-tangerine: #e9552a;
 
   --font-sans: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  /*
+   * Headings and display figures. Neue Haas Grotesk Display is loaded above; the
+   * stack falls back to Helvetica Neue for the rupee sign, which the face lacks.
+   */
+  --font-display: "Neue Haas Grotesk Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 html,
@@ -20,7 +49,7 @@ body,
 }
 
 body {
-  background: var(--color-oat);
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
