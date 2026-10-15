@@ -1,12 +1,9 @@
 name: Deploy to GitHub Pages
 
-# A phone can only open the camera on a secure origin, and GitHub Pages gives
-# the app an HTTPS URL of its own for free — that is what this workflow is for.
-# The Cloudflare Worker deployment (`npm run deploy`) is untouched by it.
-#
-# The app is served from a sub-path here, so the build is told the same thing
-# the Pages URL says: PAGES_BASE feeds `frontend/vite.config.ts`, which derives
-# every asset URL, the service worker's scope and the manifest from it.
+# Publishes the finalized TrackIt design (mockups/meetgen) to the repository's
+# GitHub Pages URL. The build is told the sub-path the Pages URL uses, so every
+# asset URL resolves under /TrackIt/. The Cloudflare Worker deployment
+# (`npm run deploy`) is unaffected by this workflow.
 
 on:
   push:
@@ -27,6 +24,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mockups/meetgen
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +34,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: mockups/meetgen/package-lock.json
 
       - name: Install
         run: npm ci
@@ -50,7 +51,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: mockups/meetgen/dist
 
   deploy:
     needs: build

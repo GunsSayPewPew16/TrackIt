@@ -11,11 +11,11 @@ set by the project owner, so follow them without being asked again.
 2. **Commit and push when the work is done.** That is the default for most tasks.
    `main` is the branch and `origin` is `GunsSayPewPew16/TrackIt`. Stage only the
    files you changed — the working tree may hold someone else's work.
-3. **Verify in the browser before claiming anything works.** For `frontend/design/mockup.html`
-   that means serving the repo and driving the real page:
+3. **Verify in the browser before claiming anything works.** For the site in
+   `mockups/meetgen` that means running its dev server and driving the real page:
 
    ```bash
-   python3 -m http.server 4321 --bind 127.0.0.1 --directory .   # then open /frontend/design/mockup.html
+   cd mockups/meetgen && npm run dev   # then open http://127.0.0.1:4322/
    ```
 
    A passing build, a clean exit code or an HTTP 200 is not evidence that the screen
@@ -37,8 +37,8 @@ belong to, which is why the Vite root and the build output are configured rather
 than defaulted — check `frontend/vite.config.ts` and `backend/wrangler.toml`
 before moving anything else.
 
-`frontend/design/mockup.html` is the standalone visual mockup of that same product — one
-hand-written file, no build step, no dependencies — used to agree on the UI before it
+The standalone visual mockup of that same product is `mockups/meetgen`, published to
+GitHub Pages. It was used to agree on the UI before it
 is built for real. It mirrors the app's domain rules: money is stored as integer
 cents, categories come from the same set, and Shortcut-logged rows carry an `AUTO`
 badge.
@@ -183,7 +183,11 @@ Its data interchange format is deliberately the same one the real app writes in
 wrapper object — the mockup also accepts `{ "expenses": [...] }` on import, but that
 is tolerance for hand-written files, not the format to produce.
 
-## Mockup conventions (`frontend/design/mockup.html`)
+## Mockup conventions (retired: `frontend/design/mockup.html`)
+
+The one-file mockup was deleted when the finalized design moved to `mockups/meetgen`.
+The rules below described that file and no longer apply to the site; they are kept as
+history.
 
 - **One file.** HTML, CSS and JS live in `frontend/design/mockup.html`. Do not split
   it up or add tooling around it.
@@ -438,3 +442,19 @@ them.
 - **Cards is deliberately blank**, a placeholder wired to the rail while it waits to
   be designed. The third tab used to hold the same kind of blank Activity placeholder
   and now holds the add flow, which is where the owner asked for it.
+
+## Standalone React mockup (`mockups/meetgen/`)
+
+A separate Vite + React 19 + Tailwind v4 project, built as a MeetGen-style Expense Tracker
+website, published to GitHub Pages at https://gunssaypewpew16.github.io/TrackIt/ by
+`.github/workflows/deploy-pages.yml`. That URL serves this design, not the app. It has its own `package.json`, is not in
+the root `tsc -b` references, and does not touch the app's dependencies or CSS. Its
+shadcn-style primitives live in `src/components/ui` behind the `@/` alias, and the whole
+screen is the single file `src/ExpenseTracker.tsx`.
+
+- Run it with `cd mockups/meetgen && npm run dev` (port 4322), then `npm run build` and
+  `npm run typecheck` before calling it working.
+- The brief sets the surfaces to flat blocks: no shadows, blurs or gradients. The
+  `box-shadow: none` reset in `index.css` enforces that.
+- Money is integer paise and shown in INR, which is the owner's currency, not the
+  `$` used in the brief's example.

@@ -58,7 +58,7 @@ frontend/
       ui-icons.tsx  the rail, buttons and arrows, Lucide line icons (generated)
       markers.ts  the one solid colour every marker badge is drawn in
   public/         icons, favicon, PWA assets
-  design/         mockup.html — the standalone visual mockup
+  design/         retired; the finalized site lives in mockups/meetgen
   vite.config.ts  root points at this folder, build output goes to ../dist
 backend/
   index.ts        Worker: /api routes first, then static assets

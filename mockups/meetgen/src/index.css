@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* MeetGen palette. Flat colour blocks only: no gradients, no blurs, no shadows. */
+@theme {
+  --color-canvas: #edE5d4;
+  --color-ink: #0d0d0d;
+  --color-cream: #edE5d4;
+  --color-paper: #f7f2e8;
+  --color-oat: #d9cfba;
+  --color-tangerine: #e84e1b;
+
+  --font-sans: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-oat);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every element is a flat block: strip any default shadow the primitives add. */
+*,
+*::before,
+*::after {
+  box-shadow: none;
+}
