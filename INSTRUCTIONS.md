@@ -233,6 +233,44 @@ is tolerance for hand-written files, not the format to produce.
   rail never appears in a capture even though it is rendered and tappable. Probe it
   instead of trusting the image.
 
+## Design skills (`.claude/skills/`)
+
+Two skillsets are vendored into this repository, and **frontend work starts by reading
+the relevant one** — they are the reference shelf, not decoration.
+
+- **`.claude/skills/ui-ux-pro-max/`** is UI/UX Pro Max *and its whole set*: `design`,
+  `design-system`, `ui-styling`, `brand`, `banner-design` and `slides` sit beside the
+  orchestrator. Its data is local — styles, palettes, font pairings, 119 UX guidelines,
+  chart types, 22 stacks — and it is queried from the repository root:
+
+  ```bash
+  python3 .claude/skills/ui-ux-pro-max/scripts/search.py "error summary validation" --domain ux
+  python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product> <industry> <keywords>" --design-system
+  ```
+
+  Read its `SKILL.md` first: the priority order (accessibility, touch targets,
+  responsiveness, contrast) and its query contract are what make an answer usable
+  rather than generic. Answering a question about a component's *implementation* wants
+  `--stack react`; a question about how a screen should *behave* wants `--domain ux`.
+- **`.claude/skills/shadcn/`** is the official shadcn/ui skill, installed from
+  `shadcn-ui/ui` by `npx skills add` and pinned in `skills-lock.json`. It reads a
+  project through `npx shadcn@latest info --json` and is the authority **for a project
+  that has a `components.json`. This app does not**: no Tailwind, no registry, no
+  shadcn — every rule in `frontend/src/index.css` is hand-written against the reference.
+  Its `rules/` (composition, forms, icons, styling) and its tabbed-settings and chart
+  shapes are the useful part here; it is not a reason to introduce Tailwind, a
+  component registry or a second design language into this repository.
+
+**Neither skill outranks this file or the reference.** The palette, the typeface, the
+scale and the anatomy of every screen are settled decisions, and a generated design
+system is written for a greenfield project — asked about a fintech dashboard, one
+answers "Glassmorphism" in trust blue, which is the opposite of what this app wears.
+Take the rules (contrast minimums, 44pt targets, safe areas, chart legends, form
+feedback) and the reusable patterns; leave the palettes alone, and never let a
+suggestion undo a decision recorded here without saying so out loud. Anything either
+skill recommends is verified the way everything else is: in a browser, at phone width,
+against the reference.
+
 ## Design decisions already made — do not undo them silently
 
 - **One expense dataset.** Home and every other screen render the same array, and
