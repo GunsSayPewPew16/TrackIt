@@ -113,6 +113,19 @@ left out and why.
 - **A screen starts at its own top.** The way back is pressed from the foot of the
   ledger's rows and either screen scrolls on a short window, so `goTo` in `App.tsx`
   resets the scroll — instantly, because the cross-fade is what carries the change.
+- **Only the dashboard may be in the entry chunk.** Nothing renders until that module
+  runs, so every byte in it is paid before the first pixel, and the ledger and the scanner
+  are behind taps most opens never make: they are fetched (`src/App.tsx`'s `screens` map,
+  with their props as `import type` so the split survives) and the ledger's month menu is
+  the app's only Radix dependency while the scanner is a whole decoder. Keeping them out
+  took the entry from 657 kB to 415 kB — 216 kB over the wire down to 129. Three rules come
+  with that, and they are the reason this is not a bare `React.lazy`: **a screen is in hand
+  before the view changes** (`goTo` awaits the module and only then switches, with a ref
+  guard so a slow first tap cannot land after a fast second one — a `Suspense` inside the
+  `AnimatePresence` instead leaves both screens mounted and neither animating), **both are
+  fetched idly once the first screen is up** so a tap is normally a screen rather than a
+  wait, and **a tap that lands first keeps the screen being left** rather than showing a
+  spinner the artboard never drew. A new screen belongs in that map, not in an import.
 - **The ledger is opened from the dashboard header's circle**, beside the theme toggle;
   the artboard's "See all" button has been taken out of the recent card, where it was a
   second door to the same room. That circle carries `ArrowDownUp` because it is the

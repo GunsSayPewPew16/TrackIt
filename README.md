@@ -192,6 +192,24 @@ it. The artboard's scrim — a full-bleed mask with the feed punched out of it �
 composites to the canvas colour, so the screen simply stands on the canvas and draws
 the frame in the card colour rather than reproducing the layer stack.
 
+## What loads first
+
+Nothing renders until the entry script runs, so everything in it is paid before the first
+pixel. Only the dashboard is: the ledger and the scanner are two chunks of their own,
+fetched when a tap asks for one and again idly once the first screen is up, because the
+ledger's month menu is the app's only Radix dependency and the scanner is a whole decoder
+(barcode detection, WebRTC shims, and a WASM build fetched from a CDN in turn). That took
+the entry from **657 kB to 415 kB — 216 kB over the wire down to 129** — and left the two
+screens at 31 kB and 60 kB gzipped, where before they were everybody's download.
+
+Three details are the reason it works rather than merely measures smaller, and `src/App.tsx`
+holds all three: the screen is **in hand before the view changes** (the app has no loading
+state, so a module is awaited and only then shown, over the screen being left), the two are
+**fetched idly after first paint** so a tap is normally instant, and a tap that lands first
+**keeps the old screen** rather than flashing an empty canvas. The fonts are deliberately not
+preloaded: nothing draws before the script does, so pulling 150 kB of type ahead of it would
+only delay the pixels that are actually waiting.
+
 ## Deploying
 
 ```bash

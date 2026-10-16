@@ -204,20 +204,21 @@ function Card({ card, index }: { card: LedgerCard; index: number }) {
   )
 }
 
-export function LedgerScreen({
-  model,
-  theme,
-  onToggleTheme,
-  onBack,
-  onPickMonth,
-}: {
+/**
+ * What this screen is given. Named and exported because the screen is fetched rather than
+ * imported (`App.tsx` holds it as a `ComponentType<Props>`), and a type is the only thing
+ * about it that can be in the entry chunk without dragging the screen back into one.
+ */
+export type Props = {
   model: LedgerModel
   theme: Theme
   onToggleTheme: () => void
   onBack: () => void
   /** Move the wheel's window to end on the day the picked month's newest row is. */
   onPickMonth: (anchor: number) => void
-}) {
+}
+
+export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth }: Props) {
   const [selected, setSelected] = useState(model.selected)
   /** Set by a drag, so the click it fires is swallowed instead of selecting. */
   const swiped = useRef(false)

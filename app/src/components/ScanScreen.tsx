@@ -56,7 +56,12 @@ import type { Theme } from "@/lib/theme"
  * once that file has been fetched once.
  */
 
-type Props = {
+/**
+ * What this screen is given. Named and exported because the screen is fetched rather than
+ * imported (`App.tsx` holds it as a `ComponentType<Props>`), and a type is the only thing
+ * about it that can be in the entry chunk without dragging the decoder back in with it.
+ */
+export type Props = {
   theme: Theme
   onToggleTheme: () => void
   /** Back to the dashboard — the header's circle. */
