@@ -75,7 +75,9 @@ export function BottomRail({ active, onSelect }: Props) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="absolute inset-0 block"
       >
-        <path d={railPath(scoop)} className="fill-ink" />
+        {/* The pill is a box like the summaries — the loudest surface — so the
+            icons on it are `on-box` and the active disc is the accent. */}
+        <path d={railPath(scoop)} className="fill-box" />
       </svg>
 
       {ITEMS.map((item, i) => {
@@ -90,8 +92,8 @@ export function BottomRail({ active, onSelect }: Props) {
             onClick={() => onSelect(item.id)}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "absolute flex size-12 cursor-pointer items-center justify-center rounded-full outline-none transition-[left,top,background-color,color] duration-300 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
-              isActive ? "bg-tangerine text-ink" : "bg-transparent text-cream/70 hover:text-cream",
+              "absolute flex size-12 cursor-pointer items-center justify-center rounded-full outline-none transition-[left,top,background-color,color] duration-300 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-box motion-reduce:transition-none",
+              isActive ? "bg-tangerine text-ink" : "bg-transparent text-on-box/60 hover:text-on-box",
             )}
             style={{ left: centre - DISC / 2, top }}
           >

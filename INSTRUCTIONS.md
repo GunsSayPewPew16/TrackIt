@@ -85,15 +85,19 @@ the latin subset leaves out. The app is offline-first, so the font is vendored i
 the build rather than linked from fonts.googleapis.com, and the app's `@font-face`
 rules live at the top of `frontend/src/index.css`; do not hand-edit the files.
 
-The mockup's headings are a second face. `tools/vendor-neue-haas.py` converts the
-Medium (500) and Bold (700) weights of **Neue Haas Grotesk Display** from the owner's
-Commercial Type zip into `mockups/meetgen/src/assets/fonts/` as woff2, and writes the
-licence beside them (`neue-haas-grotesk-LICENSE.txt`). The `@font-face` rules are at
-the top of `mockups/meetgen/src/index.css`. The face has no rupee sign (U+20B9), so
-amounts fall back to Helvetica Neue for it. **Licence:** the zip is a trial, and its
-EULA forbids web embedding (`@font-face`) and redistribution without a separate web
-licence. The owner has chosen to publish it on the personal Pages site anyway; buy
-the web licence, or drop the files, before the site is shared more widely.
+The mockup wears two faces, and `tools/vendor-neue-haas.py` vendors both of them from
+the owner's Commercial Type zip into `mockups/meetgen/src/assets/fonts/` as woff2,
+writing the licence beside them (`neue-haas-grotesk-LICENSE.txt`). **Neue Haas Grotesk
+Display** (Medium 500, Bold 700) sets the headings and the money figures; **Neue Haas
+Grotesk Text** (Roman 400, Medium 500, Bold 700) sets everything else, from paragraphs
+down to the small letterspaced labels — the labels are the reading face's job, not a
+monospace one, and the mockup carries no mono font at all. No italics and no Round Dots
+cut are vendored, because nothing uses them. Both faces lack the rupee sign (U+20B9),
+so a `₹` is drawn by Helvetica Neue behind them. The `@font-face` rules are at the top
+of `mockups/meetgen/src/index.css`; do not hand-edit the files. **Licence:** the zip is
+a trial, and its EULA forbids web embedding (`@font-face`) and redistribution without a
+separate web licence. The owner has chosen to publish it on the personal Pages site
+anyway; buy the web licence, or drop the files, before the site is shared more widely.
 
 Decisions the script makes, so nobody has to guess: amounts are *already* rupees
 (Wallet stores paise, and INR is its referential currency, so nothing is converted);
@@ -466,5 +470,80 @@ screen is the single file `src/ExpenseTracker.tsx`.
   `npm run typecheck` before calling it working.
 - The brief sets the surfaces to flat blocks: no shadows, blurs or gradients. The
   `box-shadow: none` reset in `index.css` enforces that.
+- **The mockup is dark, and it ships dark.** `--canvas` `#262721` is most of every
+  screen — the reference screenshots' own canvas, not an invented grey, as are the
+  greige panel `#dadbb9`, the quieter one `#b2b49e` and the cream `#ffffe5`.
+- **Display sets the headings, Text sets the reading**, and the split is by job, not
+  by size: the two faces and their weights are vendored and documented under the type
+  paragraph above. Nothing is monospaced, and a new label uses the reading face with
+  `font-medium` rather than reaching for a mono stack.
+- **The palette is roles, not colours**, which is what lets one set of class names
+  draw both themes. A surface says how loud it is and its foreground is named after
+  it: `canvas`/`on-canvas` (the page), `card` (a card, whose text is always `ink`),
+  `stone` (a quieter card), `well` (a tray recessed into the page, which reads as
+  page for text), `box`/`on-box` (the surface to look at — the two summaries, the
+  bento's one inverted cell, the rail). The page and the box *trade places* between
+  the themes: the page is the dark grey in dark and the creme in light, the box the
+  cream in dark and the ink in light, so `canvas`/`on-canvas` and `box`/`on-box`
+  are opposites of each other and no component has to know which theme it is in.
+  `ink` and `cream` are the two tones that never move: `ink` is the dark one (the
+  text on a card, a marker tile, the scanner's letterbox), `cream` the light one
+  (the glyph on that tile). The retired names — `surface`, `paper`, `oat`,
+  `khaki`, `muted`, and Dark-Mode `ink`-as-a-box — are gone; rename rather than
+  reintroduce them.
+- **The accent is a fill, never text.** `tangerine` draws pills, bars, marker
+  tiles and buttons, with `ink` written inside it, which is why there is no
+  `on-tangerine`. As *text* the accent gets a tone per surface, because one orange
+  cannot read on both grounds: `ember` on the box ("3 over budget") and `alert` on
+  the page (the pay sheet's error, the scanner's status). `tangerine-hover` is the
+  fill one step lighter; fading the accent out over the dark page instead darkens
+  it until its own label measures 4.0:1.
+- **Every pair is measured in both themes, at 390px, in the browser** — the four
+  surfaces the design has (Home, Ledger, the scanner, the pay sheet) are audited by
+  computing each element's composited background and its real contrast, not by
+  reading the CSS. Nothing is under 4.5:1 except the accent's fill against a card
+  (2.3:1), which only ever draws a badge or a category's marker tile, both carrying
+  ink and not cream inside (4.6:1), so no status rides on that fill alone. Two
+  floors hold the rest up: secondary text on the page is `on-canvas/70` and no
+  lighter (5.6:1 light, the darkest theme's floor), and secondary text on a card
+  is `opacity-80` (4.7:1). A card that is too close in value to what is under it is
+  the bug to look for first.
+- **The one dark block left on purpose** is the scanner's camera letterbox, which
+  frames a live video rather than a box on the page.
+- **The theme is one attribute.** `index.html` puts `data-theme="dark"` on `<html>`
+  and then a boot script there reads `localStorage['trackit-theme']` (the key is
+  `THEME_STORAGE_KEY` in `src/lib/theme.ts` — keep the literal in step) before the
+  first paint, so someone who chose light never sees a dark frame. `index.css`
+  defines both palettes against that attribute and nothing else reads it;
+  `src/lib/theme.ts` holds the reads and writes, `src/hooks/useTheme.ts` wraps them
+  as state, and changing the attribute repaints on its own. No second stylesheet, no
+  `prefers-color-scheme` — a visitor's system setting does not decide this site's
+  look, the owner does.
+- **`ThemeSwitch` is built and wired but rendered nowhere**, on purpose: the owner
+  asked for it made and not placed. It lives in
+  `src/components/ui/theme-switch.tsx` and goes in the header's right-hand side when
+  they want it; it needs a `main`-level mount, because `tsc --noEmit` typechecks it
+  but Rollup tree-shakes an unimported file out of the bundle. It was verified by
+  mounting it temporarily and clicking it — dark → light → dark, with
+  `localStorage` and `aria-checked` following — and then unmounting it again.
+- **Scanning a code pays through Google Pay, and the note is the owner's own.** The
+  pay sheet logs the expense first, then hands the payment to Google Pay **by name**:
+  `gpay://upi/pay?…` on iOS, and an `intent://` URL whose `package` is
+  `com.google.android.apps.nbu.paisa.user` on Android — the two ways Google's own
+  integration guides say to do it, and the only way a web page can name an app on
+  either phone. Both are built in `src/lib/upi.ts`, which is why the link on screen and
+  the link handed over can never disagree about the amount. A bare `upi://` link is
+  claimed by whichever app last took the scheme — on the owner's iPhone that was
+  WhatsApp — so it is only ever the *fallback*: labelled "Any other UPI app", with the
+  UPI ID beside it, and on a device that has no UPI app at all (a laptop) the sheet says
+  so rather than offering a button that would do nothing. The handoff is assigned inside
+  the tap with nothing `await`ed before it, because iOS only honours a gesture that is
+  still open, and if nothing answers it the sheet stays where it is with the fallbacks on
+  it. The **Note field starts empty** — not the payee's name, and not a note the
+  merchant's own code carried either, since that note would ride back to them inside the
+  link — and the ledger row borrows the payee's name instead (`₹2,865 · BigBasket`), so
+  an empty note never costs a row the identity of who was paid. The app's own pay sheet
+  (`frontend/src/components/UpiPaySheet.tsx`) follows the same rule for the note, and
+  already names Google Pay for the handoff.
 - Money is integer paise and shown in INR, which is the owner's currency, not the
   `$` used in the brief's example.

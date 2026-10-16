@@ -2,13 +2,17 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/** A bento tile: a flat, rounded block with a hairline border and no elevation. */
+/**
+ * A bento tile: a flat, rounded block with a hairline border and no elevation.
+ * It defaults to `card`, the greige a card wears; the two boxes that must be
+ * looked at pass `bg-box text-on-box` themselves.
+ */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col rounded-[28px] border border-ink/10 bg-paper text-ink",
+        "flex flex-col rounded-[28px] border border-ink/10 bg-card text-ink",
         className,
       )}
       {...props}
@@ -30,7 +34,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("font-mono text-xs font-medium tracking-wide uppercase", className)}
+      className={cn("text-xs font-medium tracking-wide uppercase", className)}
       {...props}
     />
   )
@@ -40,7 +44,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-ink/60", className)}
+      className={cn("text-sm text-ink/80", className)}
       {...props}
     />
   )

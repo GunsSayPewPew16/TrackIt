@@ -35,6 +35,12 @@ type Expense = {
 
 const PERIOD_DAYS: Record<Period, number> = { today: 1, week: 7, month: 30 }
 
+/*
+ * Each category wears a card and a small marker tile. `cell` is the card it is
+ * listed on, `chip` the tile the glyph stands on. A tile is read both on that
+ * card and inside a ledger row, so it is always a tone under the card: `ink`,
+ * which is the dark tone in either theme, or the accent.
+ */
 const CATEGORIES: Record<
   Category,
   { label: string; icon: LucideIcon; cell: string; chip: string }
@@ -42,26 +48,26 @@ const CATEGORIES: Record<
   food: {
     label: "Food & Dining",
     icon: UtensilsCrossed,
-    cell: "bg-paper",
+    cell: "bg-card",
     chip: "bg-ink text-cream",
   },
   transit: {
     label: "Transit",
     icon: Bus,
-    cell: "bg-khaki",
+    cell: "bg-stone",
     chip: "bg-tangerine text-ink",
   },
   saas: {
     label: "SaaS Subscriptions",
     icon: Cpu,
-    cell: "bg-ink text-cream",
-    chip: "bg-cream text-ink",
+    cell: "bg-box text-on-box",
+    chip: "bg-ink text-cream",
   },
   shopping: {
     label: "Shopping",
     icon: ShoppingBag,
-    cell: "bg-paper",
-    chip: "bg-oat text-ink",
+    cell: "bg-card",
+    chip: "bg-well text-on-canvas",
   },
 }
 
@@ -133,13 +139,22 @@ export default function ExpenseTracker() {
   // The scan-and-pay flow: scan a code, then confirm the payee and amount.
   const [flow, setFlow] = useState<{ step: "scan" } | { step: "pay"; payee: UpiPayee } | null>(null)
 
-  // Log first; the payment link is shown only after this row exists.
-  function logExpense(draft: PaySubmit) {
+  /**
+   * Log the expense the owner just confirmed.
+   *
+   * This runs before the payment leaves for Google Pay, so the row exists even if
+   * the handoff does nothing. The sheet's note starts empty — it is the owner's
+   * words, and a note is sent to the merchant inside the link — so the payee's own
+   * name is what a row falls back to: `₹2,865 · BigBasket` beats a row called
+   * "Expense" with no idea who took the money. That name is the ledger's, and it
+   * never travels to the merchant.
+   */
+  function logExpense(draft: PaySubmit, payeeName: string) {
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, "0")
     const row: Expense = {
       id: `u${Date.now()}`,
-      title: draft.note || "Expense",
+      title: draft.note || payeeName,
       category: isCategory(draft.category) ? draft.category : "shopping",
       amount: draft.amountCents,
       daysAgo: 0,
@@ -206,12 +221,12 @@ export default function ExpenseTracker() {
   )
 
   return (
-    <div className="min-h-svh bg-canvas text-ink">
-      <header className="border-b border-ink/10 pt-[env(safe-area-inset-top)]">
+    <div className="min-h-svh bg-canvas text-on-canvas">
+      <header className="border-b border-on-canvas/10 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex items-baseline gap-3">
             <span className="font-display text-xl font-bold tracking-tight">TrackIt</span>
-            <span className="hidden font-mono text-[11px] tracking-wide uppercase opacity-60 sm:inline">
+            <span className="hidden text-[11px] font-medium tracking-wide uppercase opacity-70 sm:inline">
               Wallet · INR
             </span>
           </div>
@@ -229,24 +244,24 @@ export default function ExpenseTracker() {
               <h1 id="home-title" className="font-display text-4xl font-bold tracking-tight md:text-5xl">
                 Expenses
               </h1>
-              <p className="text-sm text-ink/60">Where your money went, by category.</p>
+              <p className="text-sm text-on-canvas/70">Where your money went, by category.</p>
             </div>
 
             {/* Placeholder for the total account balance, until accounts are linked. */}
-            <Card className="gap-4 rounded-[32px] border-ink bg-ink p-6 text-cream">
+            <Card className="gap-4 rounded-[32px] border-box bg-box p-6 text-on-box">
               <CardTitle className="opacity-70">Total account balance</CardTitle>
               <div className="font-display text-[56px] leading-none font-bold tracking-tight tabular-nums">
                 ₹ —
               </div>
-              <p className="text-sm text-cream/70">
+              <p className="text-sm text-on-box/70">
                 Placeholder. Your linked accounts will show their total here.
               </p>
             </Card>
 
             {periodTabs}
 
-            {/* Category bento: flat cells on an oat well, like the reference's calendar panel. */}
-            <div className="grid grid-cols-2 gap-2.5 rounded-[32px] bg-oat p-2.5 md:grid-cols-4">
+            {/* Category bento: light cells on a tray recessed into the canvas. */}
+            <div className="grid grid-cols-2 gap-2.5 rounded-[32px] bg-well p-2.5 md:grid-cols-4">
               {categoryTotals.map((c) => {
                 const meta = CATEGORIES[c.key]
                 const Icon = meta.icon
@@ -261,13 +276,13 @@ export default function ExpenseTracker() {
                       {c.over && <Badge variant="accent">Over</Badge>}
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
+                      <span className="text-[10px] font-medium tracking-wide uppercase opacity-80">
                         {meta.label}
                       </span>
                       <span className="font-display text-xl font-bold tracking-tight tabular-nums">
                         {formatMoney(c.amount)}
                       </span>
-                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-70">
+                      <span className="text-[10px] font-medium tracking-wide uppercase opacity-80">
                         {c.count} {c.count === 1 ? "item" : "items"}
                       </span>
                     </div>
@@ -284,16 +299,16 @@ export default function ExpenseTracker() {
               <h1 id="ledger-title" className="font-display text-4xl font-bold tracking-tight md:text-5xl">
                 Ledger
               </h1>
-              <p className="text-sm text-ink/60">Every transaction, newest first.</p>
+              <p className="text-sm text-on-canvas/70">Every transaction, newest first.</p>
             </div>
 
             {/* Spend summary: the month's total, a count, and a seven-day bar strip. */}
-            <Card className="relative gap-0 rounded-[32px] border-ink bg-ink p-6 text-cream">
+            <Card className="relative gap-0 rounded-[32px] border-box bg-box p-6 text-on-box">
               <button
                 type="button"
                 onClick={openScanner}
                 aria-label="Quick log"
-                className="absolute top-5 right-5 flex size-14 cursor-pointer items-center justify-center rounded-full bg-tangerine text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream"
+                className="absolute top-5 right-5 flex size-14 cursor-pointer items-center justify-center rounded-full bg-tangerine text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-box"
               >
                 <Plus className="size-6" aria-hidden="true" />
               </button>
@@ -301,31 +316,31 @@ export default function ExpenseTracker() {
               <div className="mt-5 font-display text-[56px] leading-none font-bold tracking-tight tabular-nums">
                 {formatMoney(monthTotal)}
               </div>
-              <p className="mt-3 font-mono text-xs tracking-wide uppercase text-cream/70">
+              <p className="mt-3 text-xs font-medium tracking-wide uppercase text-on-box/70">
                 {monthRows.length} transactions ·{" "}
-                <span className="text-tangerine">{monthOver} over budget</span>
+                <span className="text-ember">{monthOver} over budget</span>
               </p>
               <div className="mt-8 flex h-20 items-end gap-2" aria-hidden="true">
                 {weekBars.map((bar) => (
                   <span
                     key={bar.day}
-                    className={cn("flex-1 rounded-[6px]", bar.today ? "bg-tangerine" : "bg-cream/20")}
+                    className={cn("flex-1 rounded-[6px]", bar.today ? "bg-tangerine" : "bg-on-box/20")}
                     style={{ height: `${bar.height}%` }}
                   />
                 ))}
               </div>
-              <CardTitle className="mt-3 opacity-60">Weekly velocity · last 7 days</CardTitle>
+              <CardTitle className="mt-3 opacity-70">Weekly velocity · last 7 days</CardTitle>
             </Card>
 
             {periodTabs}
 
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-wide uppercase">Transactions</span>
-              <Badge variant="outline">{visible.length}</Badge>
+              <span className="text-[11px] font-medium tracking-wide uppercase">Transactions</span>
+              <Badge variant="canvas">{visible.length}</Badge>
             </div>
 
             {visible.length === 0 && (
-              <p className="py-6 text-center text-sm text-ink/60">Nothing logged in this period.</p>
+              <p className="py-6 text-center text-sm text-on-canvas/70">Nothing logged in this period.</p>
             )}
 
             <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2">
@@ -350,8 +365,8 @@ export default function ExpenseTracker() {
                     </span>
 
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="truncate text-sm font-semibold">{e.title}</span>
-                      <span className="font-mono text-[10px] tracking-wide uppercase opacity-60">
+                      <span className="truncate text-sm font-medium">{e.title}</span>
+                      <span className="text-[10px] font-medium tracking-wide uppercase opacity-80">
                         {e.time} · {dayLabel(e.daysAgo)}
                       </span>
                       <div className="flex flex-wrap gap-1">
@@ -388,7 +403,7 @@ export default function ExpenseTracker() {
           payee={flow.payee}
           initialCategory={guessCategory(flow.payee)}
           categories={CATEGORY_OPTIONS}
-          onPay={logExpense}
+          onPay={(draft) => logExpense(draft, flow.payee.pn)}
           onClose={() => setFlow(null)}
         />
       )}

@@ -5,6 +5,11 @@
  * every parameter is percent-encoded exactly once, by hand, because
  * `URLSearchParams` turns a space into `+`, and a UPI app reads `+` as a character.
  *
+ * The site is opened on phones — it is the live Pages site, not a picture of one
+ * — so the writing half names **Google Pay** rather than leaving the payment to
+ * the scheme: a bare `upi://` link belongs to whichever app last claimed it, and
+ * on the owner's phone that was WhatsApp. See `buildGooglePayUri`.
+ *
  * Nothing here touches the network, so the manual-entry path and the camera path
  * run through the same code.
  */
@@ -134,11 +139,68 @@ export function buildUpiUri(payment: UpiPayment, currency = "INR"): string {
 }
 
 /**
- * The Google Pay link. The app uses `gpay://` on iOS and an `intent://` URL that
- * names the Google Pay package on Android. This mockup runs in a desktop browser,
- * where neither handoff exists, so it returns the generic link; the sheet shows it
- * as a copyable fallback either way.
+ * Which phone this is, as far as the handoff cares.
+ *
+ * Only used to pick a link shape: the two phones do not agree on how a page asks
+ * for one particular app, and iOS in particular cannot be told to use a *package*
+ * at all, only a scheme.
+ */
+function isIos(): boolean {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+function isAndroid(): boolean {
+  return /android/i.test(navigator.userAgent)
+}
+
+/**
+ * Whether this device can hand a payment to another app at all.
+ *
+ * A desktop browser cannot, and the sheet says so rather than offering a button
+ * that would do nothing. (iOS still decides per app whether it accepts the link,
+ * which is why the sheet keeps a visible fallback either way.)
+ */
+export function canHandOffToUpiApp(): boolean {
+  return isIos() || isAndroid()
+}
+
+/**
+ * Google Pay, by name, on both phones.
+ *
+ * A bare `upi://pay` link belongs to no app in particular: whichever one last
+ * asked iOS or Android to own the scheme takes it, and on the owner's phone that
+ * turned out to be WhatsApp — a payment screen, but the wrong one, with none of
+ * the cards they actually pay from.
+ *
+ * Google publishes the two ways to name it:
+ *
+ * - **iOS** — `gpay://upi/pay?…`, the scheme Google's own iOS integration guide
+ *   tells integrators to open. Custom schemes are first-come-first-served and iOS
+ *   ignores duplicates, so `gpay` is the closest a page can get to "Google Pay"
+ *   there; nothing on iOS can pin a bundle id from the web.
+ * - **Android** — an `intent://` URL, which *can* name a package:
+ *   `#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user`. If that
+ *   package is not installed, Chrome opens the `S.browser_fallback_url` instead,
+ *   which is this site itself — where the generic link and the UPI ID still are.
+ */
+const GOOGLE_PAY_SCHEME = "gpay://upi/pay"
+const GOOGLE_PAY_PACKAGE = "com.google.android.apps.nbu.paisa.user"
+
+/**
+ * The link that opens **Google Pay** rather than whichever app claims `upi://`.
+ *
+ * Falls back to the generic link on anything that is neither phone: a desktop has
+ * nothing to hand a payment to either way, and that link is also what the sheet
+ * shows under the button.
  */
 export function buildGooglePayUri(payment: UpiPayment, currency = "INR"): string {
+  const query = upiQuery(payment, currency)
+  if (isIos()) return `${GOOGLE_PAY_SCHEME}?${query}`
+  if (isAndroid()) {
+    // Where Chrome goes when Google Pay is not installed. Percent-encoded whole,
+    // as the intent syntax requires of a fallback URL.
+    const fallback = encodeURIComponent(`${location.origin}${location.pathname}`)
+    return `intent://pay?${query}#Intent;scheme=upi;package=${GOOGLE_PAY_PACKAGE};S.browser_fallback_url=${fallback};end`
+  }
   return buildUpiUri(payment, currency)
 }

@@ -4,15 +4,22 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/*
+ * Every button in this app stands on the page, so the outline and ghost variants
+ * are written for it: `on-canvas` text and a veil of the same on hover. The focus
+ * ring is the accent, which reads on the page in both themes (4.6:1 dark, 3.0:1
+ * light) and on a card in the light theme; the 2px offset leaves the ground it
+ * sits on visible either way.
+ */
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tangerine disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-ink text-cream hover:bg-ink/85",
-        accent: "bg-tangerine text-ink hover:bg-tangerine/90",
-        outline: "border border-ink/10 bg-transparent text-ink hover:bg-ink/5",
-        ghost: "bg-transparent text-ink hover:bg-ink/5",
+        default: "bg-box text-on-box hover:bg-box/85",
+        accent: "bg-tangerine text-ink hover:bg-tangerine-hover",
+        outline: "border border-on-canvas/25 bg-transparent text-on-canvas hover:bg-on-canvas/10",
+        ghost: "bg-transparent text-on-canvas hover:bg-on-canvas/10",
       },
       size: {
         default: "h-10 px-4 [&_svg]:size-4",

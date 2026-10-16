@@ -72,20 +72,26 @@ tools/
                        both clients' tables are written from
   lucide-icons.py      vendors the line icons into both clients — the chrome and
                        every category's marker
-  vendor-neue-haas.py  converts the mockup's heading face (Neue Haas Grotesk) to woff2
-                       and writes its trial licence beside it
+  vendor-neue-haas.py  converts the mockup's two faces (Neue Haas Grotesk Display and
+                       Text) to woff2 and writes their trial licence beside them
 ```
 
 ## Fonts
 
-The mockup at `mockups/meetgen` (the live Pages site) sets its headings in
-**Neue Haas Grotesk Display**. Everything else uses the system sans.
+The mockup at `mockups/meetgen` (the live Pages site) wears **two faces from the one
+Neue Haas Grotesk family**: **Display** sets the headings and the money figures, and
+**Text** sets everything else — paragraphs, field text and the small letterspaced
+labels. There is no monospaced text in it. The screen carries two themes — the dark one
+the site ships, and the light design it wore before — and the switch between them is
+built and wired but not placed anywhere yet.
 
-- `tools/vendor-neue-haas.py` converts the Medium (500) and Bold (700) weights from
-  the Commercial Type zip into `mockups/meetgen/src/assets/fonts/` (woff2), and writes
-  the licence beside them as `neue-haas-grotesk-LICENSE.txt`.
-- The `@font-face` rules are at the top of `mockups/meetgen/src/index.css`.
-- The face has no rupee sign (U+20B9), so amounts fall back to Helvetica Neue for ₹.
+- `tools/vendor-neue-haas.py` converts the weights the stylesheet asks for — Display
+  500/700 and Text 400/500/700 — from the Commercial Type zip into
+  `mockups/meetgen/src/assets/fonts/` (woff2), and writes the licence beside them as
+  `neue-haas-grotesk-LICENSE.txt`.
+- The `@font-face` rules are at the top of `mockups/meetgen/src/index.css`; both
+  palettes are defined further down in the same file, against `data-theme` on `<html>`.
+- Neither face has a rupee sign (U+20B9), so amounts fall back to Helvetica Neue for ₹.
 - **Licence:** the zip is a trial. Its EULA forbids web embedding (`@font-face`) and
   redistribution without a separate web licence. The owner has chosen to publish it
   on the personal Pages site anyway. Buy the web licence, or drop the files, before

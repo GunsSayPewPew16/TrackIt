@@ -1,7 +1,17 @@
-Neue Haas Grotesk Display — the mockup's heading face.
+Neue Haas Grotesk Display and Text — the mockup's two faces.
 
 Supplied to this repository by the app's owner from Commercial Type's trial
-collection (`Neue_Haas_Grotesk_Collection.zip`). The trial's end-user licence (EULA) states, in part:
+collection (`Neue_Haas_Grotesk_Collection.zip`). Display sets the headings and the money figures; Text sets
+everything else, from paragraphs down to the small letterspaced labels. The files
+here are woff2 conversions of these weights:
+
+    neue-haas-grotesk-display-500.woff2  (Display 65Medium, CSS weight 500)
+    neue-haas-grotesk-display-700.woff2  (Display 75Bold, CSS weight 700)
+    neue-haas-grotesk-text-400.woff2  (Text 55Roman, CSS weight 400)
+    neue-haas-grotesk-text-500.woff2  (Text 65Medium, CSS weight 500)
+    neue-haas-grotesk-text-700.woff2  (Text 75Bold, CSS weight 700)
+
+The trial's end-user licence (EULA) states, in part:
 
   * Use is for the customary personal or internal purposes of the licensee; the
     commercial distribution or use of the font software is not granted.

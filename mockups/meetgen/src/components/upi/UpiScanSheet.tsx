@@ -80,6 +80,8 @@ export function UpiScanSheet({ onPayee, onClose }: Props) {
         <h2 className="font-display text-2xl font-bold tracking-tight">Scan to pay</h2>
       </div>
 
+      {/* The camera's letterbox stays ink: it frames a live video, not a box on
+          the page, and a bright one would flash around the viewfinder. */}
       <div className="relative h-[320px] shrink-0 overflow-hidden rounded-[32px] bg-ink">
         <Scanner
           onScan={handleScan}
@@ -101,15 +103,15 @@ export function UpiScanSheet({ onPayee, onClose }: Props) {
         role="status"
         className={
           message
-            ? "font-mono text-[11px] tracking-wide text-tangerine uppercase"
-            : "font-mono text-[11px] tracking-wide uppercase opacity-70"
+            ? "text-[11px] font-medium tracking-wide text-alert uppercase"
+            : "text-[11px] font-medium tracking-wide uppercase opacity-70"
         }
       >
         {message ?? "Point the camera at the merchant’s UPI QR code."}
       </p>
 
       <form onSubmit={submitManual} className="flex flex-col gap-2">
-        <label htmlFor="scan-manual" className="font-mono text-[11px] tracking-wide uppercase">
+        <label htmlFor="scan-manual" className="text-[11px] font-medium tracking-wide uppercase">
           No camera, or a code that will not scan?
         </label>
         <div className="flex gap-2">
@@ -120,7 +122,7 @@ export function UpiScanSheet({ onPayee, onClose }: Props) {
             placeholder="pa=name@bank, or the whole upi:// link"
             autoComplete="off"
             spellCheck={false}
-            className="h-11 min-w-0 flex-1 rounded-full border border-ink/10 bg-paper px-4 text-sm outline-none focus-visible:outline-2 focus-visible:outline-ink"
+            className="h-11 min-w-0 flex-1 rounded-full border border-ink/10 bg-card px-4 text-sm text-ink outline-none placeholder:text-ink/55 focus-visible:outline-2 focus-visible:outline-ink"
           />
           <Button type="submit" variant="default" className="h-11">
             Use it
