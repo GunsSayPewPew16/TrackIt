@@ -14,5 +14,8 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  // `api` is the Vercel function the greeting can be pointed at. It is typechecked with
+  // the app it serves, even though Vite never bundles it and it runs in Node rather than
+  // in a page: it imports `src/lib/gemini.ts`, and one of the two must not drift.
+  "include": ["src", "api", "vite.config.ts"]
 }

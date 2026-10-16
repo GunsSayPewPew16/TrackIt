@@ -57,20 +57,15 @@ export type LedgerDay = {
   cards: LedgerCard[]
 }
 
-/** Everything the dashboard draws, in the order it draws it. */
+/**
+ * Everything the dashboard draws, in the order it draws it.
+ *
+ * The greeting is deliberately not in here. It is not derived from anything the owner
+ * has — it is a different language every open (`lib/greetings.ts`) — so it arrives at the
+ * screen as its own prop rather than as a field of a model that is otherwise the owner's
+ * own money.
+ */
 export type DashboardModel = {
-  /**
-   * The greeting, as its two halves rather than as one line: `Hello,` and `Priyansh`
-   * are different drawings of the same family (the italic cut and the roman, from
-   * `lib/owner.ts`), so a single string could not say which half wears which. The
-   * screen draws them, in this order, one space apart.
-   */
-  greeting: {
-    /** The word in front, comma included: `Hello,`. */
-    hello: string
-    /** Whose name it says: `Priyansh`. */
-    name: string
-  }
   balance: {
     label: string
     /** The big figure: `₹24,860.40`. */

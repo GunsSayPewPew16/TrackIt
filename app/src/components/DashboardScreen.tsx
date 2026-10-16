@@ -2,6 +2,7 @@ import { ArrowDown, ArrowDownUp, ArrowUpRight, Camera } from "lucide-react"
 
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import type { GreetingLine } from "@/lib/greetings"
 import type { Theme } from "@/lib/theme"
 import type { DashboardModel } from "@/lib/view"
 
@@ -32,12 +33,18 @@ import type { DashboardModel } from "@/lib/view"
  */
 export function DashboardScreen({
   model,
+  greeting,
   theme,
   onToggleTheme,
   onOpenLedger,
   onScan,
 }: {
   model: DashboardModel
+  /**
+   * This open's greeting, which is nobody's data: it comes from the pool in
+   * `lib/greetings.ts`, or from a model that was asked once (`hooks/useGreeting.ts`).
+   */
+  greeting: GreetingLine
   theme: Theme
   onToggleTheme: () => void
   onOpenLedger: () => void
@@ -72,9 +79,25 @@ export function DashboardScreen({
           the line in Playfair Display at the reading weight; both halves here are 500,
           because the two static cuts the owner supplied are Medium and a 400 request
           would simply pick them anyway.
+
+          The word is a different language every open, so the heading has to carry that
+          without drawing it — the artboard's header is one 48px line with no room for a
+          caption. It says so three other ways instead: `lang` on the word, so a screen
+          reader pronounces `Nǐ hǎo` as Mandarin rather than as English letters; a `title`,
+          so a pointer that rests on the line is told what it means; and a sr-only phrase
+          after the name for the same reason. `data-greeting` is not for a reader at all —
+          it is how a browser check can tell whether a model answered or the pool did.
         */}
-        <h1 className="m-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink">
-          <em className="italic">{model.greeting.hello}</em> {model.greeting.name}
+        <h1
+          title={`hello in ${greeting.language}`}
+          data-greeting={greeting.source}
+          className="m-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink"
+        >
+          <em lang={greeting.lang} className="italic">
+            {greeting.word}
+          </em>{" "}
+          {greeting.name}
+          <span className="sr-only"> (in {greeting.language})</span>
         </h1>
         <div className="flex items-center gap-2">
           <button
@@ -207,9 +230,20 @@ export function DashboardScreen({
         </section>
       </div>
 
-      {/* The envelope: what is spent, what it allows, and where the line sits. */}
-      <section className="grid h-40 grid-cols-[2fr_3fr] gap-4 rounded-[20px] border border-line bg-card p-4">
-        <div className="flex flex-col justify-between">
+      {/*
+        The envelope: what is spent, what it allows, and where the line sits.
+
+        The artboard splits this card `2fr 3fr`, which is a ratio drawn around its own
+        `$240` and `/ $600`. A rupee figure carries a symbol and thousands separators, so
+        `/ ₹1,500` at the design's 40px is 135px — wider than the 124px track that ratio
+        gives it — and the line broke onto a third row, which the card's fixed 160px then
+        clipped. Nothing about the type changes here: both money lines stay 40px on a 48px
+        line, one under the other, and the column is simply sized by what it holds while
+        the gauge takes what is left, which is the artboard's own intent. `whitespace-nowrap`
+        is what keeps a longer number from ever doing that again.
+      */}
+      <section className="grid h-40 grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4">
+        <div className="flex flex-col justify-between whitespace-nowrap">
           <div className={cardTitle}>{model.envelope.title}</div>
           <div>
             <div className={`${figure} text-ink`}>{model.envelope.spent}</div>

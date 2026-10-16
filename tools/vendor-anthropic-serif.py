@@ -29,10 +29,18 @@ same way as Neue Haas Grotesk's trial terms (see `tools/vendor-neue-haas.py`).
 Run it again to move to a newer cut; it prints what it wrote, like the other tools
 here. The order of the two arguments does not matter — each file says which style
 it is, and the tool refuses anything that is not the roman-and-italic pair.
+
+It also checks the **greeting pool** against the faces it just converted: it reads
+every `word:` out of `app/src/lib/greetings.ts` plus the owner's name out of
+`app/src/lib/owner.ts`, and fails the run if any character of any of them is not in
+both cuts. That is what keeps a language list, and a model's answer, inside the one
+font the masthead is set in — see `lib/greetings.ts` for the validator the app itself
+runs on a model's word.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -53,10 +61,15 @@ OUT_DIR = ROOT / "app/src/assets/fonts"
 FAMILY = "Anthropic Serif Display"
 WEIGHT = 500
 
-# What the greeting actually sets, character by character — `Hello, Priyansh` —
-# which is the coverage this tool checks, because a face that is missing one of
-# them falls back on whatever comes next in the stack and the line goes mismatched.
-GREETING = "HeloPryansh,"
+# What the greeting sets, read out of the app rather than written down twice here:
+# every word in the pool and the name it is said to. Coverage is what this tool
+# checks, because a face missing one of those characters falls back on whatever
+# comes next in the stack, and one masthead line in two typefaces is worse than a
+# shorter list of languages. A word that cannot be drawn **fails this run**.
+POOL = ROOT / "app/src/lib/greetings.ts"
+OWNER = ROOT / "app/src/lib/owner.ts"
+WORD = re.compile(r'word: "([^"]+)"')
+OWNER_NAME = re.compile(r'export const OWNER_NAME = "([^"]+)"')
 
 NOTICE = """{family} — the greeting's face, as supplied by the owner.
 
@@ -72,6 +85,23 @@ is the same knowing choice recorded beside Neue Haas Grotesk
 (`tools/vendor-neue-haas.py`). Obtain a licence, or drop both files and the two
 `@font-face` rules in `app/src/index.css`, before this site is shared widely.
 """
+
+
+def greeting_text() -> tuple[str, list[str]]:
+    """Every character the greeting can set — the pool, the name — and the words."""
+    words = WORD.findall(POOL.read_text(encoding="utf-8"))
+    owner = OWNER_NAME.search(OWNER.read_text(encoding="utf-8"))
+    if not words or owner is None:
+        raise SystemExit(f"could not read the greeting out of {POOL} and {OWNER}")
+    return "".join(words) + owner.group(1), [*words, owner.group(1)]
+
+
+def coverage(font: TTFont, text: str, words: list[str]) -> tuple[list[str], list[str]]:
+    """What the face cannot draw: the characters, and the words they are in."""
+    cmap = font.getBestCmap()
+    missing = sorted({char for char in text if ord(char) not in cmap})
+    offenders = [word for word in words if any(ord(char) not in cmap for char in word)]
+    return missing, offenders
 
 
 def face_of(path: Path) -> tuple[TTFont, bool]:
@@ -117,6 +147,21 @@ def main(argv: list[str]) -> int:
     if set(faces) != {False, True}:
         raise SystemExit("the two files must be one roman and one italic cut of the same family")
 
+    # Coverage before writing anything: a pool with a word these faces cannot set must
+    # fail without leaving half-converted binaries behind for someone to commit.
+    # The rupee sign is deliberately *not* checked: neither this face nor the sans stack
+    # is asked to draw money in the greeting, so a missing glyph there would fall back on
+    # a system serif rather than break the one line.
+    text, words = greeting_text()
+    reports = {italic: coverage(faces[italic][1], text, words) for italic in (False, True)}
+    undrawable = sorted({word for missing, offenders in reports.values() for word in offenders})
+    if undrawable:
+        raise SystemExit(
+            "the greeting pool holds words these faces cannot set: "
+            + ", ".join(undrawable)
+            + "\nfix app/src/lib/greetings.ts, or drop those words from it, before vendoring again"
+        )
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
     for italic in (False, True):
@@ -128,14 +173,11 @@ def main(argv: list[str]) -> int:
         font.save(out_path)
         css = f"{WEIGHT} {style}"
 
-        cmap = font.getBestCmap()
-        missing = sorted({char for char in GREETING if ord(char) not in cmap})
-        # The rupee sign is deliberately *not* checked: neither this face nor the
-        # sans stack is asked to draw money in the greeting, and a missing glyph
-        # there would fall back on a system serif rather than break the line.
         print(f"wrote {out_path.relative_to(ROOT)} ({out_path.stat().st_size // 1024} KiB) — CSS {css}")
         print(f"  {font['maxp'].numGlyphs} glyphs, {font['head'].unitsPerEm} units/em")
-        print(f"  greeting coverage: {'complete' if not missing else 'MISSING ' + ' '.join(missing)}")
+        print(
+            f"  greeting coverage: complete — {len(words)} words in the pool and the owner's name"
+        )
         written.append(f"    {out_name}  ({source.name}, CSS {css})")
 
     notice_path = OUT_DIR / "anthropic-serif-display-NOTICE.txt"

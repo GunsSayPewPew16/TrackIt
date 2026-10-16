@@ -39,7 +39,7 @@ import {
   whenLabel,
   wholeMoney,
 } from "./format"
-import { GREETING_WORD, OWNER_NAME } from "./owner"
+
 import type { Budget, Row } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
@@ -338,13 +338,13 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
   const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]
   const topCategory = top ? categoryFor(top[0]) : undefined
 
-  const recent = newestFirst(rows).slice(0, 5)
+  // Three, which is what the card is drawn for: the artboard's recent section is a 48px
+  // header and three 64px rows inside 280px, and the demo content (`lib/demo.ts`) has
+  // always been those same three. Taking five put two of them outside the card, which
+  // only shows once there is real history to show — the demo's three rows hid it.
+  const recent = newestFirst(rows).slice(0, 3)
 
   return {
-    // The greeting is the same two words the demo shows: the time of day it used to
-    // read is gone from the design, and `now` is still the clock everything else in
-    // this model is measured against.
-    greeting: { hello: GREETING_WORD, name: OWNER_NAME },
     balance: { label: "Total available balance", value: money(Math.max(balance, 0)) },
     cashFlow: {
       chip: "MONTHLY CASH FLOW",

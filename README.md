@@ -29,7 +29,9 @@ be worked on directly: `cd app && npm run dev`.
 
 ## The screens
 
-**The dashboard** is the artboard's four bands, in its order: the greeting with its
+**The dashboard** is the artboard's four bands, in its order: the greeting — which says
+hello in a different language every time the app is opened, see *The greeting* below —
+with its
 two round header controls; the balance card, which owns the month's cash flow; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
@@ -63,6 +65,46 @@ content — the eleven sample rows, $24,860.40 of balance, October 2026 — writ
 literals. The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the
 same two models from their rows and the screens change without knowing it. That switch
 is the only place the app decides what it is looking at (`src/App.tsx`).
+
+## The greeting
+
+The dashboard's masthead says hello in a different language on every open — `Bonjour,
+Priyansh`, `Nǐ hǎo, Priyansh`, `Konnichiwa, Priyansh` — and there are three parts to how
+it gets there (`src/lib/greetings.ts`, `src/lib/gemini.ts`, `src/hooks/useGreeting.ts`):
+
+- **A pool of thirty-six greetings**, one per language and every one of them checked
+  against both serif cuts. A shuffled order in `localStorage` advances one entry per open
+  and re-shuffles when it runs out, so no language repeats until every other one has had a
+  turn. This half is instant, offline, and needs no key at all, and it is what is on
+  screen first.
+- **A model, when there is one to ask** (`src/lib/hello.ts`): once per open, for a
+  language the pool does not have. Its answer replaces the pool's word only if it survives
+  `validateGreeting` — one latin word, letters the serif can actually draw, a plausible
+  language tag. Anything else, including every network failure, leaves the pool's word
+  standing, which is why this feature has no error state to show.
+
+**Where the key lives is the interesting part, and it is never in the bundle.** The site
+is public and static, so there are two supported ways in:
+
+1. **Bring your own key.** Open the app once with `?gemini_key=…` on the URL: the key is
+   moved into this browser's `localStorage` and taken back out of the address bar before
+   the app renders, so it is not in the history, a bookmark or a shared link. That device
+   gets model greetings; every other device gets the pool.
+2. **A server-side proxy.** Build with `VITE_GREETING_ENDPOINT=/api/greeting` (or an
+   absolute URL) and the app posts `{ avoid: [...] }` there instead, expecting
+   `{ greeting: { word, language, lang } }` back. The key stays in that server's
+   environment and every visitor gets a model greeting; `app/api/greeting.ts` is such a
+   server, and *Deploying* below is how it is set up. `npm run build` does not set the
+   variable by itself — pass it on the command line, or in the host's build settings.
+
+Compiling a key into the bundle is the thing not to do: Google's own key documentation
+says a key on a public site can be extracted and spent by anyone. The model is
+`gemini-3.5-flash-lite` through the Interactions API on its free tier, and what is sent to
+it is one sentence and a short list of language names — no money, no rows. **What that
+sentence is, and what an answer has to look like before it is shown, live in
+`src/lib/gemini.ts` and nowhere else**, because both routes ask the same question and an
+answer is judged the same way on either — the browser's key and the server's key must not
+drift into accepting different words.
 
 ## The theme
 
@@ -106,12 +148,15 @@ and re-run it rather than editing either file by hand.
 The design is set in **Neue Haas Grotesk**: Display for the headings and the money
 figures, Text for everything else, both vendored as woff2 in `app/src/assets/fonts/`
 (the conversion and the trial licence are in `tools/vendor-neue-haas.py` and beside
-the files). The one serif is the greeting — `Hello, Priyansh`, the word in the Medium
-Italic and the name in the Medium roman — set in **Anthropic Serif Display**, whose two
-static cuts the owner supplied and `tools/vendor-anthropic-serif.py` converts. That is
-three departures from the artboards' own type, all of them the owner's: the artboards
-draw Playfair Display, and both `@font-face` rules state their weight and style so a
-400 request can never quietly re-use the 500 cut. Two things about the sans stacks are
+the files). The one serif is the greeting — the language's word in the Medium Italic and
+`Priyansh` in the Medium roman — set in **Anthropic Serif Display**, whose two static
+cuts the owner supplied and `tools/vendor-anthropic-serif.py` converts. That is three
+departures from the artboards' own type, all of them the owner's: the artboards draw
+Playfair Display, and both `@font-face` rules state their weight and style so a 400
+request can never quietly re-use the 500 cut. Because the word changes language, that
+tool also **checks every word in the greeting pool against both cuts** and fails its run
+if one carries a letter the faces cannot draw — a missing glyph would be finished by
+Georgia and put two typefaces in one masthead line. Two things about the sans stacks are
 deliberate:
 
 - **Helvetica Neue is not in them.** The trial faces carry 74 glyphs — letters,
@@ -153,18 +198,78 @@ the frame in the card colour rather than reproducing the layer stack.
 npm run deploy       # build, then `wrangler deploy` (Cloudflare Worker + assets)
 ```
 
+**What the site needs is one static host and nothing else.** It is a Vite build with no
+server of its own: GitHub Pages serves it today, and the Worker above serves the same
+output (it builds the app first). The only server-side code in this repository is the
+greeting's single function, and it exists for exactly one reason — an API key cannot be
+compiled into a public bundle — so it is needed only if *every* visitor is to be greeted
+by the model. A third host would be a third account for none of that; pick one place for
+the pages and, if you want the model, one place for `/api/greeting`.
+
 Pushing to `main` also publishes the same build to GitHub Pages via
 `.github/workflows/deploy-pages.yml`, built with `PAGES_BASE=/TrackIt/` so every
 asset URL resolves under the project's sub-path. `backend/` is a small
 token-protected Worker with a D1 schema — an API for logging a row from an Apple
 Shortcut. **The app in `app/` does not call it**: the two screens read and write only
-the device's own ledger, and the Worker is kept for the Shortcut endpoint.
+the device's own ledger, and the Worker is kept for the Shortcut endpoint. That command
+deploys the Worker and the built app; it does **not** deploy the greeting's function,
+which belongs to whatever host is serving `app/` (below).
+
+### Putting the greeting's model behind a server
+
+The greeting needs no server at all (the pool) and no server for one device
+(`?gemini_key=…`). For *every* visitor to be greeted by the model, the key has to live on
+a server that answers `/api/greeting`, and the build has to know it is there.
+`app/api/greeting.ts` is that server: Vercel builds every file in a project's root `api/`
+directory into a function, and the project's Root Directory here is `app/`, so the
+function is served **from the same origin as the site** — no CORS, no second deployment
+to keep in step, and changing the greeting's model is one file in this repository.
+
+1. **Import the repository** at [vercel.com/new](https://vercel.com/new). Framework
+   Preset: Vite. (Nothing to install and no `vercel.json` to write: Vite plus an `api/`
+   directory is a supported project as it stands.)
+2. **Set the Root Directory to `app`** — Project Settings → Build and Deployment.
+   Without it Vercel looks for `package.json` and `api/` at the repository root and
+   builds none of this.
+3. **Add two environment variables** (Project Settings → Environment Variables, for
+   Production and Preview):
+   - `GEMINI_API_KEY` — a key from
+     [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Mark it **Secret**.
+     It is read only by the function, and it is the reason the name has no `VITE_`
+     prefix: Vite inlines `VITE_` variables into the browser bundle, which is exactly
+     what must never happen to a key.
+   - `VITE_GREETING_ENDPOINT` — `/api/greeting`. Not a secret; it is the URL the app
+     posts to, and a relative one resolves against the site's own origin.
+4. **Deploy** (`vercel --prod`, or push to the connected branch). A variable added to a
+   project does not change an existing deployment — it applies to the next build.
+5. **Check it**: open the deployment and hover the greeting; the tooltip says
+   `hello in <language>`. A language outside the pool's thirty-six means the model
+   answered. If it never leaves the pool, the endpoint variable is missing from that
+   environment's build, or `GEMINI_API_KEY` is missing from the function's.
+
+**The endpoint is rationed**, because an endpoint that holds a key is a key anyone can
+reach: twelve requests a minute per caller, 240 a minute altogether, and a caller over
+either gets `429` with a `Retry-After` the app treats like any other failure — the pool's
+word stands. The counters are a `Map` in the function instance's own memory, so a cold
+start forgets them and a second instance has its own; that is enough to make a stray loop
+or a crawler pointless and to keep the day's free quota out of one script's hands, and it
+is deliberately not more than that. A flood is a firewall's problem — and note that the
+per-caller bucket is keyed on `x-forwarded-for`, which a client can write, which is
+another reason the ceiling over everybody is there.
+
+A site served from somewhere else — GitHub Pages, say — can call the same function
+cross-origin: list its origin in `GREETING_ORIGINS` (comma-separated, e.g.
+`https://piyu.github.io` — an origin, not a path), because the function refuses every
+other origin. CORS is a browser rule and not authentication: the endpoint is public, it
+answers only with a greeting, and anyone can spend the key's quota by calling it. If that
+matters, put it behind Cloudflare or add rate limiting.
 
 ## Layout
 
 ```
 app/                    the whole product — one Vite app
   index.html            entry point; the pre-paint theme script lives here
+  api/greeting.ts       the greeting's server half: POST /api/greeting (Vercel)
   design/               the two exported artboards, as the design of record
   src/
     App.tsx             which content, which screen, and the cross-fade between them
@@ -176,7 +281,7 @@ app/                    the whole product — one Vite app
       ScanScreen        Scan to pay: the camera in its frame, and the manual row
       RowIcon           a card's glyph: a Lucide face, or a category's marker
     features/upi/       the UPI link builder, and what a read code becomes (logScan)
-    hooks/              useTheme, useLedger
+    hooks/              useTheme, useLedger, useGreeting
     lib/
       index.css         the ten roles, both palettes, the two faces
       theme.ts          reading and writing the theme
@@ -186,18 +291,24 @@ app/                    the whole product — one Vite app
       demo.ts           the artboards' own content, before an import
       view.ts           the two models, one shape for both sources
       format.ts         rupees, clocks, "Yesterday"
+      greetings.ts      the pool of languages, the per-open rotation, the validator
+      hello.ts          the greeting's key: a pasted one, or a proxy's
+      gemini.ts         the one question a model is asked, and what an answer must be
       categories.ts     the owner's category tree (written by tools/)
-      category-icons.tsx, accounts.ts, owner.ts (the greeting's two words)
+      category-icons.tsx, accounts.ts, owner.ts (whose name the greeting says)
   design/               see above
 backend/                Worker + D1 schema (Shortcut endpoint; unused by app/)
-tools/                  wallet-import.py, lucide-icons.py, vendor-neue-haas.py
+tools/                  wallet-import.py, lucide-icons.py, the two font converters
 ```
 
 ## Status
 
 Working: all three screens in both themes, the wheel's drag/keys/springs, the month
 menu that reaches past the wheel's fifteen-day window, the Wallet import and both
-exports, the scanner (camera and manual entry, one row per code), and the Pages deploy.
+exports, the scanner (camera and manual entry, one row per code), the greeting in a
+different language every open (pool, key and server — the server half is written and
+tested but **not yet deployed**: no Vercel project exists for this repository yet, so the
+live site greets from the pool), and the Pages deploy.
 Not built yet: the UPI pay sheet, per-account balances on screen (the accounts are known
 and used, but only their sum is drawn), and savings goals. Import and export are implemented but **unwired** — the owner is placing
 that panel themselves, which is why no screen opens it. The app is no longer a

@@ -98,6 +98,16 @@ left out and why.
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
   scan band, 232/176/160/280 for the dashboard's cards — are the artboard's, so keep
   them together with the comment that says where they came from.
+- **A fixed height is a promise about its content, and the content has to keep it.** Two
+  cards were breaking that promise, and both are content-sized rather than re-tuned. The
+  recent card is a 48px header and **three** 64px rows inside its 280px, so the derived
+  model hands it three — the demo content always did, which is why five of them only
+  showed once real rows existed (`lib/derive.ts`). The envelope's money column is sized by
+  the figure it holds (`grid-cols-[auto_1fr]` with `whitespace-nowrap`) because
+  `/ ₹1,500` at the design's 40px is 135px and the artboard's `2fr 3fr` track is 124px of
+  a card whose own example, `/ $600`, is 105: the wider line wrapped onto a third row,
+  which the card's 160px then clipped. Neither change moves a type size, a line height or
+  a height — keep it that way if either is revisited.
 - **The column is 390px and centred.** It is a phone design; it is centred rather than
   stretched, and it keeps the artboard's 24/16/32 padding.
 - **A screen starts at its own top.** The way back is pressed from the foot of the
@@ -148,6 +158,44 @@ left out and why.
   the files** — the notice beside them says so, and it is the same knowing posture as
   Neue Haas Grotesk's trial. If a serif question comes up again, that is the family to
   extend rather than swapping in a third.
+- **The greeting says hello in a different language every open**, which is the owner's
+  ask and the one thing on screen that is neither data nor design. `lib/greetings.ts`
+  holds the pool and the per-open rotation, `hooks/useGreeting.ts` composes the line, and
+  `lib/hello.ts` may ask a model for a language the pool lacks. Three rules go with it:
+  the pool's word is on screen first and a model only swaps in after — never a wait and
+  never an error state; a model's word must survive `validateGreeting` (one latin word
+  the serif can draw) or the pool's stands; and **no API key ever goes in the bundle.**
+  The key is either the owner's own, pasted once as `?gemini_key=…` and kept in that
+  browser, or it lives in a server-side proxy the build is pointed at with
+  `VITE_GREETING_ENDPOINT`. A key compiled into a public build is a key anyone can spend.
+- **The question a model is asked is written once.** `lib/gemini.ts` owns the prompt, the
+  model, the request and the parse, and it is deliberately portable — no `import.meta`,
+  no `window` — because two different runtimes import it: the browser, when the owner has
+  brought their own key, and `api/greeting.ts`, the Vercel function that holds the key for
+  every visitor. Change the prompt or the accepted answer there or not at all; editing one
+  caller is how the two routes start disagreeing about what a greeting is.
+- **`api/greeting.ts` is the greeting's server, and it is not `backend/`.** Vercel builds
+  every file in the project's root `api/` directory, and this project's Root Directory is
+  `app/`, so the function answers on the *site's own origin* at `/api/greeting`. The
+  contract is one way: `POST { avoid: string[] }` in, `{ greeting: { word, language,
+  lang } }` out, anything else 502, and no key 503 (the app keeps the pool's word for
+  every one of those). It asks nothing of a caller but a list of languages *not* to pick —
+  it is not a proxy for the model. The Worker in `backend/` stays what it is, the
+  Shortcut's endpoint; the app still does not call it.
+- **A public endpoint that holds a key is rationed.** `api/greeting.ts` answers twelve
+  requests a minute per caller and 240 a minute altogether, and refuses the rest with
+  `429` and a `Retry-After` the app treats like any other failure — the pool's word
+  stands. The counters are one `Map` in the instance's own memory and nothing more: a
+  cold start forgets them, a second instance has its own, and `x-forwarded-for` is a
+  header a caller can write. That makes a stray loop or a crawler pointless, which is the
+  job; it is not a firewall, and if this endpoint ever matters it wants a WAF rule or a
+  shared counter in front of it rather than a bigger `Map`. `allow()` is exported and
+  takes `now` as a parameter precisely so a test can step past a window instead of
+  waiting a minute for it.
+- **The pool is checked against the font, not eyeballed.** `tools/vendor-anthropic-serif.py`
+  reads every `word:` out of `lib/greetings.ts` and fails if either cut cannot draw one
+  of those characters — the check exists because a missing glyph is finished by Georgia,
+  and one masthead line in two typefaces is the whole risk of this feature.
 - **Panels the design does not draw are the app's own, and wear the app's clothes.**
   `components/DataSheet.tsx` is not in any artboard, so it is built from the same
   tokens — 48px circles with a hairline in a header, `bg-clay text-on-clay` for the
@@ -192,6 +240,8 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |
+| The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the pool or a model answered; every word is drawn by the serif and never finished by a fallback face; and with a key set, the request that goes out is one sentence to the Interactions API (or to `VITE_GREETING_ENDPOINT`) and its failure leaves the pool's word on screen |
+| The greeting's server | `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set: ask it a Request and read the Response. Vercel is a deploy target, not a thing to install to find out whether the endpoint works — the handler is a plain `fetch`, so Node is enough. Check the 200 and the `{ greeting }` shape, the same-origin answer with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one getting 403, `OPTIONS` → 204, `GET` → 405, an unusable model answer → 502, and no key → 503 without a call upstream. Then drive it from the app: run the bundle behind loopback HTTP and `npm --prefix app run dev -- --port 4325` with `VITE_GREETING_ENDPOINT=http://127.0.0.1:4399/api/greeting`, and watch the heading become the model's word with `data-greeting="model"` |
 
 `app/design/` is what to compare against when the question is "has a design feature
 been lost or changed".

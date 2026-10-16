@@ -17,7 +17,6 @@
  */
 
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
-import { GREETING_WORD, OWNER_NAME } from "./owner"
 import type { CardStyle, Kind } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
@@ -151,7 +150,6 @@ const DEMO_RECENT = [
 
 /** Every figure the dashboard draws before the owner has imported anything. */
 export const DEMO_DASHBOARD: DashboardModel = {
-  greeting: { hello: GREETING_WORD, name: OWNER_NAME },
   balance: { label: "Total available balance", value: money(paise(24860.4)) },
   cashFlow: {
     chip: "MONTHLY CASH FLOW",

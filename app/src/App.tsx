@@ -5,6 +5,7 @@ import { DashboardScreen } from "@/components/DashboardScreen"
 import { LedgerScreen } from "@/components/LedgerScreen"
 import { ScanScreen } from "@/components/ScanScreen"
 import { logScannedPayee } from "@/features/upi/logScan"
+import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
 import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
@@ -12,6 +13,13 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 
 /**
  * The app: three screens, and the state that decides what they show.
+ *
+ * **The greeting is the one thing here that is neither.** It is a different language
+ * every time the app is opened — the owner's ask — so it is chosen once per load by
+ * `useGreeting`, from the pool in `lib/greetings.ts` and, where there is a key for it,
+ * from a model. That is why it is a prop rather than a field of the dashboard model:
+ * the models are the owner's money, derived from their rows, and this is a line of
+ * decoration that has to be on screen before anything is derived at all.
  *
  * **Which content.** The owner's imported history decides it, in one place. With
  * rows in the ledger both screens are computed from them (`lib/derive.ts`); with
@@ -52,6 +60,7 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { rows, budgets } = useLedger()
+  const greeting = useGreeting()
   const [view, setView] = useState<"dashboard" | "ledger" | "scan">("dashboard")
   /** The day the wheel's window ends on; `undefined` means "the newest row". */
   const [anchor, setAnchor] = useState<number | undefined>(undefined)
@@ -90,6 +99,7 @@ export default function App() {
           {view === "dashboard" ? (
             <DashboardScreen
               model={dashboard}
+              greeting={greeting}
               theme={theme}
               onToggleTheme={toggleTheme}
               onOpenLedger={() => goTo("ledger")}
