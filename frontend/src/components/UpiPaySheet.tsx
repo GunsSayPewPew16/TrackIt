@@ -89,7 +89,12 @@ export function UpiPaySheet({ payee, currency, onPay, onCancel }: Props) {
     payee.amountCents === null ? '' : (payee.amountCents / 100).toFixed(2),
   )
   const [category, setCategory] = useState(() => guessCategory(payee))
-  const [note, setNote] = useState(payee.note || payee.pn)
+  // The note is the owner's own words about what this payment was, so it starts
+  // **empty**: the payee's name belongs on the card above, never in a note, and a
+  // note rides along to the merchant inside the payment link. A merchant's code
+  // may carry a note of its own, but that is their words about their shop rather
+  // than the owner's about this payment, so it is not pre-filled either.
+  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [logged, setLogged] = useState(false)
