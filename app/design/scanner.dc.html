@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scan to pay</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+:root,[data-theme="dark"]{--bg:#0A0F0D;--card:#1A221E;--line:#28332E;--ink:#F4F0EA;--ink2:#F4F0EA99;--clay:#D4A373;--sage:#A3B19B;--mask:#0A0F0DDF;--btn-text:#0A0F0D}
+[data-theme="light"]{--bg:#F8F6F2;--card:#FFFFFF;--line:#E2DDD5;--ink:#1A221E;--ink2:#1A221E99;--clay:#C58B54;--sage:#6B7F64;--mask:#F8F6F2DF;--btn-text:#FFFFFF}
+*{transition:background-color .35s ease,color .35s ease,border-color .35s ease,stroke .35s ease,fill .35s ease}
+@keyframes scan{from{transform:translateY(24px)}to{transform:translateY(332px)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.d{font-family:"Neue Haas Grotesk Display Pro","Helvetica Neue",Helvetica,Arial,sans-serif}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;transition:transform .12s ease,background-color .35s ease,color .35s ease}
+button:active{transform:scale(.98)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+input::placeholder{color:var(--ink2);opacity:1}
+</style>
+</helmet>
+<div data-theme="{{theme}}" style="position:relative;overflow:hidden;width:390px;height:844px;background:var(--bg);font-family:'Neue Haas Grotesk Text Pro','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:16px;color:var(--ink)">
+
+<div style="position:absolute;inset:0;background:var(--card)"></div>
+<svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true" style="position:absolute;left:0;top:0"><path fill-rule="evenodd" d="M0 0H390V844H0Z M32 224H358A16 16 0 0 1 374 240V566A16 16 0 0 1 358 582H32A16 16 0 0 1 16 566V240A16 16 0 0 1 32 224Z" style="fill:var(--mask)"></path></svg>
+
+<div role="img" aria-label="Camera viewfinder" style="position:absolute;left:16px;top:224px;width:358px;height:358px;border:1px solid var(--sage);border-radius:16px;overflow:hidden">
+<svg width="130" height="130" viewBox="0 0 130 130" aria-hidden="true" style="position:absolute;left:113px;top:113px">
+<rect x="5" y="5" width="40" height="40" style="fill:none;stroke:var(--ink2);stroke-width:10"></rect><rect x="20" y="20" width="10" height="10" style="fill:var(--ink2)"></rect>
+<rect x="85" y="5" width="40" height="40" style="fill:none;stroke:var(--ink2);stroke-width:10"></rect><rect x="100" y="20" width="10" height="10" style="fill:var(--ink2)"></rect>
+<rect x="5" y="85" width="40" height="40" style="fill:none;stroke:var(--ink2);stroke-width:10"></rect><rect x="20" y="100" width="10" height="10" style="fill:var(--ink2)"></rect>
+<path d="{{qrPath}}" style="fill:var(--ink2)"></path>
+</svg>
+<div style="position:absolute;left:16px;right:16px;top:0;height:2px;background:var(--sage);animation:scan 2.6s ease-in-out infinite alternate"></div>
+<svg width="100%" height="100%" viewBox="0 0 356 356" aria-hidden="true" style="position:absolute;left:0;top:0"><g style="fill:none;stroke:var(--sage);stroke-width:2"><path d="M16 48V16H48"></path><path d="M308 16H340V48"></path><path d="M340 308V340H308"></path><path d="M48 340H16V308"></path></g></svg>
+</div>
+
+<div style="position:absolute;left:16px;right:16px;top:24px;height:48px;display:flex;align-items:center;justify-content:space-between">
+<a href="Main.dc.html" aria-label="Back to dashboard" style="width:48px;height:48px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;text-decoration:none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a>
+<h1 class="d" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-0.01em">Scan to pay</h1>
+<button aria-label="{{toggleLabel}}" aria-pressed="{{isLight}}" onClick="{{toggleTheme}}" style="position:relative;width:48px;height:48px;padding:0;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;overflow:hidden">
+<span style="position:absolute;display:flex;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .25s ease;opacity:{{sunO}};transform:{{sunT}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></span>
+<span style="position:absolute;display:flex;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .25s ease;opacity:{{moonO}};transform:{{moonT}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span>
+</button>
+</div>
+
+<p style="position:absolute;left:16px;top:88px;margin:0;font-size:13px;line-height:16px;color:var(--ink2)">Point the camera at the merchant's UPI QR code.</p>
+
+<div style="position:absolute;left:16px;top:700px;font-size:10px;line-height:16px;font-weight:700;letter-spacing:0.03em;color:var(--ink2);white-space:nowrap">NO CAMERA, OR A CODE THAT WILL NOT SCAN?</div>
+
+<div style="position:absolute;left:16px;top:724px;width:358px;display:grid;grid-template-columns:7fr 3fr;gap:8px">
+<input type="text" aria-label="UPI ID or payment link" placeholder="pa=name@bank — or the whole upi:" autocomplete="off" style="width:100%;height:48px;padding:0 16px;border:1px solid var(--line);border-radius:16px;background:var(--card);font-size:13px;line-height:16px;text-align:left">
+<button style="height:48px;padding:0 8px;border:0;border-radius:16px;background:var(--clay);color:var(--btn-text);display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;line-height:16px;font-weight:700;white-space:nowrap">Use it<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const dark = s.isDarkMode !== false;
+let qr = '';
+for (let r = 0; r < 13; r++) {
+  for (let c = 0; c < 13; c++) {
+    if ((r < 5 && c < 5) || (r < 5 && c > 7) || (r > 7 && c < 5)) continue;
+    if ((r * 3 + c * 5 + r * c) % 7 < 3) qr += 'M' + (c * 10) + ' ' + (r * 10) + 'h10v10h-10z';
+  }
+}
+return {
+  theme: dark ? 'dark' : 'light',
+  toggleLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
+  isLight: !dark,
+  toggleTheme: () => this.setState({ isDarkMode: !dark }),
+  sunO: dark ? 1 : 0, sunT: dark ? 'rotate(0deg) scale(1)' : 'rotate(90deg) scale(0.4)',
+  moonO: dark ? 0 : 1, moonT: dark ? 'rotate(-90deg) scale(0.4)' : 'rotate(0deg) scale(1)',
+  qrPath: qr
+};
+}
+}
+</script>
+</body>
+</html>

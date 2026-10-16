@@ -42,8 +42,9 @@ set by the project owner, so follow them without being asked again.
 
 ## The product
 
-TrackIt is a mobile-first expense tracker in two screens: the **bento dashboard** and
-the **daily ledger** with its spinning date wheel. React 19 + TypeScript + Vite,
+TrackIt is a mobile-first expense tracker in three screens: the **bento dashboard**,
+the **daily ledger** with its spinning date wheel, and **scan to pay** (the camera,
+which logs the row a code carries). React 19 + TypeScript + Vite,
 styled with Tailwind CSS v4, Radix for the popovers and the dialog, Lucide for the
 icons, Framer Motion for the movement. It is a **static site**: no server, no
 service-worker PWA (the previous one was retired with its design), and the only thing
@@ -51,7 +52,7 @@ it talks to is `localStorage`.
 
 `README.md` has the stack, the screens, the theme, the importer and the deploy.
 
-The design of record is [`app/design/`](app/design/README.md) — the two exported
+The design of record is [`app/design/`](app/design/README.md) — the three exported
 artboards the screens were rebuilt from. Every radius, height, line height, letter
 spacing and colour in `app/src` is theirs; when a change is meant to alter the design,
 change it there too, or say in the commit that the design has moved on.
@@ -139,27 +140,32 @@ left out and why.
   read as Helvetica on a Mac. The trial's EULA forbids web embedding; the owner has
   chosen to ship it on their personal site anyway, and the licence travels beside the
   files. `tools/vendor-neue-haas.py` is what converts them.
-- **The greeting is Bodoni, not the artboard's Playfair Display.** The owner asked for
-  Bodoni; `tools/vendor-bodoni.py` vendors Google's Bodoni Moda (OFL, variable on the
-  optical-size axis) and it is the only thing in the app that departs from the
-  artboards' own type. If a serif question comes up again, that is the face to extend
-  rather than swapping in a third.
+- **The greeting is Anthropic Serif Display, in two styles of one family.** The owner
+  chose the face and supplied the two static Medium cuts; `"Hello,"` is the Medium
+  Italic and the name the Medium roman, both registered in `index.css` with an explicit
+  weight and style (`tools/vendor-anthropic-serif.py` converts them). It is the one
+  thing in the app that departs from the artboards' own type. **No licence came with
+  the files** — the notice beside them says so, and it is the same knowing posture as
+  Neue Haas Grotesk's trial. If a serif question comes up again, that is the family to
+  extend rather than swapping in a third.
 - **Panels the design does not draw are the app's own, and wear the app's clothes.**
-  The scan sheet is not in either artboard, so it is built from the same tokens — 48px
-  circles with a hairline in a header, `bg-clay text-on-clay` for the primary action,
-  20px radii — and it follows the theme like everything else. `scan.module.css` maps the
-  previous app's token names (`--bg-color`, `--accent-yellow`, …) onto the current ten
-  roles rather than restating colours, which is what keeps the pay sheet (kept for the
-  flow that is not built yet) already themed.
+  `components/DataSheet.tsx` is not in any artboard, so it is built from the same
+  tokens — 48px circles with a hairline in a header, `bg-clay text-on-clay` for the
+  primary action, 20px radii — and it follows the theme like everything else. The
+  scanner *is* drawn now (`Scanner.dc.html`), so it is held to the artboard's own
+  numbers instead.
 - **Import and export are written and unwired.** `components/DataSheet.tsx` is whole —
   the file input, the two exports, the two-tap clear, the report wording — and nothing
   mounts it, because the owner is placing it themselves. `useLedger` still exposes
   `importHistory` and `clear`; do not delete either as dead code, and do not "fix" the
   missing entry point by inventing a new one without asking.
 - **The UPI scanner logs a row, it does not pay.** A code that carries an amount is
-  logged under **Wallet - OneClick record**; one without says so instead of guessing.
+  logged under **Wallet - OneClick record**; one without says so instead of guessing
+  (`features/upi/logScan.ts`, which returns the sentence the status line shows).
   Nothing hands a `upi://` link to another app yet, and the pay sheet is a screen this
-  design does not have.
+  design does not have. The screen itself is the second artboard, so keep it at the
+  artboard's geometry: the frame is 358×358 at 224px and the manual row 724px down,
+  and the frame holds the live camera where the artboard paints a code.
 - **`backend/` is not called by the app.** It is the Shortcut endpoint, kept as it is;
   the two screens read and write only the device's own ledger. Do not wire the app to
   it without saying why.
@@ -185,7 +191,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The wheel | a real mouse drag (−130px ⇒ +2 days), the ±3 clamp, the 24px threshold, the arrow keys, and the spring settling |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
-| The scanner | both themes, since it is not in the artwork |
+| The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |
 
 `app/design/` is what to compare against when the question is "has a design feature
 been lost or changed".

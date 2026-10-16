@@ -1,5 +1,9 @@
 /**
- * Money, days and greetings — every string a screen shows that is not data.
+ * Money, days and the time of day — every string a screen shows that is not data.
+ *
+ * The greeting is deliberately *not* here any more: it is two fixed words rather than
+ * something the clock decides, so they live in `lib/owner.ts` with the name they
+ * belong to.
  *
  * Money is **integer paise** everywhere in this project (the Wallet export writes
  * paise, the app stores paise, the CSV export divides by 100 once, at the edge).
@@ -127,15 +131,7 @@ export function whenLabel(at: number, now = Date.now()): string {
   return DAY_AND_MONTH.format(at)
 }
 
-/** The whole greeting word: `Good morning`. */
-export function greeting(at: number = Date.now()): string {
-  const hour = new Date(at).getHours()
-  if (hour < 12) return "Good morning"
-  if (hour < 17) return "Good afternoon"
-  return "Good evening"
-}
-
-/** The same idea as a single word, which is the quick-log tray's own label. */
+/** The time of day as a single word, which is the quick-log tray's own label. */
 export function timeOfDayWord(at: number = Date.now()): string {
   const hour = new Date(at).getHours()
   if (hour < 12) return "Morning"

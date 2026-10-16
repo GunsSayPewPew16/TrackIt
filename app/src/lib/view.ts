@@ -59,8 +59,18 @@ export type LedgerDay = {
 
 /** Everything the dashboard draws, in the order it draws it. */
 export type DashboardModel = {
-  /** The word and the name: `Good morning, Alex`. */
-  greeting: string
+  /**
+   * The greeting, as its two halves rather than as one line: `Hello,` and `Priyansh`
+   * are different drawings of the same family (the italic cut and the roman, from
+   * `lib/owner.ts`), so a single string could not say which half wears which. The
+   * screen draws them, in this order, one space apart.
+   */
+  greeting: {
+    /** The word in front, comma included: `Hello,`. */
+    hello: string
+    /** Whose name it says: `Priyansh`. */
+    name: string
+  }
   balance: {
     label: string
     /** The big figure: `₹24,860.40`. */

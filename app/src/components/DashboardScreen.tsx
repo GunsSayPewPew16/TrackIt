@@ -65,8 +65,16 @@ export function DashboardScreen({
         change first if this ever reads as "swap" rather than "open the ledger".
       */}
       <div className="mb-2 flex h-12 items-center justify-between">
-        <h1 className="m-0 font-serif text-[28px] leading-9 font-normal tracking-[-0.01em] text-ink">
-          {model.greeting}
+        {/*
+          The greeting is two drawings of one family on one line: the word in Anthropic
+          Serif Display's Medium Italic (a real italic file, not a slanted roman) and the
+          name in its Medium roman — see `index.css` and `lib/owner.ts`. The artboard sets
+          the line in Playfair Display at the reading weight; both halves here are 500,
+          because the two static cuts the owner supplied are Medium and a 400 request
+          would simply pick them anyway.
+        */}
+        <h1 className="m-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink">
+          <em className="italic">{model.greeting.hello}</em> {model.greeting.name}
         </h1>
         <div className="flex items-center gap-2">
           <button

@@ -28,7 +28,6 @@ import { categoryFor } from "./categories"
 import {
   addDays,
   clock,
-  greeting,
   localDayKey,
   money,
   monthKey,
@@ -40,7 +39,7 @@ import {
   whenLabel,
   wholeMoney,
 } from "./format"
-import { OWNER_NAME } from "./owner"
+import { GREETING_WORD, OWNER_NAME } from "./owner"
 import type { Budget, Row } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
@@ -342,7 +341,10 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
   const recent = newestFirst(rows).slice(0, 5)
 
   return {
-    greeting: `${greeting(now)}, ${OWNER_NAME}`,
+    // The greeting is the same two words the demo shows: the time of day it used to
+    // read is gone from the design, and `now` is still the clock everything else in
+    // this model is measured against.
+    greeting: { hello: GREETING_WORD, name: OWNER_NAME },
     balance: { label: "Total available balance", value: money(Math.max(balance, 0)) },
     cashFlow: {
       chip: "MONTHLY CASH FLOW",

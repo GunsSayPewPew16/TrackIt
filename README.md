@@ -1,15 +1,16 @@
 # TrackIt
 
-A mobile-first expense tracker in two screens: a **bento dashboard** that answers
-"where does the money stand", and a **daily ledger** that answers "what happened
-that day", chosen on a spinning date wheel.
+A mobile-first expense tracker in three screens: a **bento dashboard** that answers
+"where does the money stand", a **daily ledger** that answers "what happened that
+day", chosen on a spinning date wheel, and **scan to pay**, which reads a merchant's
+UPI QR code and logs the row it carries.
 
 It is a static site — React 19, TypeScript and Vite, Tailwind CSS v4 for styling,
 Radix UI for the popovers and the dialog, Lucide for every icon and Framer Motion
 for the movement. There is no server: the owner's history is imported from their
 own **Wallet (BudgetBakers)** export and kept in `localStorage` on the device.
 
-The two screens are a faithful rebuild of an exported design — see
+The screens are a faithful rebuild of three exported design artboards — see
 [`app/design/`](app/design/README.md) for the artboards themselves and where each
 value in `src/` came from.
 
@@ -26,7 +27,7 @@ npm run build        # typecheck, then a production build into app/dist
 too. Every script at the root is a thin wrapper around `app/`, so the app can also
 be worked on directly: `cd app && npm run dev`.
 
-## The two screens
+## The screens
 
 **The dashboard** is the artboard's four bands, in its order: the greeting with its
 two round header controls; the balance card, which owns the month's cash flow; a
@@ -48,12 +49,20 @@ outline with a step cut out of its top-left corner, the category pill sitting in
 cut and the faces on the step, in one of three treatments — plain, clay for a month's
 big expenses, sage for money in.
 
-**Both screens show the design until there is something real to show.** With no
-import they are drawn from `src/lib/demo.ts`, which is the artboards' own content —
-the eleven sample rows, $24,860.40 of balance, October 2026 — written out as literals.
-The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the same
-two models from their rows and the screens change without knowing it. That switch is
-the only place the app decides what it is looking at (`src/App.tsx`).
+**Scan to pay** is the artboard of the same name, and is the one screen with no content
+of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
+down, a 358×358 viewfinder at 224px — a sage hairline, four corner brackets and a 2px
+line sweeping it from 24px to 332px — and then, at 700px, the small letterspaced label
+and the manual row, a 7fr/3fr grid of the field and the clay **Use it** button. The
+frame holds the live camera; see *Scanning a UPI code* below for the one part of the
+artboard that is deliberately not rebuilt.
+
+**The dashboard and the ledger show the design until there is something real to show.**
+With no import they are drawn from `src/lib/demo.ts`, which is the artboards' own
+content — the eleven sample rows, $24,860.40 of balance, October 2026 — written out as
+literals. The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the
+same two models from their rows and the screens change without knowing it. That switch
+is the only place the app decides what it is looking at (`src/App.tsx`).
 
 ## The theme
 
@@ -97,10 +106,12 @@ and re-run it rather than editing either file by hand.
 The design is set in **Neue Haas Grotesk**: Display for the headings and the money
 figures, Text for everything else, both vendored as woff2 in `app/src/assets/fonts/`
 (the conversion and the trial licence are in `tools/vendor-neue-haas.py` and beside
-the files). The one serif is the greeting, and it is **Bodoni Moda** (Google's
-variable Bodoni, OFL) rather than the artboard's Playfair Display — the owner asked
-for Bodoni, `tools/vendor-bodoni.py` vendors it, and its optical size follows the
-font size so 28px gets the display cut. Two things about the sans stacks are
+the files). The one serif is the greeting — `Hello, Priyansh`, the word in the Medium
+Italic and the name in the Medium roman — set in **Anthropic Serif Display**, whose two
+static cuts the owner supplied and `tools/vendor-anthropic-serif.py` converts. That is
+three departures from the artboards' own type, all of them the owner's: the artboards
+draw Playfair Display, and both `@font-face` rules state their weight and style so a
+400 request can never quietly re-use the 500 cut. Two things about the sans stacks are
 deliberate:
 
 - **Helvetica Neue is not in them.** The trial faces carry 74 glyphs — letters,
@@ -108,21 +119,33 @@ deliberate:
   minus (`−`) and the rupee sign (`₹`) are drawn by whatever comes next in the stack.
   That next is Helvetica, then Arial; naming Helvetica Neue made a Neue Haas screen
   read as Helvetica on any Mac that has it.
-- **The licence is a trial's.** Its EULA forbids web embedding (`@font-face`) and
-  redistribution without a separate web licence. The owner has chosen to publish it on
-  their personal site anyway. Buy the web licence, or drop the files, before the site
-  is shared more widely. (Bodoni Moda is OFL and travels with its licence beside it.)
+- **The licences are not open ones.** Neue Haas Grotesk's trial EULA forbids web
+  embedding (`@font-face`) and redistribution without a separate web licence, and no
+  licence document came with the two Anthropic Serif files at all; both notices travel
+  beside the files. The owner has chosen to publish them on their personal site anyway.
+  Buy the licences, or drop the files, before the site is shared more widely.
 
 ## Scanning a UPI code
 
-The dashboard's scan square opens the app's own QR scanner
-(`src/features/upi/`): the browser's `BarcodeDetector` where it exists, a WASM
-decoder where it does not. A code that already carries an amount logs a row under
-**Wallet - OneClick record**; a code without one says so rather than guessing, because
-the sheet that would ask for an amount is not built. Nothing here hands a `upi://`
-link to another app — `features/upi/upi.ts` holds that builder for when the pay flow
-arrives. The scanner's sheet is drawn in the app's own tokens, so it follows the theme
-like every other surface.
+The dashboard's scan square opens **Scan to pay** (`src/components/ScanScreen.tsx`),
+rebuilt from `Scanner.dc.html`: the viewfinder with its hairline, brackets and sweeping
+line, the theme toggle beside the way back, and the manual row under it for a code that
+will not scan — a UPI ID or a whole `upi://` link, through exactly the same parser the
+camera's reads go through. Decoding is `@yudiel/react-qr-scanner`: the browser's own
+`BarcodeDetector` where there is one, a WASM ZXing build where there is not.
+
+A code that already carries an amount logs **one row** under **Wallet - OneClick
+record** (`src/features/upi/logScan.ts`), newest first, so it is what the dashboard's
+recent list shows next; scanning the same code twice is the same row, and the status
+line says so. A code without an amount says so rather than guessing, because the sheet
+that would ask for one is not built. Nothing here hands a `upi://` link to another app
+— `features/upi/upi.ts` holds that builder for when the pay flow arrives.
+
+The artboard paints a stylised code inside the viewfinder, because a mockup cannot hold
+a camera; **this screen holds the camera instead**, and keeps the frame's chrome over
+it. The artboard's scrim — a full-bleed mask with the feed punched out of it —
+composites to the canvas colour, so the screen simply stands on the canvas and draws
+the frame in the card colour rather than reproducing the layer stack.
 
 ## Deploying
 
@@ -150,9 +173,9 @@ app/                    the whole product — one Vite app
       LedgerScreen      the wheel, the month menu, the notched cards
       ThemeToggle       the 48px circle that hands the sun to the moon
       DataSheet         import / export / start over
-      ScanSheet         what the scan square opens
+      ScanScreen        Scan to pay: the camera in its frame, and the manual row
       RowIcon           a card's glyph: a Lucide face, or a category's marker
-    features/upi/       the scanner, the UPI link builder, its stylesheet
+    features/upi/       the UPI link builder, and what a read code becomes (logScan)
     hooks/              useTheme, useLedger
     lib/
       index.css         the ten roles, both palettes, the two faces
@@ -162,9 +185,9 @@ app/                    the whole product — one Vite app
       derive.ts         rows → both screens' models
       demo.ts           the artboards' own content, before an import
       view.ts           the two models, one shape for both sources
-      format.ts         rupees, clocks, "Yesterday" (the greeting's face is Bodoni)
+      format.ts         rupees, clocks, "Yesterday"
       categories.ts     the owner's category tree (written by tools/)
-      category-icons.tsx, accounts.ts, owner.ts
+      category-icons.tsx, accounts.ts, owner.ts (the greeting's two words)
   design/               see above
 backend/                Worker + D1 schema (Shortcut endpoint; unused by app/)
 tools/                  wallet-import.py, lucide-icons.py, vendor-neue-haas.py
@@ -172,10 +195,10 @@ tools/                  wallet-import.py, lucide-icons.py, vendor-neue-haas.py
 
 ## Status
 
-Working: both screens in both themes, the wheel's drag/keys/springs, the month menu
-that reaches past the wheel's fifteen-day window, the Wallet import and both exports,
-the scanner, and the Pages deploy. Not built yet: the UPI pay sheet, per-account
-balances on screen (the accounts are known and used, but only their sum is drawn), and
-savings goals. Import and export are implemented but **unwired** — the owner is placing
+Working: all three screens in both themes, the wheel's drag/keys/springs, the month
+menu that reaches past the wheel's fifteen-day window, the Wallet import and both
+exports, the scanner (camera and manual entry, one row per code), and the Pages deploy.
+Not built yet: the UPI pay sheet, per-account balances on screen (the accounts are known
+and used, but only their sum is drawn), and savings goals. Import and export are implemented but **unwired** — the owner is placing
 that panel themselves, which is why no screen opens it. The app is no longer a
 service-worker PWA — the previous one was retired with its design.

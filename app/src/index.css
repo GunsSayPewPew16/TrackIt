@@ -27,7 +27,7 @@
  * Display sets the headings and the money figures — it is cut tighter for
  * large sizes, which is what the artboards ask for at 28–44px. Text sets
  * everything else, paragraphs down to the small letterspaced labels, and the
- * greeting alone is a serif (Bodoni, below).
+ * greeting alone is a serif (Anthropic Serif Display, below).
  *
  * Both stacks name Neue Haas Grotesk first and then step outward: the "… Pro"
  * spellings the artboards use, for a machine that has the collection installed,
@@ -79,24 +79,40 @@
 }
 
 /*
- * Bodoni Moda, the greeting's face — the one serif in the app.
+ * Anthropic Serif Display, the greeting's face — the one serif in the app.
  *
- * The dashboard artboard sets its greeting in Playfair Display and the owner
- * asked for Bodoni instead: a Didone, where the contrast between the thick stems
- * and the hairline serifs is the point, so the line reads as a masthead rather
- * than as the same sans at a larger size. It arrives from Google's CSS API as the
- * variable face — one latin cut, 26 KiB, carrying the `opsz` axis and not the
- * weight one, because the greeting is only ever 400 — which is what lets the
- * browser pick the display cut for 28px and a text cut for anything smaller
- * without a second file. `tools/vendor-bodoni.py` writes it and the OFL beside
- * it (src/assets/fonts/bodoni-moda-OFL.txt); the artboards' own value is the only
- * thing this departs from, and it departs from it deliberately.
+ * The dashboard artboard sets its greeting in Playfair Display; the owner has since
+ * chosen **Anthropic Serif Display** twice over, and the greeting is now two styles
+ * of one family on one line: `Hello,` in the Medium Italic and `Priyansh` in the
+ * Medium roman. Both are the **static** cuts rather than a variable file, so each
+ * `@font-face` below states its weight (500 — the weight the file itself reports,
+ * see `tools/vendor-anthropic-serif.py`) and its style, and no browser ever has to
+ * guess a weight from a single axis: asking for 400 would either synthesise a bold
+ * that is not there or silently reuse the 500 cut.
+ *
+ * The `italic` in the greeting is therefore a real italic drawing — its own
+ * letterforms, and a comma that follows the angle of the word — not a slanted roman,
+ * which is what a browser fakes when a family carries one style. That matters at
+ * 28px in a Didone-ish serif, where a slant is obvious.
+ *
+ * The files arrived from the owner's own Downloads folder and no licence document
+ * came with them; `src/assets/fonts/anthropic-serif-display-NOTICE.txt` records that
+ * and what it means for publishing this site, and the two `@font-face` rules here
+ * are the whole of the app's dependence on it.
  */
 @font-face {
-  font-family: "Bodoni Moda";
-  src: url("./assets/fonts/bodoni-moda-400.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "Anthropic Serif Display";
+  src: url("./assets/fonts/anthropic-serif-display-500.woff2") format("woff2");
+  font-weight: 500;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Anthropic Serif Display";
+  src: url("./assets/fonts/anthropic-serif-display-500-italic.woff2") format("woff2");
+  font-weight: 500;
+  font-style: italic;
   font-display: swap;
 }
 
@@ -148,8 +164,8 @@
   --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
   /* Headings and the money figures. Its two cuts are Medium and Bold. */
   --font-display: "Neue Haas Grotesk Display", "Neue Haas Grotesk Display Pro", Helvetica, Arial, sans-serif;
-  /* The greeting, and nothing else. Its optical size follows the font size. */
-  --font-serif: "Bodoni Moda", "Bodoni 72", Didot, "Times New Roman", Georgia, serif;
+  /* The greeting, and nothing else: one family, two static cuts, Medium each. */
+  --font-serif: "Anthropic Serif Display", Didot, "Times New Roman", Georgia, serif;
 }
 
 /*
@@ -219,5 +235,22 @@
 
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/*
+ * The scanner's travelling line, from `Scanner.dc.html`: a 2px sage rule that
+ * sweeps the viewfinder from 24px to 332px and back, 2.6s each way. It is written
+ * as a translation rather than as an animated `top` because the line's own box never
+ * changes — the frame it sweeps is a fixed 358 square — so the browser can keep it
+ * on the compositor. The reduced-motion rule in the reset above stops it, which is
+ * the artboard's own `animation: none !important`.
+ */
+@keyframes scan {
+  from {
+    transform: translateY(24px);
+  }
+  to {
+    transform: translateY(332px);
   }
 }

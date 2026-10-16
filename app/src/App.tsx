@@ -3,14 +3,15 @@ import { useCallback, useMemo, useState } from "react"
 
 import { DashboardScreen } from "@/components/DashboardScreen"
 import { LedgerScreen } from "@/components/LedgerScreen"
-import { ScanSheet } from "@/components/ScanSheet"
+import { ScanScreen } from "@/components/ScanScreen"
+import { logScannedPayee } from "@/features/upi/logScan"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
 import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 
 /**
- * The app: two screens, and the state that decides what they show.
+ * The app: three screens, and the state that decides what they show.
  *
  * **Which content.** The owner's imported history decides it, in one place. With
  * rows in the ledger both screens are computed from them (`lib/derive.ts`); with
@@ -35,9 +36,13 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
  * owner asked for, and the cross-fade is what carries the change of screen.
  *
- * The scan sheet is the app's, not the design's — a dialog is a dialog, and Radix is
- * what makes it one — and it is opened from the dashboard's scan square, which is why
- * it is mounted here rather than inside a screen.
+ * **The scanner is a screen too.** The dashboard's scan square opens it the same way
+ * the header's circle opens the ledger, and it wears the second artboard's design
+ * (`components/ScanScreen.tsx`) rather than the dialog the previous app opened: it
+ * has its own header and its own way back, and the cross-fade carries the change like
+ * the other two. What a read code becomes — one row, or a refusal — is
+ * `features/upi/logScan.ts`, handed in as the screen's `onPayee` so that the screen
+ * itself never touches the ledger.
  *
  * **The ledger is opened from the header's circle**, and importing is not reachable
  * from the UI at all at the moment: `components/DataSheet.tsx` is written and unwired,
@@ -47,13 +52,12 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { rows, budgets } = useLedger()
-  const [view, setView] = useState<"dashboard" | "ledger">("dashboard")
+  const [view, setView] = useState<"dashboard" | "ledger" | "scan">("dashboard")
   /** The day the wheel's window ends on; `undefined` means "the newest row". */
   const [anchor, setAnchor] = useState<number | undefined>(undefined)
-  const [scanOpen, setScanOpen] = useState(false)
 
   /** Change screens, whichever way, and start the new one at its own top. */
-  const goTo = useCallback((next: "dashboard" | "ledger") => {
+  const goTo = useCallback((next: "dashboard" | "ledger" | "scan") => {
     setView(next)
     window.scrollTo({ top: 0, left: 0, behavior: "instant" })
   }, [])
@@ -89,9 +93,9 @@ export default function App() {
               theme={theme}
               onToggleTheme={toggleTheme}
               onOpenLedger={() => goTo("ledger")}
-              onScan={() => setScanOpen(true)}
+              onScan={() => goTo("scan")}
             />
-          ) : (
+          ) : view === "ledger" ? (
             <LedgerScreen
               model={ledger}
               theme={theme}
@@ -99,11 +103,16 @@ export default function App() {
               onBack={() => goTo("dashboard")}
               onPickMonth={setAnchor}
             />
+          ) : (
+            <ScanScreen
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onBack={() => goTo("dashboard")}
+              onPayee={logScannedPayee}
+            />
           )}
         </motion.div>
       </AnimatePresence>
-
-      {scanOpen && <ScanSheet onClose={() => setScanOpen(false)} />}
     </>
   )
 }

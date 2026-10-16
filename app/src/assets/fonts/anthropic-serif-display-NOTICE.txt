@@ -1,0 +1,17 @@
+Anthropic Serif Display — the greeting's face, as supplied by the owner.
+
+Provenance: the owner supplied these cuts directly (this repository received them
+as `AnthropicSerif-Display-Medium-Static.otf` and `AnthropicSerif-Display-MediumItalic-Static.otf`). They are converted to woff2 by
+`tools/vendor-anthropic-serif.py`; do not hand-edit the font files.
+
+Terms: **no licence document was supplied with the files, and this repository
+carries none.** Anthropic Serif is a proprietary typeface, not an open one, so
+unlike the OFL face this replaced (Bodoni Moda) there is nothing that travels with
+it. Whether these files may be served to the public is the owner's decision, and it
+is the same knowing choice recorded beside Neue Haas Grotesk
+(`tools/vendor-neue-haas.py`). Obtain a licence, or drop both files and the two
+`@font-face` rules in `app/src/index.css`, before this site is shared widely.
+
+Converted from:
+    anthropic-serif-display-500.woff2  (AnthropicSerif-Display-Medium-Static.otf, CSS 500 normal)
+    anthropic-serif-display-500-italic.woff2  (AnthropicSerif-Display-MediumItalic-Static.otf, CSS 500 italic)

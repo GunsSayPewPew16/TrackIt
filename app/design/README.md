@@ -1,9 +1,11 @@
 # The design of record
 
-Two exported artboards, and the only files the two screens are drawn from:
+Three exported artboards, and the only files the screens are drawn from:
 
 - `dashboard.dc.html` — "Main": the bento dashboard, exported as `Main.dc.html`.
 - `ledger.dc.html` — "Daily ledger": the spinning date wheel and the notched cards.
+- `scanner.dc.html` — "Scan to pay": the camera's viewfinder and the manual-entry row,
+  exported as `Scanner.dc.html`.
 
 They are **reference, not build input**: nothing imports them, Vite never sees
 them, and they are excluded from the deploy (only `app/dist` is published). They
@@ -22,12 +24,20 @@ Open one in a browser by serving the folder (`python3 -m http.server`) — witho
 the runtime it will not render its `<x-dc>` template, so read the attributes, or
 paste the template body into a scratch page of your own if you want to see it.
 
-Two things to know before comparing them to the app:
+Three things to know before comparing them to the app:
 
 - **The artboards draw dollars; the app draws rupees.** Otherwise the sample
   content is the same content: `src/lib/demo.ts` is these eleven rows, these
   figures and this month, kept as literals so a first visit looks like the design.
-- **The artboards are 390px wide and 1104/880px tall.** The app keeps the 390px
+- **The artboards are 390px wide and 1104/880/844px tall.** The app keeps the 390px
   column and its 24/16/32 padding, but lets a screen be as tall as its content and
   centres the column, so the same layout is exact on a phone and does not stretch
-  across a desktop window.
+  across a desktop window. A screen places its bands at the artboard's own
+  coordinates rather than at whatever follows in flow — which is why the scanner's
+  frame sits at a fixed 224px, and why the hint above it is absolutely positioned.
+- **The scanner's code is the one drawing the app replaces.** The artboard paints a
+  stylised QR code and its three finder squares inside the viewfinder, because an
+  exported mockup cannot hold a camera; `src/components/ScanScreen.tsx` puts the live
+  feed in the same frame instead, and keeps the hairline, the corner brackets and the
+  sweeping line that surround it. Everything else in all three artboards is rebuilt
+  as drawn.
