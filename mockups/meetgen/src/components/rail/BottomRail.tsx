@@ -1,16 +1,22 @@
-import { House, QrCode, ReceiptText, type LucideIcon } from "lucide-react"
+import { House, ReceiptText, type LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-/** The screens the rail can show. `pay` opens the scan flow instead of a screen. */
-export type RailTab = "home" | "ledger" | "pay"
+/**
+ * The screens the rail can show.
+ *
+ * It used to carry a third tab, **Scan and pay**, which opened the scanner rather
+ * than a screen. The scanner is not a place in this app — it is something the owner
+ * does *to* a screen — so it moved to the `+` the summaries already wear: the one
+ * in the ledger's spend box, and now the one in the balance box on Home.
+ */
+export type RailTab = "home" | "ledger"
 
 type Item = { id: RailTab; label: string; icon: LucideIcon }
 
 const ITEMS: Item[] = [
   { id: "home", label: "Home", icon: House },
   { id: "ledger", label: "Ledger", icon: ReceiptText },
-  { id: "pay", label: "Scan and pay", icon: QrCode },
 ]
 
 /*
@@ -26,8 +32,9 @@ const SCOOP_DEPTH = 43 // how far the scoop reaches down
 const DISC = 48
 const DISC_CENTRE_Y = 12 // the active disc's centre sits near the top edge
 
-// Centres keep the whole scoop inside the straight part of the top edge.
-const CENTRES = [86, 170, 254]
+// Centres keep the whole scoop inside the straight part of the top edge. Two tabs
+// sit either side of the middle, where the three used to be spread across it.
+const CENTRES = [120, 220]
 
 /** The pill's outline, with a scoop at `centre` (or none). */
 function railPath(centre: number | null): string {
@@ -53,8 +60,8 @@ function railPath(centre: number | null): string {
 }
 
 type Props = {
-  /** The screen on show. `pay` is never a screen, so it never takes the scoop. */
-  active: Exclude<RailTab, "pay">
+  /** The screen on show. It takes the scoop. */
+  active: RailTab
   onSelect: (tab: RailTab) => void
 }
 

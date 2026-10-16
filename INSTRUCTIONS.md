@@ -498,8 +498,8 @@ screen is the single file `src/ExpenseTracker.tsx`.
   the page (the pay sheet's error, the scanner's status). `tangerine-hover` is the
   fill one step lighter; fading the accent out over the dark page instead darkens
   it until its own label measures 4.0:1.
-- **Every pair is measured in both themes, at 390px, in the browser** — the four
-  surfaces the design has (Home, Ledger, the scanner, the pay sheet) are audited by
+- **Every pair is measured in both themes, at 390px, in the browser** — the five
+  surfaces the design has (Home, Ledger, the scanner, the pay sheet, Settings) are audited by
   computing each element's composited background and its real contrast, not by
   reading the CSS. Nothing is under 4.5:1 except the accent's fill against a card
   (2.3:1), which only ever draws a badge or a category's marker tile, both carrying
@@ -507,7 +507,12 @@ screen is the single file `src/ExpenseTracker.tsx`.
   floors hold the rest up: secondary text on the page is `on-canvas/70` and no
   lighter (5.6:1 light, the darkest theme's floor), and secondary text on a card
   is `opacity-80` (4.7:1). A card that is too close in value to what is under it is
-  the bug to look for first.
+  the bug to look for first. The Settings screen reuses those pairs and was measured
+  with them: its pill, heading and back arrow are 13.85:1 in light and 14.83:1 in
+  dark, the `+` glyph on the accent is 4.56:1 and 4.63:1, and a row's handoff badge
+  on a card is 15.15:1. When a pair is measured against a surface drawn as SVG — the
+  rail's pill — measure against the path's `fill`, or the probe walks past it to the
+  page and reports nonsense.
 - **The one dark block left on purpose** is the scanner's camera letterbox, which
   frames a live video rather than a box on the page.
 - **The theme is one attribute.** `index.html` puts `data-theme="dark"` on `<html>`
@@ -545,5 +550,65 @@ screen is the single file `src/ExpenseTracker.tsx`.
   an empty note never costs a row the identity of who was paid. The app's own pay sheet
   (`frontend/src/components/UpiPaySheet.tsx`) follows the same rule for the note, and
   already names Google Pay for the handoff.
+- **The scanner fails in the open, and never asks for a camera it knows is refused.**
+  Its library bounds the *playing* of a stream but not the request for one: `getUserMedia`
+  is allowed to never settle, and the viewfinder then sits there looking like it is about
+  to work — which is the bug (found here because a real camera request wedges this preview
+  browser's own process; the page's JS stayed healthy, shown by a synthetic stream from a
+  canvas, and a QR drawn on that canvas still decodes). So `UpiScanSheet` asks the
+  Permissions API first and does **not** request the camera when the answer is `denied`;
+  it watches for **frames** rather than for the promise, and after `CAMERA_SLOW_MS` without
+  one it says so in the viewfinder and in the status line; and it never unmounts the scanner
+  while it is waiting, because a stream that resolved after a give-up would be left running
+  with nothing holding it. A `CameraBoundary` class keeps a throwing scanner from taking the
+  manual entry down with it — and that manual entry is a complete way to pay in every one of
+  those states, which is what makes the failure survivable rather than merely reported.
+- **A handoff and an import are remembered, and marked.** The row is written as the payment
+  leaves, and `src/lib/ledger.ts` keeps it — and everything the Settings screen imports — in
+  `localStorage` (`trackit-mockup-ledger`, 500 rows): a handoff is one-way, since nothing will
+  ever tell this page whether the money moved, so that row is the only record of it; an import
+  is the owner's own history, which is worth more than the demo it lands in. A handoff's badge
+  names what it went to — "Google Pay", or "UPI link" on a device that hands nothing over, so
+  a laptop never claims a payment it did not make — and every stored row keeps one absolute
+  timestamp, so a day and a time come from when the thing happened rather than from when the
+  page was opened and the period tabs keep meaning what they say. Only what was *added* is
+  stored; the demo's own rows stay the seed, so a first visit looks the same everywhere.
+- **The `+` on a summary is the scanner.** The rail used to carry a third tab, Scan and pay,
+  which opened the scanner rather than a screen. The scanner is not a place in this app — it
+  is something the owner does *to* a screen — so it now hangs off the summary they are
+  looking at: the ledger's spend box, and Home's balance box, in the same corner as the same
+  56px accent disc. The rail is two tabs either side of the middle (`CENTRES` `[120, 220]`
+  inside the pill) and keeps the reference's 340 × 72 pill and its scoop.
+- **Settings holds the three things it can do, in the order they are wanted.** A quiet outline
+  pill in the header opens it — the accent is for the money (`+`, the pay CTA) and a settings
+  destination is not money. Inside: the light/dark switch, since the theme is one attribute on
+  `<html>` and the switch only writes it; then the history card, whose one primary action is
+  **Import from a file** with the two exports as secondary buttons beneath it, because bringing
+  a history in is the rare, hard-to-undo direction while taking one out is a download the owner
+  can simply redo; and last, past a rule, the only destructive control on the screen — **Clear
+  added rows** — which asks for a second tap within five seconds rather than a dialog. The two
+  exports are drawn in the card's own ink rather than the page's: the outline variant is written
+  for the page, and on a card in the dark theme its `on-canvas` cream measures 1.2:1, which is
+  the pair to check whenever a button moves onto a card.
+- **Import reads what the owner actually has, and says what it could not use.** Two files are
+  understood. The app's own export — a bare JSON array of its `Expense` rows, or the same array
+  under `{ expenses: [...] }`, `{ rows: [...] }` or `{ data: [...] }` — read generously by field
+  name (`amount` in rupees as well as `amountCents` in paise, `title`/`memo`/`payee` as well as
+  `note`, `date`/`spentAt` as well as `timestamp`). And **Wallet's own backup**, which is how the
+  owner's history really arrives: PouchDB's dump of Wallet's whole database, one entry per
+  document revision, under `{ "<pouch user>": { "by-sequence": [...] } }`. That file is not a
+  list of rows, so `walletRows` reads it by the app's own rules (`tools/wallet-import.py` is the
+  Python reader of the same file): `type` 1 is spending and 0 is income, a record with a
+  `transferId` is money moved between the owner's own accounts rather than spent, a soft-deleted
+  record is not a row, `amount` is already paise, the category document's *name* is the only
+  thing a row can be titled, its document id becomes the row id so a second import of the same
+  backup adds nothing, and `recordDate` is read as +05:30 — Wallet writes UTC and the money is
+  spent in India, so the day is the owner's own and not the device's. Whatever a file carries
+  that this ledger cannot use is counted and reported by kind — income, transfers, rows with no
+  amount or no date ("Added 112 rows. 1 transfer and 10 income rows left out") — never swallowed:
+  the ledger is spending only, so an income row imported as an expense would move every total
+  the wrong way. The report is drawn on a **box** panel, the one surface where this palette lets
+  the accent be text (`ember`, 6.2:1 in the dark theme and 4.6:1 in the light one) instead of
+  the 2.3:1 it would measure against a cream card.
 - Money is integer paise and shown in INR, which is the owner's currency, not the
   `$` used in the brief's example.

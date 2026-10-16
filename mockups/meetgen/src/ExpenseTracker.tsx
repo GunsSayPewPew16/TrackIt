@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BottomRail, type RailTab } from "@/components/rail/BottomRail"
+import { SettingsScreen } from "@/components/settings/SettingsScreen"
 import { UpiPaySheet, type PaySubmit } from "@/components/upi/UpiPaySheet"
 import { UpiScanSheet } from "@/components/upi/UpiScanSheet"
+import { appendLedgerRows, clearLedgerRows, readLedgerRows, type LedgerRow } from "@/lib/ledger"
 import { type UpiPayee } from "@/lib/upi"
 import { cn } from "@/lib/utils"
 
@@ -26,14 +28,48 @@ type Expense = {
   title: string
   category: Category
   amount: number
-  /** 0 = today. Drives the Today / Week / Month filter. */
-  daysAgo: number
-  time: string
+  /**
+   * When it happened, epoch ms — the one time field.
+   *
+   * Day, clock time and the Today / Week / Month filter are all derived from it, so
+   * a row can never claim to be today's after a reload, and an imported row keeps
+   * the day it actually happened on.
+   */
+  at: number
   tags: string[]
   overBudget?: boolean
 }
 
 const PERIOD_DAYS: Record<Period, number> = { today: 1, week: 7, month: 30 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** The time of day something was logged, on the owner's own clock. */
+function clock(at: number) {
+  const when = new Date(at)
+  return `${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`
+}
+
+function dayLabel(daysAgo: number) {
+  if (daysAgo === 0) return "Today"
+  if (daysAgo === 1) return "Yesterday"
+  return `${daysAgo}d ago`
+}
+
+/**
+ * Whole days between a moment and today, counted on the owner's own calendar.
+ *
+ * Both ends are pulled back to midnight before subtracting and the result is
+ * rounded: a day is 23 or 25 hours long twice a year, and a raw division by 86,400,000
+ * is how a row ends up labelled a day out.
+ */
+function daysAgoOf(at: number): number {
+  const then = new Date(at)
+  then.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((today.getTime() - then.getTime()) / DAY_MS))
+}
 
 /*
  * Each category wears a card and a small marker tile. `cell` is the card it is
@@ -71,7 +107,26 @@ const CATEGORIES: Record<
   },
 }
 
-const EXPENSES: Expense[] = [
+/**
+ * The demo's own rows, written the way a person reads them.
+ *
+ * `daysAgo` and `time` are how the design was drawn — "today at 09:12" — and
+ * `seedRow` turns each one into the single absolute moment the ledger stores. The
+ * two shapes exist only here: everything downstream (the filters, the exports, the
+ * writers) speaks in `at`.
+ */
+type SeedRow = {
+  id: string
+  title: string
+  category: Category
+  amount: number
+  daysAgo: number
+  time: string
+  tags: string[]
+  overBudget?: boolean
+}
+
+const SEED: SeedRow[] = [
   { id: "e01", title: "Blue Tokai Coffee", category: "food", amount: 42000, daysAgo: 0, time: "09:12", tags: ["Personal"] },
   { id: "e02", title: "Swiggy Dinner", category: "food", amount: 124000, daysAgo: 0, time: "20:40", tags: ["Personal"], overBudget: true },
   { id: "e03", title: "Chai & Samosa", category: "food", amount: 8000, daysAgo: 0, time: "17:05", tags: ["Personal"] },
@@ -85,6 +140,30 @@ const EXPENSES: Expense[] = [
   { id: "e11", title: "AWS Hosting", category: "saas", amount: 214000, daysAgo: 12, time: "00:30", tags: ["Work Reimbursement"] },
   { id: "e12", title: "Myntra Sale", category: "shopping", amount: 129900, daysAgo: 16, time: "21:50", tags: ["Personal"] },
 ]
+
+/** One seed row as the ledger draws it: local wall-clock arithmetic, so a row keeps
+ *  its own time of day even if a daylight-saving change falls inside its week. */
+function seedRow(row: SeedRow): Expense {
+  const [hours, minutes] = row.time.split(":").map(Number)
+  const today = new Date()
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    amount: row.amount,
+    at: new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() - row.daysAgo,
+      hours,
+      minutes,
+    ).getTime(),
+    tags: row.tags,
+    overBudget: row.overBudget,
+  }
+}
+
+const EXPENSES: Expense[] = SEED.map(seedRow)
 
 const rupees = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -122,10 +201,21 @@ function guessCategory(payee: UpiPayee): Category {
   return "shopping"
 }
 
-function dayLabel(daysAgo: number) {
-  if (daysAgo === 0) return "Today"
-  if (daysAgo === 1) return "Yesterday"
-  return `${daysAgo}d ago`
+/**
+ * A remembered row — a handoff, or something imported — in the shape the ledger draws.
+ *
+ * Its day comes from when it happened rather than from when the page was opened, and
+ * a handoff's target rides along as a tag, which is how a row says who it was paid to.
+ */
+function fromLedgerRow(row: LedgerRow): Expense {
+  return {
+    id: row.id,
+    title: row.title,
+    category: isCategory(row.category) ? row.category : "shopping",
+    amount: row.amountCents,
+    at: row.at,
+    tags: [...(row.tags ?? []), ...(row.handedTo ? [row.handedTo] : [])],
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -135,40 +225,103 @@ function dayLabel(daysAgo: number) {
 export default function ExpenseTracker() {
   const [screen, setScreen] = useState<Screen>("home")
   const [period, setPeriod] = useState<Period>("month")
-  const [expenses, setExpenses] = useState<Expense[]>(EXPENSES)
+  /** Settings opens over this screen; what it holds lives in its own file. */
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Everything this browser added — handoffs, and anything imported — ahead of the
+  // demo's own rows. See lib/ledger.ts for why any of it is remembered at all.
+  const [expenses, setExpenses] = useState<Expense[]>(
+    () => [...readLedgerRows().map(fromLedgerRow), ...EXPENSES],
+  )
   // The scan-and-pay flow: scan a code, then confirm the payee and amount.
   const [flow, setFlow] = useState<{ step: "scan" } | { step: "pay"; payee: UpiPayee } | null>(null)
 
   /**
-   * Log the expense the owner just confirmed.
+   * Log the expense the owner just confirmed, and remember it.
    *
    * This runs before the payment leaves for Google Pay, so the row exists even if
-   * the handoff does nothing. The sheet's note starts empty — it is the owner's
-   * words, and a note is sent to the merchant inside the link — so the payee's own
-   * name is what a row falls back to: `₹2,865 · BigBasket` beats a row called
-   * "Expense" with no idea who took the money. That name is the ledger's, and it
-   * never travels to the merchant.
+   * the handoff does nothing — and it is written to storage in the same breath,
+   * because the handoff is one-way. Nothing will ever tell this page whether the
+   * money moved, so this row is the only record of it, and a record that vanished
+   * on the next reload would not be one.
+   *
+   * The sheet's note starts empty — it is the owner's words, and a note is sent to
+   * the merchant inside the link — so the payee's own name is what a row falls back
+   * to: `₹2,865 · BigBasket` beats a row called "Expense" with no idea who took the
+   * money. That name is the ledger's, and it never travels to the merchant.
    */
-  function logExpense(draft: PaySubmit, payeeName: string) {
-    const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, "0")
+  function logExpense(draft: PaySubmit, payeeName: string, handedTo: string) {
+    const at = Date.now()
     const row: Expense = {
-      id: `u${Date.now()}`,
+      id: `u${at}`,
       title: draft.note || payeeName,
       category: isCategory(draft.category) ? draft.category : "shopping",
       amount: draft.amountCents,
-      daysAgo: 0,
-      time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-      tags: ["Personal"],
+      at,
+      // The handoff is the row's mark: who the payment went to, by name.
+      tags: [handedTo],
     }
+    appendLedgerRows([
+      {
+        id: row.id,
+        title: row.title,
+        category: row.category,
+        amountCents: draft.amountCents,
+        at,
+        handedTo,
+      },
+    ])
     setExpenses((prev) => [row, ...prev])
   }
 
-  const visible = useMemo(
+  /**
+   * The whole ledger in the stored-row shape — what the two writers and the importer
+   * all speak. The demo's own rows carry no handoff and no extra tags, so they travel
+   * as themselves.
+   */
+  const exportRows: LedgerRow[] = useMemo(
     () =>
-      expenses.filter((e) => e.daysAgo < PERIOD_DAYS[period]).sort(
-        (a, b) => a.daysAgo - b.daysAgo || b.time.localeCompare(a.time),
-      ),
+      expenses.map((expense) => ({
+        id: expense.id,
+        title: expense.title,
+        category: expense.category,
+        amountCents: expense.amount,
+        at: expense.at,
+        tags: expense.tags.length > 0 ? expense.tags : undefined,
+      })),
+    [expenses],
+  )
+
+  /**
+   * Add what an import produced: storage first, then the screen.
+   *
+   * Rows are matched by id on both sides, so a file imported twice adds nothing the
+   * second time — the mistake worth designing for. The counts handed back come from
+   * storage, which is the side that knows what it actually kept.
+   */
+  function importRows(rows: LedgerRow[]): { added: number; skipped: number } {
+    const result = appendLedgerRows(rows)
+    const known = new Set(expenses.map((expense) => expense.id))
+    const fresh: LedgerRow[] = []
+    for (const row of rows) {
+      if (known.has(row.id)) continue
+      known.add(row.id)
+      fresh.push(row)
+    }
+    if (fresh.length > 0) setExpenses((prev) => [...fresh.map(fromLedgerRow), ...prev])
+    return result
+  }
+
+  /** Forget everything this browser added, leaving the demo's own rows standing. */
+  function clearRows(): number {
+    const forgotten = clearLedgerRows()
+    setExpenses([...EXPENSES])
+    return forgotten
+  }
+
+  // Newest first, which is what the ledger's own subtitle promises: one timestamp per
+  // row is what lets a single comparison do the whole sort.
+  const visible = useMemo(
+    () => expenses.filter((e) => daysAgoOf(e.at) < PERIOD_DAYS[period]).sort((a, b) => b.at - a.at),
     [period, expenses],
   )
 
@@ -183,14 +336,14 @@ export default function ExpenseTracker() {
   })
 
   // The month's spend for the summary box, and the last seven days for its bar strip.
-  const monthRows = expenses.filter((e) => e.daysAgo < PERIOD_DAYS.month)
+  const monthRows = expenses.filter((e) => daysAgoOf(e.at) < PERIOD_DAYS.month)
   const monthTotal = monthRows.reduce((s, e) => s + e.amount, 0)
   const monthOver = monthRows.filter((e) => e.overBudget).length
   const dayTotals = Array.from({ length: 7 }, (_, i) => {
     const daysAgo = 6 - i
     return {
       daysAgo,
-      amount: expenses.filter((e) => e.daysAgo === daysAgo).reduce((s, e) => s + e.amount, 0),
+      amount: expenses.filter((e) => daysAgoOf(e.at) === daysAgo).reduce((s, e) => s + e.amount, 0),
     }
   })
   const peak = Math.max(...dayTotals.map((d) => d.amount), 1)
@@ -203,10 +356,6 @@ export default function ExpenseTracker() {
   const openScanner = () => setFlow({ step: "scan" })
 
   function selectTab(tab: RailTab) {
-    if (tab === "pay") {
-      openScanner()
-      return
-    }
     setScreen(tab)
   }
 
@@ -230,9 +379,12 @@ export default function ExpenseTracker() {
               Wallet · INR
             </span>
           </div>
-          <Button variant="accent" size="sm" onClick={openScanner}>
-            <Plus />
-            Quick log
+          {/* Settings, not Quick log: logging is what the two `+` buttons on the
+              summaries are for, and this corner is where a screen's own controls
+              belong. It is a pill like the button it replaced, only quieter — the
+              accent is for the money, and a settings destination is not money. */}
+          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
+            Settings
           </Button>
         </div>
       </header>
@@ -248,7 +400,18 @@ export default function ExpenseTracker() {
             </div>
 
             {/* Placeholder for the total account balance, until accounts are linked. */}
-            <Card className="gap-4 rounded-[32px] border-box bg-box p-6 text-on-box">
+            <Card className="relative gap-4 rounded-[32px] border-box bg-box p-6 text-on-box">
+              {/* The same corner and the same button as the ledger's spend box: the
+                  scanner is reached from the summary the owner is looking at, and
+                  from here that is the balance. */}
+              <button
+                type="button"
+                onClick={openScanner}
+                aria-label="Scan and pay"
+                className="absolute top-5 right-5 flex size-14 cursor-pointer items-center justify-center rounded-full bg-tangerine text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-box"
+              >
+                <Plus className="size-6" aria-hidden="true" />
+              </button>
               <CardTitle className="opacity-70">Total account balance</CardTitle>
               <div className="font-display text-[56px] leading-none font-bold tracking-tight tabular-nums">
                 ₹ —
@@ -307,7 +470,7 @@ export default function ExpenseTracker() {
               <button
                 type="button"
                 onClick={openScanner}
-                aria-label="Quick log"
+                aria-label="Scan and pay"
                 className="absolute top-5 right-5 flex size-14 cursor-pointer items-center justify-center rounded-full bg-tangerine text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-box"
               >
                 <Plus className="size-6" aria-hidden="true" />
@@ -367,7 +530,7 @@ export default function ExpenseTracker() {
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="truncate text-sm font-medium">{e.title}</span>
                       <span className="text-[10px] font-medium tracking-wide uppercase opacity-80">
-                        {e.time} · {dayLabel(e.daysAgo)}
+                        {clock(e.at)} · {dayLabel(daysAgoOf(e.at))}
                       </span>
                       <div className="flex flex-wrap gap-1">
                         {e.tags.map((tag) => (
@@ -390,6 +553,17 @@ export default function ExpenseTracker() {
 
       <BottomRail active={screen} onSelect={selectTab} />
 
+      {/* Settings is a screen in its own right, opened over this one: how the ledger
+          looks, what it holds, and the one action that empties it. */}
+      {settingsOpen && (
+        <SettingsScreen
+          rows={exportRows}
+          onImport={importRows}
+          onClear={clearRows}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
       {flow?.step === "scan" && (
         <UpiScanSheet
           onPayee={(payee) => setFlow({ step: "pay", payee })}
@@ -403,7 +577,7 @@ export default function ExpenseTracker() {
           payee={flow.payee}
           initialCategory={guessCategory(flow.payee)}
           categories={CATEGORY_OPTIONS}
-          onPay={(draft) => logExpense(draft, flow.payee.pn)}
+          onPay={(draft, handedTo) => logExpense(draft, flow.payee.pn, handedTo)}
           onClose={() => setFlow(null)}
         />
       )}

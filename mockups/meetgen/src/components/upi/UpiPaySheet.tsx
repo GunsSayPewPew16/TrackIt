@@ -11,8 +11,11 @@ type Props = {
   /** The category the merchant's name suggested. The owner's pick always wins. */
   initialCategory: string
   categories: { id: string; label: string }[]
-  /** Log the expense. Runs before any payment handoff, so a row is never missing. */
-  onPay: (draft: PaySubmit) => void
+  /**
+   * Log the expense and remember who the payment went to. Runs before any payment
+   * handoff, so a row is never missing.
+   */
+  onPay: (draft: PaySubmit, handedTo: string) => void
   onClose: () => void
 }
 
@@ -74,8 +77,9 @@ export function UpiPaySheet({ payee, initialCategory, categories, onPay, onClose
     setError(null)
     const trimmed = note.trim()
     // Log first: the handoff to a UPI app is one-way, so the row must exist
-    // before anything leaves this page.
-    onPay({ amountCents: cents, category, note: trimmed })
+    // before anything leaves this page — and it says which app it went to, because
+    // a laptop handed nothing over and must not claim otherwise.
+    onPay({ amountCents: cents, category, note: trimmed }, handoffPossible ? "Google Pay" : "UPI link")
     const payment = { pa: payee.pa, pn: payee.pn, amountCents: cents, note: trimmed }
     const googlePay = buildGooglePayUri(payment)
     setOffer({ anyApp: buildUpiUri(payment), googlePay })
