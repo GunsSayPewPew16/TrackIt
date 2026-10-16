@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0F0D" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <title>TrackIt</title>
+    <script>
+      // Dark is the theme the app ships; a stored choice is put on <html> here,
+      // before the first paint, so choosing light cannot flash a dark frame on the
+      // way in. The key is THEME_STORAGE_KEY in src/lib/theme.ts — keep the two in
+      // step. The two theme-color values are THEME_COLORS in the same module.
+      try {
+        var theme = localStorage.getItem("trackit-theme")
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute("content", theme === "light" ? "#F8F6F2" : "#0A0F0D")
+        }
+      } catch (error) {
+        // Private mode refuses storage; the attribute on <html> already says dark.
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

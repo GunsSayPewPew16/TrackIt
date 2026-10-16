@@ -1,229 +1,170 @@
 # TrackIt
 
-A mobile-first, installable **expense tracker PWA** built for iPhone.
+A mobile-first expense tracker in two screens: a **bento dashboard** that answers
+"where does the money stand", and a **daily ledger** that answers "what happened
+that day", chosen on a spinning date wheel.
 
-Local-first: every expense lives in IndexedDB on the device, so the app works
-fully offline. A small Cloudflare Worker exposes a token-protected API so an
-**Apple Shortcut** can log transactions automatically without opening the app.
+It is a static site — React 19, TypeScript and Vite, Tailwind CSS v4 for styling,
+Radix UI for the popovers and the dialog, Lucide for every icon and Framer Motion
+for the movement. There is no server: the owner's history is imported from their
+own **Wallet (BudgetBakers)** export and kept in `localStorage` on the device.
 
-## Stack
-
-| Layer     | Choice                                            |
-| --------- | ------------------------------------------------- |
-| UI        | React 19 + TypeScript, Vite 8                     |
-| PWA       | `vite-plugin-pwa` (Workbox service worker + manifest) |
-| Storage   | IndexedDB via `idb`, local-first                  |
-| API       | Cloudflare Worker (`backend/index.ts`) + D1 (SQLite) |
+The two screens are a faithful rebuild of an exported design — see
+[`app/design/`](app/design/README.md) for the artboards themselves and where each
+value in `src/` came from.
 
 ## Getting started
 
 ```bash
-npm install
-npm run dev        # app on http://localhost:5173
+npm install          # installs the root tooling and the app (see app/)
+npm run dev          # the app on http://127.0.0.1:4323
+npm run typecheck    # app + the Worker's own project
+npm run build        # typecheck, then a production build into app/dist
 ```
 
-`npm run dev` proxies `/api/*` to the Worker, so start the API in a second
-terminal when you need sync or the Shortcuts endpoint:
+`npm run lint` (oxlint) and `npm run preview` (serve the built output) are there
+too. Every script at the root is a thin wrapper around `app/`, so the app can also
+be worked on directly: `cd app && npm run dev`.
 
-```bash
-cp backend/.dev.vars.example backend/.dev.vars   # then edit API_TOKEN
-npm run dev:api                                  # Worker + local D1 on :8787
-```
+## The two screens
 
-To exercise the exact production shape (built assets **and** API on one origin):
+**The dashboard** is the artboard's four bands, in its order: the greeting with its
+two round header controls; the balance card, which owns the month's cash flow; a
+104px band pairing the scan square with the predictive quick-log tray; then four
+cards on the 8px grid — the pace of spending and the month's top category side by
+side, the envelope gauge (twenty segments and a needle at the same percentage as
+the pill above it), and the recent rows, whose "See all" opens the ledger.
 
-```bash
-npm run build
-npx wrangler dev --config backend/wrangler.toml --port 8787   # open :8787
-```
+**The ledger** is one day, chosen on a wheel. The wheel is a circle of radius 800
+turned on its side: every capsule is drawn at `translate(800·sin θ, 800·(1 − cos θ))
+rotY(−9°·n) rot(θ) scale(s)`, so the far ones curve away and fade out, and only ±3
+are reachable. Dragging it with a mouse or a thumb steps the day by the artboard's
+own arithmetic — one step per 60px of travel, up to three at a time, and nothing at
+all under 24px — and the capsules spring to their new places (stiffness 300, damping
+30). The arrow keys step it too. Each day is a stack of **notched cards**: a 358×128
+outline with a step cut out of its top-left corner, the category pill sitting in the
+cut and the faces on the step, in one of three treatments — plain, clay for a month's
+big expenses, sage for money in.
 
-## Layout
+**Both screens show the design until there is something real to show.** With no
+import they are drawn from `src/lib/demo.ts`, which is the artboards' own content —
+the eleven sample rows, $24,860.40 of balance, October 2026 — written out as literals.
+The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the same
+two models from their rows and the screens change without knowing it. That switch is
+the only place the app decides what it is looking at (`src/App.tsx`).
 
-The repository is two folders — the app you install and the API it talks to —
-with the shared tooling and the npm workspace at the root.
+## The theme
 
-```
-frontend/
-  index.html      Vite entry point
-  src/
-    components/   HomeScreen, AddExpenseSheet, SettingsScreen, TabBar, ExpenseRow
-    hooks/        useExpenses — owns expense state
-    lib/
-      db.ts       IndexedDB store (source of truth)
-      api.ts      HTTP client for the Worker
-      sync.ts     two-way merge (last-write-wins on updatedAt)
-      format.ts   money/date helpers (money is stored as integer cents)
-      types.ts    domain types, categories, category groups, currency, balance
-      icons.tsx   the category markers, Lucide line icons (generated)
-      ui-icons.tsx  the rail, buttons and arrows, Lucide line icons (generated)
-      markers.ts  the one solid colour every marker badge is drawn in
-  public/         icons, favicon, PWA assets
-  design/         retired; the finalized site lives in mockups/meetgen
-  vite.config.ts  root points at this folder, build output goes to ../dist
-backend/
-  index.ts        Worker: /api routes first, then static assets
-  schema.sql      D1 schema (the Worker also creates it on first use)
-  wrangler.toml   Worker config; its paths are relative to itself
-  tsconfig.json   Worker typecheck project
-  .dev.vars.example
-  worker-configuration.d.ts   generated by `npm run types`
-tools/
-  wallet-import.py     a Wallet export → TrackIt data, and the one category table
-                       both clients' tables are written from
-  lucide-icons.py      vendors the line icons into both clients — the chrome and
-                       every category's marker
-  vendor-neue-haas.py  converts the mockup's two faces (Neue Haas Grotesk Display and
-                       Text) to woff2 and writes their trial licence beside them
-```
+One set of ten colour roles, two palettes, switched by `data-theme` on `<html>`.
+Dark is the default (`#0A0F0D` canvas, `#1A221E` cards, `#28332E` hairlines,
+`#F4F0EA` ink, `#D4A373` clay, `#A3B19B` sage); light is `#F8F6F2` / `#FFFFFF` /
+`#E2DDD5` / `#1A221E` / `#C58B54` / `#6B7F64`. No component knows which theme it is
+drawn in — it says `bg-card` and `text-ink2` and gets the right pair — and every
+surface repaints over the design's own 0.35s. The choice is remembered, and a boot
+script in `app/index.html` puts it on the document before the first paint so a light
+screen never flashes dark.
+
+## Importing, and where the rows live
+
+The header's second circle opens **Your history**: import a file, export JSON or CSV,
+or start over. The importer reads `src/lib/history.ts` — Wallet's own PouchDB backup
+(the owner's real export), this app's own JSON, or the JSON other trackers write —
+skips internal transfers, keeps income as income, and reuses each document's own id
+so importing the same backup twice changes nothing. Rows are paise, integer
+throughout, and the CSV divides by 100 once, at the edge.
+
+Everything imported is kept in `localStorage` under `trackit-ledger`
+(`src/lib/ledger.ts`), which is the app's only storage. An import of the owner's four
+months of history is 122 rows and 1 envelope; a browser that refuses storage costs a
+remembered row, never the page.
+
+`tools/wallet-import.py` predates the in-app importer and is still the owner of two
+tables the app reads: it writes `src/lib/categories.ts` (every category, with Wallet's
+own labels and group colours — an import resolves against this table, so a row keeps
+the name and colour it arrived with) and `tools/lucide-icons.py` writes
+`src/lib/category-icons.tsx`, the marker each category is drawn with. Change the tool
+and re-run it rather than editing either file by hand.
 
 ## Fonts
 
-The mockup at `mockups/meetgen` (the live Pages site) wears **two faces from the one
-Neue Haas Grotesk family**: **Display** sets the headings and the money figures, and
-**Text** sets everything else — paragraphs, field text and the small letterspaced
-labels. There is no monospaced text in it. The screen carries two themes — the dark one
-the site ships, and the light design it wore before — and the switch between them is
-built and wired but not placed anywhere yet.
+The design is set in **Neue Haas Grotesk**: Display for the headings and the money
+figures, Text for everything else, both vendored as woff2 in `app/src/assets/fonts/`
+(the conversion and the trial licence are in `tools/vendor-neue-haas.py` and beside
+the files). Two things about the stacks are deliberate:
 
-- `tools/vendor-neue-haas.py` converts the weights the stylesheet asks for — Display
-  500/700 and Text 400/500/700 — from the Commercial Type zip into
-  `mockups/meetgen/src/assets/fonts/` (woff2), and writes the licence beside them as
-  `neue-haas-grotesk-LICENSE.txt`.
-- The `@font-face` rules are at the top of `mockups/meetgen/src/index.css`; both
-  palettes are defined further down in the same file, against `data-theme` on `<html>`.
-- Neither face has a rupee sign (U+20B9), so amounts fall back to Helvetica Neue for ₹.
-- **Licence:** the zip is a trial. Its EULA forbids web embedding (`@font-face`) and
-  redistribution without a separate web licence. The owner has chosen to publish it
-  on the personal Pages site anyway. Buy the web licence, or drop the files, before
-  the site is shared more widely.
+- **Helvetica Neue is not in them.** The trial faces carry 74 glyphs — letters,
+  digits, space and a handful of punctuation — so `%`, `/`, `:`, `+`, `·`, the true
+  minus (`−`) and the rupee sign (`₹`) are drawn by whatever comes next in the stack.
+  That next is Helvetica, then Arial; naming Helvetica Neue made a Neue Haas screen
+  read as Helvetica on any Mac that has it.
+- **The licence is a trial's.** Its EULA forbids web embedding (`@font-face`) and
+  redistribution without a separate web licence. The owner has chosen to publish it on
+  their personal site anyway. Buy the web licence, or drop the files, before the site
+  is shared more widely. (Playfair Display, the greeting's serif, is OFL and travels
+  with its licence beside it.)
 
-## Apple Shortcuts → TrackIt
+## Scanning a UPI code
 
-Once deployed, an expense can be logged from anywhere:
-
-1. **Shortcut** → new shortcut → **Get Contents of URL**
-2. **URL**: `https://<your-domain>/api/expense`
-3. **Method**: `POST`
-4. **Headers**: `Authorization` = `Bearer <API_TOKEN>`
-5. **Request Body**: JSON
-
-```json
-{ "amount": 150, "category": "restaurant", "note": "Lunch" }
-```
-
-`amount` may be a number (`12.5`) or a string (`"12.50"`); `category`, `note`,
-`currency` and `date` (`YYYY-MM-DD`) are optional. Send `"kind": "income"` to
-record money coming in (an allowance, someone paying you back); anything else is
-treated as spending, which is also what the field is missing from every Shortcut
-written before income existed. The Worker is deliberately forgiving —
-`description`, `memo` and `title` are all accepted as the note.
-
-Then open TrackIt → **Settings → Sync now** and the new rows are pulled in.
-Shortcut-sourced rows are tagged with an `AUTO` badge.
-
-## Importing from another tracker
-
-Money is rupees throughout (`DEFAULT_CURRENCY = 'INR'`), so switching an old
-budget app over is a display change rather than an exchange rate.
-`tools/wallet-import.py` converts a **Wallet (BudgetBakers)** PouchDB export
-into the format this app imports:
-
-```bash
-python3 tools/wallet-import.py ~/Downloads/wallet_unlocked_export.json
-# writes tools/trackit-expenses.json → Settings → Import JSON
-```
-
-It keeps live expenses **and income** (as `kind`), drops internal transfers,
-converts Wallet's UTC timestamps into local dates, and reuses the Wallet
-document id as the TrackIt id — so re-importing the same export updates rows
-instead of duplicating them. It also records **which account** each row moved
-through (`account`: `'upi'` or `'cash'`, from Wallet's own two accounts), which is
-what lets the mockup's Home show a balance per account; the app's `Expense` type
-has no such field yet, so the JSON this script writes for the app leaves it out. Its
-table is what writes `CATEGORIES` and `CATEGORY_GROUPS` in the app, and `CATEGORY_META`
-and `CATEGORY_GROUPS` in the mockup, so neither list can drift from the other, and
-it prints the same text (plus the imported rows and each account's opening balance,
-the mockup's `ACCOUNTS`) to `tools/mockup-snippets.txt` for review. It also prints
-the two accounts added up, which is `OPENING_BALANCE_CENTS`; the script's docstring
-lists every decision it makes.
-
-Wallet's categories are grouped by the colour Wallet paints them with, because the
-export keeps the colour and not the group's name, and Wallet's Help Center lists the
-groups without their children on purpose (owners rename and hide subcategories). The
-script checks every grouped category the export contains against that colour and
-reports any disagreement, so a wrong grouping shows up instead of quietly misfiling
-spending. The export only ever paints six of the groups; the rest of Wallet's tree —
-Shopping's other rows, Housing, Transportation's, Vehicle, the rest of Life &
-Entertainment, Communication's, Financial expenses, Investments and the Income set —
-comes from the owner's own screenshots of Wallet's browser, and the five group
-colours the export never uses were read off those screenshots by fitting their
-colour shift against the six colours that are known. Wallet repeats a few labels
-across sets (Child Support, Lottery, Gifts); a slug belongs to one group, so those
-repeats carry the group in their id (`income-child-support`) and the export's own row
-keeps the plain one.
-
-Every category is marked with a **white glyph on one brown tile**, not an emoji: emoji
-arrive with their own palette and fight the tile, and each platform draws them
-differently. The glyphs are **Lucide's line art** — the same 24px grid and stroke
-weight as the rail, buttons and arrows — so markers and chrome read as one family. They
-were Phosphor's `fill` weight for a while, when solid silhouettes were what the owner
-wanted; the owner asked for the line art back, knowing the reference's own tiles are
-Phosphor's filled set (the measurement that shows it is in INSTRUCTIONS.md).
-`tools/lucide-icons.py` vendors both the chrome and the markers out of `lucide-static`
-(`npm install --no-save lucide-static`), and `tools/wallet-import.py` compares the two
-marker tables on every run — and names any category with no marker at all — so the
-clients cannot end up marking the same category two ways. The tile is the same brown
-everywhere: `BADGE_COLOR` in `frontend/src/lib/markers.ts`, sampled from the reference's
-own rows, so a category's group colour is left to the Home breakdown.
-
-A transaction row is the tile, what it was, the day it happened, and what it cost:
-a minus in the soft expense red for money out, a plus in the green for money in. The
-add sheet's category browser wears the same tile, so a category looks the same
-wherever it is shown.
-
-## API
-
-| Method   | Path                | Purpose                          |
-| -------- | ------------------- | -------------------------------- |
-| `GET`    | `/api/health`       | liveness probe (no auth)         |
-| `POST`   | `/api/expense`      | create one expense (Shortcuts)   |
-| `POST`   | `/api/expenses`     | upsert many (used by sync)       |
-| `GET`    | `/api/expenses`     | list (`?since=<iso>&limit=<n>`)  |
-| `DELETE` | `/api/expense/:id`  | delete one                       |
-
-All routes except `/api/health` require `Authorization: Bearer <API_TOKEN>`.
-The Worker returns `401` without it.
+The dashboard's scan square opens the app's own QR scanner
+(`src/features/upi/`): the browser's `BarcodeDetector` where it exists, a WASM
+decoder where it does not. A code that already carries an amount logs a row under
+**Wallet - OneClick record**; a code without one says so rather than guessing, because
+the sheet that would ask for an amount is not built. Nothing here hands a `upi://`
+link to another app — `features/upi/upi.ts` holds that builder for when the pay flow
+arrives. The scanner's sheet is drawn in the app's own tokens, so it follows the theme
+like every other surface.
 
 ## Deploying
 
 ```bash
-npx wrangler d1 create trackit-db              # paste the id into backend/wrangler.toml
-npm run deploy                                 # builds, then `wrangler deploy`
-npx wrangler secret put API_TOKEN --config backend/wrangler.toml
+npm run deploy       # build, then `wrangler deploy` (Cloudflare Worker + assets)
 ```
 
-Set the same token in Settings. An existing database picks up the `kind` column
-on the first request after a deploy — the Worker adds it itself.
+Pushing to `main` also publishes the same build to GitHub Pages via
+`.github/workflows/deploy-pages.yml`, built with `PAGES_BASE=/TrackIt/` so every
+asset URL resolves under the project's sub-path. `backend/` is a small
+token-protected Worker with a D1 schema — an API for logging a row from an Apple
+Shortcut. **The app in `app/` does not call it**: the two screens read and write only
+the device's own ledger, and the Worker is kept for the Shortcut endpoint.
 
-## Scripts
+## Layout
 
-| Script              | Does                                              |
-| ------------------- | ------------------------------------------------- |
-| `npm run dev`       | Vite dev server                                   |
-| `npm run dev:api`   | Worker + local D1 on :8787                        |
-| `npm run build`     | typecheck + production build to `dist/`           |
-| `npm run typecheck` | `tsc -b` across app, node and worker projects     |
-| `npm run lint`      | oxlint                                            |
-| `npm run icons`     | regenerate `frontend/public/` icons from its `logo.svg` |
-| `npm run types`     | regenerate `backend/worker-configuration.d.ts`    |
-| `npm run db:local`  | apply `backend/schema.sql` to the local D1        |
-| `npm run deploy`    | build + `wrangler deploy`                         |
+```
+app/                    the whole product — one Vite app
+  index.html            entry point; the pre-paint theme script lives here
+  design/               the two exported artboards, as the design of record
+  src/
+    App.tsx             which content, which screen, and the cross-fade between them
+    components/
+      DashboardScreen   the bento dashboard
+      LedgerScreen      the wheel, the month menu, the notched cards
+      ThemeToggle       the 48px circle that hands the sun to the moon
+      DataSheet         import / export / start over
+      ScanSheet         what the scan square opens
+      RowIcon           a card's glyph: a Lucide face, or a category's marker
+    features/upi/       the scanner, the UPI link builder, its stylesheet
+    hooks/              useTheme, useLedger
+    lib/
+      index.css         the ten roles, both palettes, the two faces
+      theme.ts          reading and writing the theme
+      ledger.ts         the rows, in localStorage
+      history.ts        reading a Wallet export / JSON / CSV out
+      derive.ts         rows → both screens' models
+      demo.ts           the artboards' own content, before an import
+      view.ts           the two models, one shape for both sources
+      format.ts         rupees, clocks, "Yesterday"
+      categories.ts     the owner's category tree (written by tools/)
+      category-icons.tsx, accounts.ts, owner.ts
+  design/               see above
+backend/                Worker + D1 schema (Shortcut endpoint; unused by app/)
+tools/                  wallet-import.py, lucide-icons.py, vendor-neue-haas.py
+```
 
-## iPhone notes
+## Status
 
-- Install via **Safari → Share → Add to Home Screen**; it then launches
-  standalone, full-screen, with safe-area padding for the notch and home bar.
-- The app requests persistent storage (`navigator.storage.persist()`) so iOS is
-  less likely to evict your data — but use **Settings → Export** to keep backups.
-- Push notifications and Background Sync are **not** supported by iOS PWAs, so
-  sync is manual (Settings → Sync now) rather than automatic.
+Working: both screens in both themes, the wheel's drag/keys/springs, the month menu
+that reaches past the wheel's fifteen-day window, the Wallet import and both exports,
+the scanner, and the Pages deploy. Not built yet: the UPI pay sheet, per-account
+balances on screen (the accounts are known and used, but only their sum is drawn), and
+savings goals. The app is no longer a service-worker PWA — the previous one was
+retired with its design.

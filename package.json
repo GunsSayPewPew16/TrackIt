@@ -4,33 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --config frontend/vite.config.ts",
-    "dev:api": "wrangler dev --config backend/wrangler.toml --port 8787",
-    "build": "tsc -b && vite build --config frontend/vite.config.ts",
-    "typecheck": "tsc -b",
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "preview": "npm --prefix app run preview",
+    "typecheck": "npm --prefix app run typecheck && tsc -p backend/tsconfig.json",
     "lint": "oxlint",
-    "preview": "vite preview --config frontend/vite.config.ts",
-    "icons": "cd frontend && pwa-assets-generator --config pwa-assets.config.ts",
+    "dev:api": "wrangler dev --config backend/wrangler.toml --port 8787",
     "types": "wrangler types backend/worker-configuration.d.ts --config backend/wrangler.toml",
     "db:local": "wrangler d1 execute trackit-db --local --config backend/wrangler.toml --file=backend/schema.sql",
     "deploy": "npm run build && wrangler deploy --config backend/wrangler.toml"
   },
-  "dependencies": {
-    "@yudiel/react-qr-scanner": "^2.6.0",
-    "idb": "^8.0.4",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
-  },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vite-pwa/assets-generator": "^2.0.0",
-    "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "vite-plugin-pwa": "^2.0.0",
     "wrangler": "^4.149.0"
   }
 }

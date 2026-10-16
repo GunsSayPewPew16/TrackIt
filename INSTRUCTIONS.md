@@ -9,606 +9,169 @@ set by the project owner, so follow them without being asked again.
    when you start, mark each one complete the moment it is complete, and never batch
    the updates at the end. The owner watches that list as live progress.
 2. **Commit and push when the work is done.** That is the default for most tasks.
-   `main` is the branch and `origin` is `GunsSayPewPew16/TrackIt`. Stage only the
-   files you changed — the working tree may hold someone else's work.
-3. **Verify in the browser before claiming anything works.** For the site in
-   `mockups/meetgen` that means running its dev server and driving the real page:
+   `main` is the branch and `origin` is `GunsSayPewPew16/TrackIt`. Stage only the files
+   you changed — the working tree may hold someone else's work.
+3. **Verify in the browser before claiming anything works.** Start the app and drive
+   the real page:
 
    ```bash
-   cd mockups/meetgen && npm run dev   # then open http://127.0.0.1:4322/
+   npm run dev          # then open http://127.0.0.1:4323/
    ```
 
-   A passing build, a clean exit code or an HTTP 200 is not evidence that the screen
-   renders or that a gesture works. Read the DOM and the computed styles, and look at
-   a screenshot.
+   A passing build, a clean exit code or an HTTP 200 is not evidence that a screen
+   renders or that a gesture works. Read the DOM and the computed styles, drive the
+   gesture, and look at what was painted.
+
+   Two traps this repository has already fallen into, so check for them first:
+   - **The desktop Preview panel does not always composite.** When it produces no
+     frames, screenshots fail and every animation — the cross-fade, the theme
+     switch, the wheel's springs — freezes at its starting value, so a *passing*
+     check there can be a lie and a *failing* one can be an artefact. When that
+     happens, drive real Chrome over the DevTools protocol instead: launch it with
+     `--headless=new --remote-debugging-port=<port>`, `Emulation.setDeviceMetricsOverride`
+     to 390×1100 at DPR 2, and use `Page.captureScreenshot`, `Input.dispatchMouseEvent`
+     (a drag is a real mouse drag) and `DOM.setFileInputFiles` (a real import).
+     Remember that `Runtime.evaluate` answers `{ result: { value } }`, not `{ value }`.
+   - **A frozen animation is not a layout.** Read geometry with
+     `getBoundingClientRect`, and remember that a child's top margin **collapses out**
+     of a column with no top padding — one of those pushed the whole ledger screen
+     24px down the viewport with the header still looking right in the DOM.
 4. **Report what you verified and what you could not.** Say plainly when a check was
-   synthetic, skipped or blocked instead of implying it passed.
+   synthetic, skipped or blocked instead of implying it passed, and name the reason
+   (no camera, no frames, no account) rather than the symptom.
 
 ## The product
 
-TrackIt is a mobile-first, installable expense-tracker PWA for iPhone: React 19 +
-TypeScript + Vite, local-first in IndexedDB, with a token-protected Cloudflare Worker
-for the Apple Shortcuts endpoint. `README.md` has the stack, scripts and API.
+TrackIt is a mobile-first expense tracker in two screens: the **bento dashboard** and
+the **daily ledger** with its spinning date wheel. React 19 + TypeScript + Vite,
+styled with Tailwind CSS v4, Radix for the popovers and the dialog, Lucide for the
+icons, Framer Motion for the movement. It is a **static site**: no server, no
+service-worker PWA (the previous one was retired with its design), and the only thing
+it talks to is `localStorage`.
 
-The repository is split in two: `frontend/` (the installable app plus the mockup)
-and `backend/` (the Worker, its `wrangler.toml` and its D1 schema), with the shared
-npm workspace, docs and `tools/` at the root. Configs live with the side they
-belong to, which is why the Vite root and the build output are configured rather
-than defaulted — check `frontend/vite.config.ts` and `backend/wrangler.toml`
-before moving anything else.
+`README.md` has the stack, the screens, the theme, the importer and the deploy.
 
-The standalone visual mockup of that same product is `mockups/meetgen`, published to
-GitHub Pages. It was used to agree on the UI before it
-is built for real. It mirrors the app's domain rules: money is stored as integer
-cents, categories come from the same set, and Shortcut-logged rows carry an `AUTO`
-badge.
+The design of record is [`app/design/`](app/design/README.md) — the two exported
+artboards the screens were rebuilt from. Every radius, height, line height, letter
+spacing and colour in `app/src` is theirs; when a change is meant to alter the design,
+change it there too, or say in the commit that the design has moved on.
 
-Two things about the money are the owner's, not defaults: everything is in
-**rupees** (`DEFAULT_CURRENCY = 'INR'`, `money()` formats with `en-IN` grouping in the
-mockup), and the categories are the ones from their old app rather than a generic set.
+### The two things that are the owner's
 
-## Data: the Wallet import (`tools/`)
+- **The money is rupees**, formatted `en-IN` (₹18,084.07), stored as **integer
+  paise** everywhere. Nothing divides by 100 except the CSV export, at the edge.
+- **The categories are their own Wallet tree**, not a generic set, and they are
+  written by `tools/wallet-import.py` into `app/src/lib/categories.ts`. An import
+  resolves against that table so a row keeps the label it arrived with.
 
-`tools/wallet-import.py` is the single source of truth for the dataset and the
-category list. It reads the owner's old **Wallet (BudgetBakers)** export and writes:
+## Data: what the screens read
 
-* `tools/trackit-expenses.json` — 122 rows (112 expenses + 10 income) in the exact
-  shape the app imports (**Settings → Import JSON**).* `tools/mockup-snippets.txt` — the same rows as a JS array literal, the mockup's
-  `ACCOUNTS` list, and every category table, printed from one in-script table.
+One shape, two producers — `app/src/lib/view.ts` holds the models, and nothing else
+knows which producer filled them:
 
-The script **writes the category tables itself** — `CATEGORY_META` and
-`CATEGORY_GROUPS` in the mockup, `CATEGORIES` and `CATEGORY_GROUPS` in
-`frontend/src/lib/types.ts` — so never edit a category id, label or group by hand in
-either file: change the table in the script and re-run it. What is still pasted from
-the snippets is the data (`ACCOUNTS`, the imported row literals), and the slugs in
-the mockup must stay quoted, because several contain a dash.
+- `app/src/lib/demo.ts` — the artboards' own content, as literals: the eleven sample
+  rows, the balance, October 2026. It is what a first visit shows, so the design is
+  what the owner sees before their own money is in.
+- `app/src/lib/derive.ts` — the same models computed from the owner's rows. Every
+  decision a figure needs lives here rather than in a component: money in is never
+  spending, `High expense` is a share of the month rather than a threshold, a card's
+  little bar measures a budget where one exists and the category's share otherwise
+  (and says which), and the gauge measures the export's own envelope where it carried
+  one. If a figure is wrong, it is wrong in this file.
 
-```bash
-python3 tools/wallet-import.py ~/Downloads/wallet_unlocked_export.json
-```
-
-One script owns the icons: `tools/lucide-icons.py` vendors **both** the markers (every
-category's glyph on its tile) and the **chrome** (the rail, the buttons, the browser's
-arrows) out of `lucide-static` — into the mockup's `CATEGORY_ICONS` table,
-`frontend/src/lib/icons.tsx`, and `frontend/src/lib/ui-icons.tsx`. Install the
-catalogue first (`npm install --no-save lucide-static`) and re-run the script after
-any icon mapping change; it is a build-time input, not a dependency of the app.
-Phosphor's `fill` set was here for a while and is gone: two scripts writing one table
-is how the two clients drift apart.
-
-One script owns the typeface as well: `tools/vendor-font.py` fetches **Nunito**, the
-rounded sans the reference's own labels are set in, and writes it into
-`frontend/src/assets/fonts/` with its OFL licence beside it. It writes two files —
-the latin subset, one variable font carrying the whole 200–1000 weight range, and a
-1.5 KiB file holding the rupee sign alone, which the app writes on every amount and
-the latin subset leaves out. The app is offline-first, so the font is vendored into
-the build rather than linked from fonts.googleapis.com, and the app's `@font-face`
-rules live at the top of `frontend/src/index.css`; do not hand-edit the files.
-
-The mockup wears two faces, and `tools/vendor-neue-haas.py` vendors both of them from
-the owner's Commercial Type zip into `mockups/meetgen/src/assets/fonts/` as woff2,
-writing the licence beside them (`neue-haas-grotesk-LICENSE.txt`). **Neue Haas Grotesk
-Display** (Medium 500, Bold 700) sets the headings and the money figures; **Neue Haas
-Grotesk Text** (Roman 400, Medium 500, Bold 700) sets everything else, from paragraphs
-down to the small letterspaced labels — the labels are the reading face's job, not a
-monospace one, and the mockup carries no mono font at all. No italics and no Round Dots
-cut are vendored, because nothing uses them. Both faces lack the rupee sign (U+20B9),
-so a `₹` is drawn by Helvetica Neue behind them. The `@font-face` rules are at the top
-of `mockups/meetgen/src/index.css`; do not hand-edit the files. **Licence:** the zip is
-a trial, and its EULA forbids web embedding (`@font-face`) and redistribution without a
-separate web licence. The owner has chosen to publish it on the personal Pages site
-anyway; buy the web licence, or drop the files, before the site is shared more widely.
-
-Decisions the script makes, so nobody has to guess: amounts are *already* rupees
-(Wallet stores paise, and INR is its referential currency, so nothing is converted);
-income arrives as `kind: 'income'` and internal transfers are dropped; soft-deleted
-rows are dropped; Wallet's UTC `recordDate` becomes a local date at `+05:30`; and the
-Wallet document id becomes the TrackIt id, so re-importing an export updates rows
-instead of duplicating them. It also prints each of the export's accounts — slug,
-name, label and opening balance, which is what the mockup's `ACCOUNTS` list is
-pasted from — plus the two added up, which is `OPENING_BALANCE_CENTS` in
-`frontend/src/lib/types.ts`.
-
-**Income is a kind of entry, never negative spending.** `kind` is `'expense'` or
-`'income'` everywhere (D1 column, Worker payload, app type, mockup row); a missing
-`kind` means an expense, so older rows and hand-written files keep working. Every
-sum has to decide: "spent this month", the budget ring, the category breakdown and
-the daily average count expenses only, while the balance is opening balances plus
-income minus expenses, and Operations prints both halves of a range when it holds
-both.
-
-**Which account a row moved through is `account`** (`'upi'` or `'cash'`), resolved
-from Wallet's `accountId` against its own `Account` documents. The mockup's Home
-needs it — that card holds one account's balance at a time — so the row literals
-carry it, while `--app-out` leaves it out deliberately: the app's `Expense` type has
-no such field yet, and its import drops what it does not know. A row with no
-`account` counts on the primary one (`ACCOUNTS[0]`), the way a row with no `kind`
-counts as spending, so an older export or a hand-written file still lands on a
-balance instead of nowhere.
-
-**Categories hang under Wallet's groups, and the table is the whole tree.** The
-export keeps the colour Wallet paints each subcategory with — its group's colour — but
-never the group's name, so `GROUPS` is checked against those colours on every run
-(`check_group_colors`: 14 of the owner's categories, and a mismatch is reported rather
-than grouped silently). The export only paints six of the groups; the other five
-group colours (`housing` orange, `vehicle` purple, `financial-expenses` teal,
-`investments` pink, `income` gold) were read off the owner's screenshots of Wallet's
-browser by fitting the screenshots' own colour shift against those six, and they are
-in `GROUP_COLORS` so a future export proves them the same way. Wallet's Help Center
-publishes the group names and nothing else, and says so on purpose — owners rename and
-hide subcategories, so no complete default list exists to copy — which is why every
-row the export never touched (the whole of Shopping beyond two rows, Housing,
-Transportation, Vehicle, the rest of Life & Entertainment, Communication, Financial
-expenses, Investments, and the Income set) carries that screenshot provenance in the
-table's comment. `income` is the odd one: not a row of Wallet's browser but the set it
-offers for money coming in, kept as a group because the picker walks groups while the
-app's kind toggle is a separate choice. Wallet repeats a few labels across sets
-(Child Support under three of them, Lottery, gambling and Gifts under two); a slug
-belongs to one group, so a repeat carries the group in its id
-(`income-child-support`) while the label stays the owner's own, and `EXPORT_LABELS`
-makes sure an import still lands each export document on the unqualified row it always
-had. Ask the owner before inventing a category that is not in the export or the
-screenshots — and note that no glyph has to stand in for another any more: `parking`
-wears Lucide's own `circle-parking`, which the Phosphor set it replaced had to
-substitute a map pin for.
-
-**The markers are one white glyph on one brown tile, and the glyph is Lucide's line
-art.** Every category's glyph sits on the same solid tile — one warm brown,
-`BADGE_COLOR` in `frontend/src/lib/markers.ts`, sampled from the reference's own rows
-— and an emoji cannot sit on one: it brings its own palette, so the glyph fights the
-tile, and every platform draws it differently. The markers were Phosphor's `fill`
-weight for a while, when solid silhouettes were what the owner wanted; the owner has
-since asked for Lucide's line art on the tile again, so `tools/lucide-icons.py` writes
-the mockup's `CATEGORY_ICONS` table and the app's `frontend/src/lib/icons.tsx` (and
-the chrome) out of `lucide-static` — one family on one 24px grid at one stroke weight,
-each glyph exactly as Lucide draws it, which is why the marker `<svg>` in both clients
-carries `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"` and
-`stroke-width="2"`. Nothing else about the marker moved: same tile, same brown, same
-white. Do not hand-edit any of the three generated files — change the mapping in the
-script that owns them and re-run it, after `npm install --no-save lucide-static`.
-`frontend/src/lib/markers.ts` owns the tile's look: one solid fill with the glyph in
-white, so there is no ink rule per colour, and a tile reads as part of one family
-instead of a paint chart — a group's colour still colours Home's breakdown, where
-telling categories apart is the job.
-`tools/wallet-import.py` checks the two marker tables against each other on every run
-— and names any category with no marker in either — so a marker cannot drift.
-
-**The reference's own tiles are Phosphor's `fill` set, which was measured, not assumed —
-and that measurement is what makes our Lucide markers a decision rather than an
-oversight.** The owner's screenshot of the reference's marker rows — a renewals list
-whose four tiles are a bolt, a briefcase, a camera and a `$` — is Phosphor: drawn white
-on `BADGE_COLOR` at the tile's own size, read back with one threshold, and scored
-against the screenshot's own four tiles, Phosphor takes first place for the bolt
-(`lightning-fill`), the camera (`camera-fill`) and the money (`currency-dollar-fill`)
-out of every keyword-matched glyph in sixteen packs — about a thousand candidates each —
-and `currency-dollar-fill` lands within 0.001 of the screenshot's own ink ratio (0.583
-against 0.582). Do not treat that as a case for putting Phosphor back: the owner has
-been shown these numbers and asked for Lucide's line art on our tiles anyway, so the
-markers here are Lucide and the reference's tiles are Phosphor, on purpose. (The tiles
-agree about everything else: a reference tile measures 81px, ours 44px, both the same
-brown and the same rounded square.) Re-check a glyph choice by rendering candidates on
-the tile colour at the tile's own size rather than at icon size; a crisp 256px render
-against a blurred screenshot tile scores shapes apart that are in fact the same
-drawing.
-
-Its data interchange format is deliberately the same one the real app writes in
-`frontend/src/components/SettingsScreen.tsx`: a bare JSON array of expenses, downloaded as
-`trackit-<date>.json` through a blob URL and a temporary anchor. Do not invent a
-wrapper object — the mockup also accepts `{ "expenses": [...] }` on import, but that
-is tolerance for hand-written files, not the format to produce.
-
-## Mockup conventions (retired: `frontend/design/mockup.html`)
-
-The one-file mockup was deleted when the finalized design moved to `mockups/meetgen`.
-The rules below described that file and no longer apply to the site; they are kept as
-history.
-
-- **One file.** HTML, CSS and JS live in `frontend/design/mockup.html`. Do not split
-  it up or add tooling around it.
-- **No hardcoded pixels.** Every length is `rem`/`%`/`em`, with the root font-size at
-  `clamp(0.9rem, 4.1vmin, 1.15rem)` so the whole UI scales from an iPhone 13 up to a
-  wide desktop panel. Pixel values are only acceptable inside comments.
-- **Respect the safe areas.** Keep the `env(safe-area-inset-*)` padding and the
-  `viewport-fit=cover` meta so the notch and home bar stay clear.
-- **390x844 is the reference size**, and a wide panel (~700px) must be checked too:
-  nothing may overflow sideways at either width.
-- **The fixed "now" is 12 October 2026** (`const TODAY`). The imported data is real
-  and dated, which keeps screenshots stable across sessions.
-- **The cards' materials are generated, not hand-written.** `tools/card-texture.py`
-  bakes *both* into the mockup's `:root`, and neither data URI is ever hand-edited —
-  change the tool and re-run it. **The UPI card** wears the owner's chrome
-  (`frontend/design/card-source.png`) graded to the reference card's gold as
-  `--card-texture`.  **The cash card** wears the owner's own foil
-  (`frontend/design/cash-source.png`) as `--cash-texture`, and that one is
-  **deliberately untinted**: the owner asked for it as it is, so the only things the
-  tool does to it are mechanical — a quarter turn clockwise, the widest 3.15:1 window
-  the photo allows, and a scale to the card's width. **The turn is the framing, not
-  decoration**: the foil is portrait and the card is wide, so a window of the upright
-  photo is one crease blown up large, while the same window on the rotated photo shows
-  the whole pressed surface — more wrinkles, each one smaller. `CASH_ROTATION` and
-  `CASH_WINDOW` in the tool are the two knobs (0.7 closes in for a calmer, bigger
-  pattern). That is what makes the two slides read as two materials — warm gold beside
-  cold silver — rather than one material twice, so do not grade the foil to match its
-  neighbour.
-  Each slide wears the material its account names (`.acct-slide--<slug>`, which is also
-  why the slides carry `acct-slide--upi` / `acct-slide--cash`), and **a white veil sits
-  over whichever one it is**, as the first background layer, declared once on
-  `.acct-slide` so both cards share it: thicker where the small words are and thinnest
-  across the middle, because the metal's own dark valleys are too deep to carry small
-  type. The ink keeps its contrast instead of depending on what the texture happens to
-  be doing underneath it — so keep that veil (and the ink alphas that go with it) in
-  step with the textures if either changes.
-- **No hardcoded currency.** `money()` is the only place that formats money, and it
-  prints rupees with `en-IN` grouping (₹1,23,456.78, not $123,456.78). The one
-  exception is the statistics chart's `axisMoney()`, which sits beside it and only
-  ever *shortens* what `money()` would say (₹22.0K, ₹1.2L), because a full figure
-  beside every dashed line is wider than the plot it names.
-- **Ids are unique and namespaced per screen.**  Home owns the balance card's ids,
-  the records page owns the calendar's, the add screen owns its browser's, the
-  statistics screen owns the chart's and its axis labels'; any other screen prefixes
-  its own. Two overlays once shared ids and both broke.
-- **Screenshots in the preview panel crop the bottom ~150px**, which is why the bottom
-  rail never appears in a capture even though it is rendered and tappable. Probe it
-  instead of trusting the image.
-
-## Design skills (`.claude/skills/`)
-
-Two skillsets are vendored into this repository, and **frontend work starts by reading
-the relevant one** — they are the reference shelf, not decoration.
-
-- **`.claude/skills/ui-ux-pro-max/`** is UI/UX Pro Max *and its whole set*: `design`,
-  `design-system`, `ui-styling`, `brand`, `banner-design` and `slides` sit beside the
-  orchestrator. Its data is local — styles, palettes, font pairings, 119 UX guidelines,
-  chart types, 22 stacks — and it is queried from the repository root:
-
-  ```bash
-  python3 .claude/skills/ui-ux-pro-max/scripts/search.py "error summary validation" --domain ux
-  python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product> <industry> <keywords>" --design-system
-  ```
-
-  Read its `SKILL.md` first: the priority order (accessibility, touch targets,
-  responsiveness, contrast) and its query contract are what make an answer usable
-  rather than generic. Answering a question about a component's *implementation* wants
-  `--stack react`; a question about how a screen should *behave* wants `--domain ux`.
-- **`.claude/skills/shadcn/`** is the official shadcn/ui skill, installed from
-  `shadcn-ui/ui` by `npx skills add` and pinned in `skills-lock.json`. It reads a
-  project through `npx shadcn@latest info --json` and is the authority **for a project
-  that has a `components.json`. This app does not**: no Tailwind, no registry, no
-  shadcn — every rule in `frontend/src/index.css` is hand-written against the reference.
-  Its `rules/` (composition, forms, icons, styling) and its tabbed-settings and chart
-  shapes are the useful part here; it is not a reason to introduce Tailwind, a
-  component registry or a second design language into this repository.
-
-**Neither skill outranks this file or the reference.** The palette, the typeface, the
-scale and the anatomy of every screen are settled decisions, and a generated design
-system is written for a greenfield project — asked about a fintech dashboard, one
-answers "Glassmorphism" in trust blue, which is the opposite of what this app wears.
-Take the rules (contrast minimums, 44pt targets, safe areas, chart legends, form
-feedback) and the reusable patterns; leave the palettes alone, and never let a
-suggestion undo a decision recorded here without saying so out loud. Anything either
-skill recommends is verified the way everything else is: in a browser, at phone width,
-against the reference.
+`app/src/lib/history.ts` reads the file; `app/src/lib/ledger.ts` keeps the rows
+(`trackit-ledger`, and a shared `EMPTY_LEDGER` const, because `useSyncExternalStore`
+compares snapshots by identity). Importing the same backup twice is a no-op by
+document id, which is the mistake anyone makes with a backup and the one worth
+answering kindly — the report it shows says how many rows were added, and what was
+left out and why.
 
 ## Design decisions already made — do not undo them silently
 
-- **One expense dataset.** Home and every other screen render the same array, and
-  anything that adds an expense adds it there through the shared add screen
-  (`openAdd(targetDate)`). There is no per-screen data.- **Financial Operations is a page over the phone, not a screen of it.** It is what
-  the total balance opens — the figure is a button and its chevron says so — and Home's
-  Transfer/Request pair opens it too, because that pair is the money-movement action and
-  this is the money-movement page. It replaced the old "Spending by day" records page:
-  the reference's screen 2 is the same shape, so its title is the reference's own two
-  lines and its pill row is the reference's three controls — a pale **Transfer**, the
-  tile's tan for **Request**, and one gold `+`. **The two money-movement pills are named
-  and shaped but answer nothing yet**: the owner is wiring them to UPI, and until that
-  lands a control that pretends to move money would be worse than one that waits. The
-  `+` is the way to log an entry, and it leaves the page first (`closeRecords()`, then
-  `openAdd(selectedDate)`), because the add screen is a screen of the track that the
-  page would otherwise be covering.
-  - The page is `position: fixed` against the phone rather than the sliding track — it
-    covers the rail as well as the screen, which is what "the whole screen" means — and
-    it is still a date-filtered view of the one dataset. Its filter cycles
-    Day → Week → Month and its back arrow is the way out. Everything behind it is
-    `inert` while it is open, so no tap and no tab reaches the dashboard through it.
-  - **It opens on the newest day the data has**, not on the mockup's fixed now: the
-    import says nothing about 12 October 2026, and a ledger that greets the owner with
-    "Nothing on this day" reads as broken. Any day they pick from the strip is what they
-    get from then on.
-  - **It lives outside `.track` on purpose**: the track carries
-    `will-change: transform`, which also makes it a containing block for fixed-position
-    descendants — kept inside, the page would slide along with the screens and cover one
-    of them only.
-- **Logging persists** to `localStorage` under `trackit.mockup.expenses.v1`.
-- **The dataset is the owner's own Wallet import** (122 entries — 112 expenses and
-  10 income, July–October 2026), embedded in the file as `importedExpenses()`. There
-  is no separate demo seed: this *is* what the mockup ships with, and what a fresh
-  browser sees. Income only shows once a range holding it is on screen, and the
-  calendar strip is a 7-day window, so reaching it means expanding Home's list or
-  driving the strip's handler with an earlier date.
-- **Home wears the reference's own anatomy, top to bottom.** The greeting header (the
-  brand disc, "Hi, Priyansh", the fixed date) with the wallet button that opens Cards;
-  then `ACCOUNTS` added up as the headline — each account's opening balance plus its own
-  income minus its own spending — as a *button* whose chevron says it opens the
-  operations page, with the sync button beside it, and "Spent this month" directly under
-  it. The list below is capped at five rows with a "Show all N entries" button, because
-  a four-month history must never fill the first screen, and everything below the
-  balance still sums this month's *expenses* only, or the ring would blow up on load.
-  The account card and that pair sit together in `.home-group` — one panel of the same
-  brown the two budget cards below wear, because in the reference the money you have and
-  the money you move are one block rather than three floating parts. The mat around them
-  is deliberately thin (the reference's nine pixels) and the two buttons are equal
-  halves. They are the reference's **Transfer** and **Request**, which open the
-  operations page and are the controls the owner is wiring to UPI (see the page above);
-  the **Add expense** screen is reached from the rail's third tab and from that page's
-  `+`.
-- **The card under the balance swipes between accounts.** One slide per entry in
-  `ACCOUNTS` — what it holds, its share of the money, and what it has spent this
-  month — over a dot per slide. It is a track of its own: it follows the thumb and
-  eases on release over `RELEASE_SLIDE`, exactly as the screens do (see the gesture
-  rule below), and the screen swipe stands down for a gesture that
-  starts on it, so one finger never moves both. The dots are buttons, because a swipe
-  must not be the only way across, and a tap on one lands on the next frame like
-  every other tap. The add screen picks the account with a second, quieter toggle
-  under the kind, so a logged row moves one balance and not the other.
-- **Statistics is the rail's second tab: the balance over time, as one line.** Its
-  summary is the balance at the end of every day from the first entry to the fixed now
-  (`dailyBalances`), which is the same figure Home leads with — so the two can never
-  disagree, and the falls in the line are the days that spent more than they took in.
-  It gives the savings screen the reference's pot cards were built on the reference's
-  *look* without its pots: those pots were placeholders (the app has no savings goal of
-  its own), so what the screen borrows is the anatomy — the dashboard's own greeting
-  header, the big title, the range chips, one figure over one label, and a card in the
-  reference's tan. **The range is the chips**, one per month the data covers plus
-  **All time**, read from the same daily balances the line is drawn from so a chip can
-  never name a month with nothing behind it. That is why there is no **Show more** any
-  more: "All time" *is* the whole history, and the chips say so in one row instead of a
-  link at the foot of the card. The figure's label follows the range — "Current balance"
-  while the range ends today, "<Month> balance" for a month already closed, because a
-  closing balance is not "today's".
-  The dashed rounds are round rupees, the day labels are ~six of them with today always
-  last, and each value label is placed by the same fraction of the height the chart
-  draws its line at, so a label can never drift off the round it names (the value
-  column and the canvas take their height from one variable for the same reason).
-  **Everything on that card is the card's own dark ink, not the page's white**: it sits
-  on light tan now, so the line, its wash, the uprights and the dashed rounds are all
-  dark (`#6d5527` and rgba of `43, 30, 13`), and the labels and swatch follow via
-  `.stat-card--tan`. The drawing itself is canvas, sized for the device pixel ratio like
-  the ring and the pie, and redrawn on `showScreen` and on a resize; the canvas carries
-  an `aria-label` with the window's low, high and current figure, because a plot is
-  pixels no screen reader can read.
-- **The month's budget is the pie, not a progress bar.** The old October-budget card
-  is gone: its slot holds the account carousel, and its figures are the widget that
-  replaced "Auto-log with Shortcuts" — this month's spending as a pie over the
-  category each rupee went to (`PIE_WEDGES` of them, the tail summed as "other"),
-  with `₹X of ₹1,500.00` underneath, while the "Budget used" ring stays the
-  at-a-glance percent — drawn as the reference's own three circles: one big brown disc,
-  the gold band cut into its rim, and the smaller brown circle the band leaves in the
-  middle, with the part of the band the month has not reached left dark. The Shortcuts endpoint is documentation rather than a glance,
-  so it lives on Profile beside the Backup card.
-- **Adding an expense is a screen, not a sheet.** It is the third screen — right
-  after the statistics view, where the owner reaches for it — and both the Home button
-  and the records page's `+` navigate to it. Money first, then Expense/Income,
-  account and date, then the category browser: the groups, and once one is open its
-  own row followed by its subcategories. **The last tap is the save** — the amount is
-  already typed, so choosing the category completes the entry and lands back on the
-  dashboard, where the line under the header says what was added. An empty amount is
-  the one tap that cannot complete anything, and it marks the amount rather than
-  swallowing the tap. A rail tab or a swipe reaches the same screen without wiping a
-  half-typed entry; only the buttons start a fresh one. The app's sheet walks the
-  same browser — `All categories`, then one group's own row followed by its
-  subcategories, with a back button to leave the group — inside a `.picker` whose
-  list scrolls on its own so the money, the kind and the date stay put, and it pins
-  its buttons with `.sheet .btn-row` because Wallet's list is too long to fit above
-them.
-- **The picker's rows wear the same tile as the transaction rows.** Each group still
-  carries the colour Wallet paints its categories with — that is what the export's
-  colour proof checks, and what Home's breakdown draws with — but the browser's
-  markers wear the one solid badge colour, so a category looks the same in the sheet
-  as it does in the list. A group's own row comes first under
-  its "SUBCATEGORIES" heading — whole outings get logged against the group itself —
-  and every row is a button (`aria-pressed` on the category it picks, `aria-expanded`
-  on a group), not a chip: the old flat chip row could not say where a category
-  belonged, and the app's sheet lost it for the same reason.
-- **A transaction row is a tile, a name, the day and a signed amount.** The owner
-  picked that anatomy from a reference: the category's icon on a solid tile, then what
-  it was, then the day it happened in the muted line, then what it
-  cost at the right edge — a minus in the soft expense red for money out, a plus in
-  the green for money in. The tile is the reference's own brown rather than the
-  category's group colour, so a screenful of rows reads as one family; the add sheet's
-  picker wears the same one. The tile already says the category, so the row stopped
-  repeating it under the title, which is also what fixed imported rows printing their
-  own label twice. Home's list and Operations' rows are the same `rowHtml`, and the
-  app's `ExpenseRow` carries the same anatomy with its own `--expense`/`--income`
-  tokens (softer than `--danger`, which is for warnings, not for spending).
-- **Profile holds the Backup panel**: Export JSON (downloads the file and fills the
-  box), Import JSON (reads the box, validates every row, and replaces the dataset
-  atomically — a bad row aborts the whole import), and Reset to imported data (drops
-  the storage key and restores the Wallet import, which is also the way to leave the
-  mockup in a pristine state after a demo). Anything that replaces the dataset must
-  mutate the existing array in place, because every screen closes over it.
-- **The rail drives the screens, and so does a horizontal swipe.** Its five tabs are
-  Home, Statistics, the add screen, Cards and Profile, and the active one is drawn the
-  way the reference draws it: a gold disc, glossy at the top, that pops above the
-  bar's top edge with its glyph in a dark brown, over a translucent pill that blurs
-  whatever is behind it. Do not flatten that disc back into a squircle, and never clip
-  the bar — the disc is meant to stick out of it. The track follows
-  the thumb with no transition at all while the finger is down — the release sets
-  `--track-duration`, and 0ms is what a drag leaves it at, so the track can never lag
-  the thumb. A flick's speed decides how many screens it carries (one to three), and
-  **a tap lands on the next frame** whatever the distance, because a transition we
-  start ourselves reads as delay, not as feedback.
-  **A release is the one thing that eases, and only over `RELEASE_SLIDE` (120ms).**
-  The page it lands on is committed at the release; the 120ms is what lets a flick
-  carrying two or three screens be *seen* to carry them. That number is the whole
-  point: this was 300ms and read as a delay, and 0ms lost the travel — so do not
-  lengthen it back, and do not delete the ease either. The duration is committed
-  before the transform moves (the forced reflow in `settle`), and `--track-duration`
-  is what carries it, so the transition itself is never toggled off and on.
-- **Gestures never fight the content.** A vertical drag must scroll the screen rather
-  than move the track, taps and tiny drags must do nothing, and a drag must swallow
-  the click it would otherwise fire — but only that click. The swallow is armed when a
-  drag ends and cleared by the *document's* next `pointerdown` (or `keydown` for a
-  keyboard activation), with `DRAG_CLICK_WINDOW` as a safety valve on a stale flag.
-  The reset has to be document-wide, not scoped to `.app-content`: a tap after a swipe
-  usually lands on the rail or on a category row of the add screen, neither of which
-  is inside the swipe area, and a scoped reset ate every one of them for 150ms. The
-  old 400ms timer ate deliberate taps outright.
-- **Cards is deliberately blank**, a placeholder wired to the rail while it waits to
-  be designed. The third tab used to hold the same kind of blank Activity placeholder
-  and now holds the add flow, which is where the owner asked for it.
+- **Dark is the default**, and it is what `:root` carries. Light is the same ten
+  roles with different values, on `data-theme="light"`, and the choice is remembered
+  under `trackit-theme`. A boot script in `app/index.html` applies it before the first
+  paint; if you change the key or a value, change it in both places.
+- **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
+  4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
+  from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
+  scan band, 232/176/160/280 for the dashboard's cards — are the artboard's, so keep
+  them together with the comment that says where they came from.
+- **The column is 390px and centred.** It is a phone design; it is centred rather than
+  stretched, and it keeps the artboard's 24/16/32 padding.
+- **A screen starts at its own top.** Both ways in are pressed from down a long
+  column, so `goTo` in `App.tsx` resets the scroll — instantly, because the cross-fade
+  is what carries the change.
+- **The wheel's geometry is the artboard's**, not a tuning: radius 800, one fifteenth
+  of the arc per capsule, `rotY(−9°·n)`, scales 1.15/1/0.9/0.78/0.7, opacity
+  1/0.6/0.6/0.3/0, and only ±3 reachable. The gesture is too: 60px per step, up to
+  three, nothing under 24px. **Framer Motion's spring is the spec's** (stiffness 300,
+  damping 30); the theme toggle's curve is the artboard's own
+  `cubic-bezier(.34,1.56,.64,1)` overshoot rather than a spring, because that is what
+  the design drew.
+- **The wheel is a fifteen-day window**, so it can only ever reach the last fortnight
+  on its own. The chevron beside the month is the way further back: a Radix menu of
+  the months the history touches (`LedgerModel.months`), each anchored on the newest
+  day *in that month* rather than on its end, so picking one cannot open on an empty
+  sheet. Selecting the month already showing is a no-op.
+- **The day's rows are rebuilt, not cross-faded.** The artboard re-runs one fade-up
+  keyframe on every change of day, and has no exit animation; a `mode="wait"` swap
+  leaves the sheet empty for as long as a fade lasts, which is the one thing the
+  design never does.
+- **A card's treatment is a domain value, not a class name**: `std` (plain), `alt`
+  (clay, for a row that is at least a tenth of the month's spending) and `inc` (sage,
+  for money in). The notched path is the artboard's, character for character.
+- **The tiles are Lucide line art at `strokeWidth={1.5}`**, one family with the chrome.
+  Emoji were tried and rejected: they arrive with their own palette and fight the tile.
+  An imported row wears its **category's** marker (`category-icons.tsx`, written by
+  `tools/lucide-icons.py`); the artboard's own faces (coffee, bus, cart, laptop, house,
+  wallet) come from `lucide-react`. `RowIcon` treats one string as either, which is only
+  safe because no face name is also a category id — check `categories.ts` before adding
+  one.
+- **Neue Haas Grotesk is the face**, with **Helvetica Neue deliberately absent** from
+  the stacks: the trial faces carry 74 glyphs, so `%`, `/`, `:`, `+`, `·`, `−` and `₹`
+  come from the next family, and naming Helvetica Neue is what made a Neue Haas screen
+  read as Helvetica on a Mac. The trial's EULA forbids web embedding; the owner has
+  chosen to ship it on their personal site anyway, and the licence travels beside the
+  files. `tools/vendor-neue-haas.py` is what converts them.
+- **Panels the design does not draw are the app's own, and wear the app's clothes.**
+  *Your history* (import/export) and the scan sheet are not in either artboard, so
+  they are built from the same tokens — 48px circles with a hairline in a header,
+  `bg-clay text-on-clay` for the primary action, 20px radii — and they follow the
+  theme like everything else. `scan.module.css` maps the previous app's token names
+  (`--bg-color`, `--accent-yellow`, …) onto the current ten roles rather than
+  restating colours, which is what keeps the pay sheet (kept for the flow that is not
+  built yet) already themed.
+- **The UPI scanner logs a row, it does not pay.** A code that carries an amount is
+  logged under **Wallet - OneClick record**; one without says so instead of guessing.
+  Nothing hands a `upi://` link to another app yet, and the pay sheet is a screen this
+  design does not have.
+- **`backend/` is not called by the app.** It is the Shortcut endpoint, kept as it is;
+  the two screens read and write only the device's own ledger. Do not wire the app to
+  it without saying why.
+- **The owner's Wallet export is personal data.** An export of it once sat in
+  `app/public/` (which is published) and was removed; keep backups of real money out of
+  the repository and out of anything that is deployed, and prefer
+  `~/Downloads/wallet_unlocked_export.json` when a test needs one.
 
-## Standalone React mockup (`mockups/meetgen/`)
+## Verifying a change
 
-A separate Vite + React 19 + Tailwind v4 project, built as a MeetGen-style Expense Tracker
-website, published to GitHub Pages at https://gunssaypewpew16.github.io/TrackIt/ by
-`.github/workflows/deploy-pages.yml`. That URL serves this design, not the app. It has its own `package.json`, is not in
-the root `tsc -b` references, and does not touch the app's dependencies or CSS. Its
-shadcn-style primitives live in `src/components/ui` behind the `@/` alias, and the whole
-screen is the single file `src/ExpenseTracker.tsx`.
+```bash
+npm run typecheck    # tsc over the app and the Worker's project
+npm run build        # typecheck + a production build
+npm run lint         # oxlint
+```
 
-- Run it with `cd mockups/meetgen && npm run dev` (port 4322), then `npm run build` and
-  `npm run typecheck` before calling it working.
-- The brief sets the surfaces to flat blocks: no shadows, blurs or gradients. The
-  `box-shadow: none` reset in `index.css` enforces that.
-- **The mockup is dark, and it ships dark.** `--canvas` `#262721` is most of every
-  screen — the reference screenshots' own canvas, not an invented grey, as are the
-  greige panel `#dadbb9`, the quieter one `#b2b49e` and the cream `#ffffe5`.
-- **Display sets the headings, Text sets the reading**, and the split is by job, not
-  by size: the two faces and their weights are vendored and documented under the type
-  paragraph above. Nothing is monospaced, and a new label uses the reading face with
-  `font-medium` rather than reaching for a mono stack.
-- **The palette is roles, not colours**, which is what lets one set of class names
-  draw both themes. A surface says how loud it is and its foreground is named after
-  it: `canvas`/`on-canvas` (the page), `card` (a card, whose text is always `ink`),
-  `stone` (a quieter card), `well` (a tray recessed into the page, which reads as
-  page for text), `box`/`on-box` (the surface to look at — the two summaries, the
-  bento's one inverted cell, the rail). The page and the box *trade places* between
-  the themes: the page is the dark grey in dark and the creme in light, the box the
-  cream in dark and the ink in light, so `canvas`/`on-canvas` and `box`/`on-box`
-  are opposites of each other and no component has to know which theme it is in.
-  `ink` and `cream` are the two tones that never move: `ink` is the dark one (the
-  text on a card, a marker tile, the scanner's letterbox), `cream` the light one
-  (the glyph on that tile). The retired names — `surface`, `paper`, `oat`,
-  `khaki`, `muted`, and Dark-Mode `ink`-as-a-box — are gone; rename rather than
-  reintroduce them.
-- **The accent is a fill, never text.** `tangerine` draws pills, bars, marker
-  tiles and buttons, with `ink` written inside it, which is why there is no
-  `on-tangerine`. As *text* the accent gets a tone per surface, because one orange
-  cannot read on both grounds: `ember` on the box ("3 over budget") and `alert` on
-  the page (the pay sheet's error, the scanner's status). `tangerine-hover` is the
-  fill one step lighter; fading the accent out over the dark page instead darkens
-  it until its own label measures 4.0:1.
-- **Every pair is measured in both themes, at 390px, in the browser** — the five
-  surfaces the design has (Home, Ledger, the scanner, the pay sheet, Settings) are audited by
-  computing each element's composited background and its real contrast, not by
-  reading the CSS. Nothing is under 4.5:1 except the accent's fill against a card
-  (2.3:1), which only ever draws a badge or a category's marker tile, both carrying
-  ink and not cream inside (4.6:1), so no status rides on that fill alone. Two
-  floors hold the rest up: secondary text on the page is `on-canvas/70` and no
-  lighter (5.6:1 light, the darkest theme's floor), and secondary text on a card
-  is `opacity-80` (4.7:1). A card that is too close in value to what is under it is
-  the bug to look for first. The Settings screen reuses those pairs and was measured
-  with them: its pill, heading and back arrow are 13.85:1 in light and 14.83:1 in
-  dark, the `+` glyph on the accent is 4.56:1 and 4.63:1, and a row's handoff badge
-  on a card is 15.15:1. When a pair is measured against a surface drawn as SVG — the
-  rail's pill — measure against the path's `fill`, or the probe walks past it to the
-  page and reports nonsense.
-- **The one dark block left on purpose** is the scanner's camera letterbox, which
-  frames a live video rather than a box on the page.
-- **The theme is one attribute.** `index.html` puts `data-theme="dark"` on `<html>`
-  and then a boot script there reads `localStorage['trackit-theme']` (the key is
-  `THEME_STORAGE_KEY` in `src/lib/theme.ts` — keep the literal in step) before the
-  first paint, so someone who chose light never sees a dark frame. `index.css`
-  defines both palettes against that attribute and nothing else reads it;
-  `src/lib/theme.ts` holds the reads and writes, `src/hooks/useTheme.ts` wraps them
-  as state, and changing the attribute repaints on its own. No second stylesheet, no
-  `prefers-color-scheme` — a visitor's system setting does not decide this site's
-  look, the owner does.
-- **`ThemeSwitch` is built and wired but rendered nowhere**, on purpose: the owner
-  asked for it made and not placed. It lives in
-  `src/components/ui/theme-switch.tsx` and goes in the header's right-hand side when
-  they want it; it needs a `main`-level mount, because `tsc --noEmit` typechecks it
-  but Rollup tree-shakes an unimported file out of the bundle. It was verified by
-  mounting it temporarily and clicking it — dark → light → dark, with
-  `localStorage` and `aria-checked` following — and then unmounting it again.
-- **Scanning a code pays through Google Pay, and the note is the owner's own.** The
-  pay sheet logs the expense first, then hands the payment to Google Pay **by name**:
-  `gpay://upi/pay?…` on iOS, and an `intent://` URL whose `package` is
-  `com.google.android.apps.nbu.paisa.user` on Android — the two ways Google's own
-  integration guides say to do it, and the only way a web page can name an app on
-  either phone. Both are built in `src/lib/upi.ts`, which is why the link on screen and
-  the link handed over can never disagree about the amount. A bare `upi://` link is
-  claimed by whichever app last took the scheme — on the owner's iPhone that was
-  WhatsApp — so it is only ever the *fallback*: labelled "Any other UPI app", with the
-  UPI ID beside it, and on a device that has no UPI app at all (a laptop) the sheet says
-  so rather than offering a button that would do nothing. The handoff is assigned inside
-  the tap with nothing `await`ed before it, because iOS only honours a gesture that is
-  still open, and if nothing answers it the sheet stays where it is with the fallbacks on
-  it. The **Note field starts empty** — not the payee's name, and not a note the
-  merchant's own code carried either, since that note would ride back to them inside the
-  link — and the ledger row borrows the payee's name instead (`₹2,865 · BigBasket`), so
-  an empty note never costs a row the identity of who was paid. The app's own pay sheet
-  (`frontend/src/components/UpiPaySheet.tsx`) follows the same rule for the note, and
-  already names Google Pay for the handoff.
-- **The scanner fails in the open, and never asks for a camera it knows is refused.**
-  Its library bounds the *playing* of a stream but not the request for one: `getUserMedia`
-  is allowed to never settle, and the viewfinder then sits there looking like it is about
-  to work — which is the bug (found here because a real camera request wedges this preview
-  browser's own process; the page's JS stayed healthy, shown by a synthetic stream from a
-  canvas, and a QR drawn on that canvas still decodes). So `UpiScanSheet` asks the
-  Permissions API first and does **not** request the camera when the answer is `denied`;
-  it watches for **frames** rather than for the promise, and after `CAMERA_SLOW_MS` without
-  one it says so in the viewfinder and in the status line; and it never unmounts the scanner
-  while it is waiting, because a stream that resolved after a give-up would be left running
-  with nothing holding it. A `CameraBoundary` class keeps a throwing scanner from taking the
-  manual entry down with it — and that manual entry is a complete way to pay in every one of
-  those states, which is what makes the failure survivable rather than merely reported.
-- **A handoff and an import are remembered, and marked.** The row is written as the payment
-  leaves, and `src/lib/ledger.ts` keeps it — and everything the Settings screen imports — in
-  `localStorage` (`trackit-mockup-ledger`, 500 rows): a handoff is one-way, since nothing will
-  ever tell this page whether the money moved, so that row is the only record of it; an import
-  is the owner's own history, which is worth more than the demo it lands in. A handoff's badge
-  names what it went to — "Google Pay", or "UPI link" on a device that hands nothing over, so
-  a laptop never claims a payment it did not make — and every stored row keeps one absolute
-  timestamp, so a day and a time come from when the thing happened rather than from when the
-  page was opened and the period tabs keep meaning what they say. Only what was *added* is
-  stored; the demo's own rows stay the seed, so a first visit looks the same everywhere.
-- **The `+` on a summary is the scanner.** The rail used to carry a third tab, Scan and pay,
-  which opened the scanner rather than a screen. The scanner is not a place in this app — it
-  is something the owner does *to* a screen — so it now hangs off the summary they are
-  looking at: the ledger's spend box, and Home's balance box, in the same corner as the same
-  56px accent disc. The rail is two tabs either side of the middle (`CENTRES` `[120, 220]`
-  inside the pill) and keeps the reference's 340 × 72 pill and its scoop.
-- **Settings holds the three things it can do, in the order they are wanted.** A quiet outline
-  pill in the header opens it — the accent is for the money (`+`, the pay CTA) and a settings
-  destination is not money. Inside: the light/dark switch, since the theme is one attribute on
-  `<html>` and the switch only writes it; then the history card, whose one primary action is
-  **Import from a file** with the two exports as secondary buttons beneath it, because bringing
-  a history in is the rare, hard-to-undo direction while taking one out is a download the owner
-  can simply redo; and last, past a rule, the only destructive control on the screen — **Clear
-  added rows** — which asks for a second tap within five seconds rather than a dialog. The two
-  exports are drawn in the card's own ink rather than the page's: the outline variant is written
-  for the page, and on a card in the dark theme its `on-canvas` cream measures 1.2:1, which is
-  the pair to check whenever a button moves onto a card.
-- **Import reads what the owner actually has, and says what it could not use.** Two files are
-  understood. The app's own export — a bare JSON array of its `Expense` rows, or the same array
-  under `{ expenses: [...] }`, `{ rows: [...] }` or `{ data: [...] }` — read generously by field
-  name (`amount` in rupees as well as `amountCents` in paise, `title`/`memo`/`payee` as well as
-  `note`, `date`/`spentAt` as well as `timestamp`). And **Wallet's own backup**, which is how the
-  owner's history really arrives: PouchDB's dump of Wallet's whole database, one entry per
-  document revision, under `{ "<pouch user>": { "by-sequence": [...] } }`. That file is not a
-  list of rows, so `walletRows` reads it by the app's own rules (`tools/wallet-import.py` is the
-  Python reader of the same file): `type` 1 is spending and 0 is income, a record with a
-  `transferId` is money moved between the owner's own accounts rather than spent, a soft-deleted
-  record is not a row, `amount` is already paise, the category document's *name* is the only
-  thing a row can be titled, its document id becomes the row id so a second import of the same
-  backup adds nothing, and `recordDate` is read as +05:30 — Wallet writes UTC and the money is
-  spent in India, so the day is the owner's own and not the device's. Whatever a file carries
-  that this ledger cannot use is counted and reported by kind — income, transfers, rows with no
-  amount or no date ("Added 112 rows. 1 transfer and 10 income rows left out") — never swallowed:
-  the ledger is spending only, so an income row imported as an expense would move every total
-  the wrong way. The report is drawn on a **box** panel, the one surface where this palette lets
-  the accent be text (`ember`, 6.2:1 in the dark theme and 4.6:1 in the light one) instead of
-  the 2.3:1 it would measure against a cream card.
-- Money is integer paise and shown in INR, which is the owner's currency, not the
-  `$` used in the brief's example.
+Then drive the app. What is worth exercising for a change in these areas:
+
+| Changed | Check |
+| --- | --- |
+| A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
+| The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
+| The wheel | a real mouse drag (−130px ⇒ +2 days), the ±3 clamp, the 24px threshold, the arrow keys, and the spring settling |
+| The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
+| The importer | a real file through the file input; the report's words; the stored row count; and the balance worked out from the stored rows by hand |
+| The scanner or *Your history* | both themes, since neither is in the artwork |
+
+`app/design/` is what to compare against when the question is "has a design feature
+been lost or changed".

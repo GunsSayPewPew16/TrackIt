@@ -1,0 +1,273 @@
+import { ArrowDown, ArrowUpRight, ArrowDownUp, Camera, ChevronRight } from "lucide-react"
+
+import { RowIcon } from "@/components/RowIcon"
+import { ThemeToggle } from "@/components/ThemeToggle"
+import type { Theme } from "@/lib/theme"
+import type { DashboardModel } from "@/lib/view"
+
+/**
+ * Screen 1 — the bento dashboard.
+ *
+ * This is `Main.dc.html`, the design export's "Finance dashboard", rebuilt with
+ * Tailwind utilities. Every height, radius, padding, gap, font size, line height,
+ * letter spacing and colour below is that artboard's own value; the only things
+ * that are this app's are the *data* (everything comes from `DashboardModel`, which
+ * the artboard's own figures fill on a first visit and the owner's imported history
+ * fills after that) and the **data button** in the header — see the note on the
+ * header. Nothing about the design is re-tuned here: if a number is not in the
+ * artboard it is not in this file.
+ *
+ * The layout is the artboard's four bands, in its order:
+ *
+ * 1. the greeting, with the two header circles;
+ * 2. the balance card, which owns the month's cash flow;
+ * 3. a 104px band pairing the scan square with the predictive quick-log tray;
+ * 4. four cards on the 8px grid: pace and top category side by side, the envelope
+ *    gauge, then the recent rows.
+ *
+ * The page column is the artboard's 390px with its 24/16/32 padding and its 8px
+ * rhythm, centred rather than pinned left, so the same screen fits a phone exactly
+ * and sits in the middle of a desktop window instead of stretching a mobile design
+ * across it.
+ */
+export function DashboardScreen({
+  model,
+  theme,
+  onToggleTheme,
+  onSeeAll,
+  onScan,
+  onOpenData,
+}: {
+  model: DashboardModel
+  theme: Theme
+  onToggleTheme: () => void
+  onSeeAll: () => void
+  onScan: () => void
+  onOpenData: () => void
+}) {
+  /** The artboard's small letterspaced label, which every chip and pill wears. */
+  const pill = "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
+  /** The money figures, which are the display face at its tightest tracking. */
+  const figure = "font-display text-[40px] leading-[48px] font-bold tracking-[-0.03em]"
+  /** A card's title, at the reading face's medium weight. */
+  const cardTitle = "font-display text-[14px] leading-5 font-medium tracking-[-0.01em]"
+
+  // The gauge is twenty segments with a 2px gap, and 40% fills eight of them.
+  const filled = Math.round(model.envelope.pct / 5)
+
+  return (
+    <div className="mx-auto flex w-full max-w-[390px] flex-col gap-2 px-4 pt-6 pb-8">
+      {/*
+        The header is the artboard's greeting and its 48px circle, plus one more
+        circle of the same treatment: the app's way in to importing and exporting
+        the ledger. The design has no such control — the artboard's row is only the
+        greeting and the theme — so it is added beside the toggle rather than
+        replacing anything, and it wears the same border, radius and ink.
+      */}
+      <div className="mb-2 flex h-12 items-center justify-between">
+        <h1 className="m-0 font-serif text-[28px] leading-9 font-normal tracking-[-0.01em] text-ink">
+          {model.greeting}
+        </h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenData}
+            aria-label="Import or export your history"
+            className="relative flex size-12 shrink-0 items-center justify-center rounded-3xl border border-line bg-card text-ink"
+          >
+            <ArrowDownUp strokeWidth={1.5} className="size-6" aria-hidden="true" />
+          </button>
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
+      </div>
+
+      {/* The balance, and the month the balance is moving through. */}
+      <section className="flex h-[232px] flex-col justify-between rounded-[20px] border border-line bg-card p-4">
+        <div>
+          <div className={`${cardTitle} text-ink2`}>{model.balance.label}</div>
+          <div className="mt-4 font-display text-[44px] leading-[48px] font-bold tracking-[-0.03em] text-ink">
+            {model.balance.value}
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            {/* The one pill that carries the page's ink rather than an accent. */}
+            <span className={`${pill} bg-ink text-canvas`}>{model.cashFlow.chip}</span>
+            <span className="inline-flex items-center gap-1 text-sage">
+              {model.cashFlow.deltaUp ? (
+                <ArrowUpRight strokeWidth={1.5} className="size-4" aria-hidden="true" />
+              ) : (
+                <ArrowDown strokeWidth={1.5} className="size-4" aria-hidden="true" />
+              )}
+              {model.cashFlow.delta}
+              <span className="sr-only">, {model.cashFlow.deltaNote}</span>
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-ink2">{model.cashFlow.income.label}</div>
+              <div className="text-ink">{model.cashFlow.income.value}</div>
+            </div>
+            <div>
+              <div className="text-ink2">{model.cashFlow.spent.label}</div>
+              <div className="text-ink">{model.cashFlow.spent.value}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* The scan square and the tray of things the owner probably just did. */}
+      <div className="grid h-[104px] grid-cols-[104px_1fr] gap-2">
+        <button
+          type="button"
+          onClick={onScan}
+          aria-label="Scan a receipt"
+          className="flex size-[104px] flex-col items-start justify-between rounded-[20px] border border-line bg-card p-4 text-left text-sage"
+        >
+          <Camera strokeWidth={1.5} className="size-6" aria-hidden="true" />
+          <span className={`${pill} bg-sage text-on-sage`}>SCAN</span>
+        </button>
+
+        <div className="flex min-w-0 flex-col justify-between rounded-[20px] border border-line bg-card p-4">
+          <div className="flex items-center justify-between">
+            <span className={`${cardTitle} text-[14px] leading-4`}>{model.quickLog.title}</span>
+            <span className="text-ink2">{model.quickLog.context}</span>
+          </div>
+          {/* A tray, so it scrolls sideways without a bar the way the artboard's does. */}
+          <div className="hide-scrollbar flex gap-2 overflow-x-auto">
+            {model.quickLog.actions.map((action) => (
+              <button key={action.label} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
+                <span
+                  className={`${pill} h-8 rounded-2xl px-3 ${
+                    action.primary ? "bg-sage text-on-sage" : "border border-sage bg-transparent text-sage"
+                  }`}
+                >
+                  {action.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* The pace of the last week, and where the money actually went. */}
+      <div className="grid grid-cols-2 gap-2">
+        <section className="relative flex h-44 flex-col justify-between overflow-hidden rounded-[20px] border border-line bg-card p-4">
+          {/*
+            The sparkline is drawn into the artboard's own 174×56 box and stretched
+            across the card's width, so the line's shape is the design's whatever the
+            figures are. It sits 88px down a 176px card with 16px of padding, which
+            is where the artboard's `top:88px` puts it — level with the value's
+            baseline, behind both.
+          */}
+          <svg
+            className="absolute top-[88px] left-0 h-14 w-full"
+            viewBox="0 0 174 56"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polyline
+              className="stroke-sage"
+              fill="none"
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+              points={model.velocity.points}
+            />
+          </svg>
+          <div className="relative flex flex-col items-start">
+            <span className={`${pill} bg-clay text-on-clay`}>{model.velocity.badge}</span>
+            <div className={`mt-2 ${cardTitle}`}>{model.velocity.title}</div>
+          </div>
+          <div className="relative">
+            <div className={`${figure} text-ink`}>{model.velocity.value}</div>
+            <div className="text-ink2">{model.velocity.caption}</div>
+          </div>
+        </section>
+
+        <section className="flex h-44 flex-col justify-between rounded-[20px] border border-line bg-card p-4">
+          <div className="flex flex-col items-start">
+            <span className={`${pill} bg-clay text-on-clay`}>{model.topCategory.badge}</span>
+            <div className="mt-2 flex items-center gap-2">
+              <RowIcon name={model.topCategory.icon} className="size-8 text-clay" />
+              <span className={cardTitle}>{model.topCategory.name}</span>
+            </div>
+          </div>
+          <div>
+            <div className={`${figure} text-ink`}>{model.topCategory.value}</div>
+            <div className="text-ink2">{model.topCategory.caption}</div>
+          </div>
+        </section>
+      </div>
+
+      {/* The envelope: what is spent, what it allows, and where the line sits. */}
+      <section className="grid h-40 grid-cols-[2fr_3fr] gap-4 rounded-[20px] border border-line bg-card p-4">
+        <div className="flex flex-col justify-between">
+          <div className={cardTitle}>{model.envelope.title}</div>
+          <div>
+            <div className={`${figure} text-ink`}>{model.envelope.spent}</div>
+            <div className={`${figure} text-ink2`}>/ {model.envelope.limit}</div>
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col justify-between">
+          <span className={`${pill} self-start bg-clay text-on-clay`}>{model.envelope.badge}</span>
+          {/*
+            The gauge is twenty 2px-gapped segments with a 4px needle at the same
+            percentage the `N% USED` pill says, so the pill and the line can never
+            disagree. The needle's left offset is the one value here that cannot be a
+            utility: it is the model's own percentage, and a class built from data
+            would not exist in the stylesheet.
+          */}
+          <div
+            className="relative flex h-8 gap-0.5"
+            role="img"
+            aria-label={`${model.envelope.spent} spent of ${model.envelope.limit} — ${model.envelope.badge}`}
+          >
+            {Array.from({ length: 20 }, (_, index) => (
+              <span
+                key={index}
+                className={`flex-1 rounded-xs ${index < filled ? "bg-clay" : "bg-line"}`}
+                aria-hidden="true"
+              />
+            ))}
+            <span
+              className="absolute -top-1 -ml-0.5 h-10 w-1 rounded-xs bg-ink"
+              style={{ left: `${model.envelope.pct}%` }}
+              aria-hidden="true"
+            />
+          </div>
+          <div className="hide-scrollbar flex gap-2 overflow-x-auto">
+            {model.envelope.chips.map((chip) => (
+              <button key={chip} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
+                <span className={`${pill} bg-line text-ink`}>{chip}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* What just happened, and the way into the rest of it. */}
+      <section className="h-[280px] rounded-[20px] border border-line bg-card p-4">
+        <div className="flex h-12 items-center justify-between">
+          <span className={cardTitle}>{model.recent.title}</span>
+          <button
+            type="button"
+            onClick={onSeeAll}
+            className="flex h-12 min-w-12 items-center justify-end gap-1 border-0 bg-transparent p-0 text-ink2"
+          >
+            {model.recent.action}
+            <ChevronRight strokeWidth={1.5} className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        {model.recent.rows.map((row) => (
+          <div key={row.id} className="flex h-16 items-center justify-between border-t border-line">
+            <div className="min-w-0">
+              <div className="truncate font-bold text-ink">{row.title}</div>
+              <div className="truncate text-ink2">{row.sub}</div>
+            </div>
+            <div className="shrink-0 text-ink tabular-nums">{row.amount}</div>
+          </div>
+        ))}
+      </section>
+    </div>
+  )
+}

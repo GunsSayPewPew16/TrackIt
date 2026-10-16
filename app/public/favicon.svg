@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TrackIt">
+  <!--
+    The app's own mark, drawn in the design's own two colours: the canvas the
+    screens are painted on, and the clay accent they use for money out. A filled
+    clay square on the canvas — the ledger's own tile, at tab size.
+  -->
+  <rect width="32" height="32" rx="8" fill="#0A0F0D" />
+  <rect x="9" y="9" width="14" height="14" rx="4" transform="rotate(45 16 16)" fill="#D4A373" />
+</svg>

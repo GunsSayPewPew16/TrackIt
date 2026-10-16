@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daily ledger</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+:root,[data-theme="dark"]{--bg:#0A0F0D;--card:#1A221E;--line:#28332E;--ink:#F4F0EA;--ink2:#F4F0EA99;--clay:#D4A373;--sage:#A3B19B;--on-clay:#0A0F0D;--on-sage:#0A0F0D}
+[data-theme="light"]{--bg:#F8F6F2;--card:#FFFFFF;--line:#E2DDD5;--ink:#1A221E;--ink2:#1A221E99;--clay:#C58B54;--sage:#6B7F64;--on-clay:#1A221E;--on-sage:#FFFFFF}
+*{transition:background-color .35s ease,color .35s ease,border-color .35s ease,stroke .35s ease,fill .35s ease}
+@keyframes inA{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes inB{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.d{font-family:"Neue Haas Grotesk Display Pro","Helvetica Neue",Helvetica,Arial,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="{{theme}}" style="position:relative;overflow:hidden;width:390px;height:880px;background:var(--bg);font-family:'Neue Haas Grotesk Text Pro','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:16px;color:var(--ink)">
+
+<svg width="390" height="276" viewBox="0 0 390 276" aria-hidden="true" style="position:absolute;left:0;top:0"><path d="M0 0H390V273Q195 231 0 273Z" style="fill:var(--card)"></path><path d="M0 273Q195 231 390 273" style="fill:none;stroke:var(--line);stroke-width:1"></path></svg>
+
+<div style="position:absolute;left:16px;right:16px;top:24px;height:48px;display:flex;align-items:center;justify-content:space-between">
+<a href="Main.dc.html" aria-label="Back to dashboard" style="width:48px;height:48px;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;text-decoration:none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a>
+<h1 class="d" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-0.01em">Daily ledger</h1>
+<button aria-label="{{toggleLabel}}" aria-pressed="{{isLight}}" onClick="{{toggleTheme}}" style="position:relative;width:48px;height:48px;padding:0;border:1px solid var(--line);border-radius:24px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;overflow:hidden">
+<span style="position:absolute;display:flex;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .25s ease;opacity:{{sunO}};transform:{{sunT}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></span>
+<span style="position:absolute;display:flex;transition:transform .45s cubic-bezier(.34,1.56,.64,1),opacity .25s ease;opacity:{{moonO}};transform:{{moonT}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span>
+</button>
+</div>
+
+<div class="d" style="position:absolute;left:0;right:0;top:88px;height:40px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:20px;line-height:28px;font-weight:700;letter-spacing:-0.01em">October 2026<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--sage)"><path d="m6 9 6 6 6-6"></path></svg></div>
+
+<div role="group" aria-label="Select a date" onPointerDown="{{down}}" onPointerUp="{{up}}" onKeyDown="{{key}}" style="position:absolute;left:0;top:136px;width:390px;height:120px;perspective:900px;overflow:hidden;touch-action:pan-y">
+<sc-for list="{{dates}}" as="d" hint-placeholder-count="7">
+<button aria-label="{{d.label}}" aria-pressed="{{d.active}}" onClick="{{d.pick}}" style="position:absolute;left:169px;top:16px;width:52px;height:80px;padding:0;border:0;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;transform-origin:50% 100%;transition:transform .55s cubic-bezier(.34,1.45,.5,1),opacity .3s ease,background-color .3s ease,color .3s ease;transform:{{d.tf}};opacity:{{d.op}};pointer-events:{{d.pe}};z-index:{{d.z}};{{d.pill}}">
+<span class="d" style="font-size:24px;line-height:28px;font-weight:700;letter-spacing:-0.02em">{{d.n}}</span>
+<span style="font-size:13px;line-height:16px">{{d.w}}</span>
+</button>
+</sc-for>
+</div>
+
+<div style="position:absolute;left:16px;top:300px;width:358px;display:flex;flex-direction:column;gap:8px;animation:{{cardAnim}} .4s ease both">
+<sc-for list="{{txs}}" as="tx" hint-placeholder-count="4">
+<article style="position:relative;width:358px;height:128px;flex:none">
+<svg width="358" height="128" viewBox="0 0 358 128" aria-hidden="true" style="position:absolute;left:0;top:0;overflow:visible"><path d="M0 20Q0 0 20 0H92C112 0 118 8 124 22C130 36 138 40 156 40H338Q358 40 358 60V108Q358 128 338 128H20Q0 128 0 108Z" style="{{tx.shape}};stroke-width:1"></path></svg>
+<div style="position:absolute;left:16px;top:12px;font-size:10px;line-height:16px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;white-space:nowrap;{{tx.fg}}">{{tx.tag}}</div>
+<div style="position:absolute;left:148px;top:0;display:flex;align-items:center">
+<sc-for list="{{tx.av}}" as="a" hint-placeholder-count="2">
+<span style="width:32px;height:32px;margin-right:-8px;border:2px solid var(--bg);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:16px;font-weight:700;{{a.s}}">{{a.n}}</span>
+</sc-for>
+<span style="width:32px;height:32px;border:2px solid var(--bg);border-radius:16px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></span>
+</div>
+<div role="img" aria-label="{{tx.pct}} of category budget used" style="position:absolute;right:0;top:8px;height:16px;display:flex;align-items:center;gap:8px">
+<span style="position:relative;width:56px;height:4px;border-radius:2px;background:var(--line)"><span style="position:absolute;left:0;top:0;height:4px;border-radius:2px;width:{{tx.pct}};background:{{tx.barc}}"></span></span>
+<span style="color:var(--ink2)">{{tx.pct}}</span>
+</div>
+<div style="position:absolute;left:0;right:0;top:40px;bottom:0;padding:16px;display:flex;align-items:center;justify-content:space-between">
+<div style="display:flex;align-items:center;gap:16px;min-width:0">
+<span style="position:relative;width:56px;height:56px;flex:none">
+<span style="position:absolute;left:8px;top:8px;width:40px;height:40px;border-radius:12px;transform:rotate(45deg);{{tx.dia}}"></span>
+<span style="position:absolute;left:16px;top:16px;display:flex;{{tx.ico}}">
+<sc-if value="{{tx.ic.coffee}}" hint-placeholder-val="{{ true }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v2"></path><path d="M14 2v2"></path><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"></path><path d="M6 2v2"></path></svg></sc-if>
+<sc-if value="{{tx.ic.bus}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6"></path><path d="M15 6v6"></path><path d="M2 12h19.6"></path><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"></path><circle cx="7" cy="18" r="2"></circle><path d="M9 18h5"></path><circle cx="16" cy="18" r="2"></circle></svg></sc-if>
+<sc-if value="{{tx.ic.cart}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path></svg></sc-if>
+<sc-if value="{{tx.ic.laptop}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"></path></svg></sc-if>
+<sc-if value="{{tx.ic.wallet}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></sc-if>
+<sc-if value="{{tx.ic.home}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></sc-if>
+</span>
+</span>
+<div style="min-width:0;{{tx.fg}}">
+<div style="font-size:16px;line-height:24px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{tx.m}}</div>
+<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;{{tx.fg2}}">{{tx.c}}</div>
+</div>
+</div>
+<div style="flex:none;margin-left:16px;text-align:right;{{tx.fg}}">
+<div class="d" style="font-size:16px;line-height:24px;font-weight:700;font-variant-numeric:tabular-nums">{{tx.amt}}</div>
+<div style="{{tx.fg2}}">{{tx.t}}</div>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":880}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const dark = s.isDarkMode !== false;
+const sel = s.sel || 16;
+const clamp = (v) => Math.max(9, Math.min(23, v));
+const WD = ['Fri','Sat','Sun','Mon','Tue','Wed','Thu'];
+const dates = [];
+for (let d = 9; d <= 23; d++) {
+  const o = d - sel, a = Math.abs(o), th = o * 0.0863;
+  const x = 800 * Math.sin(th), y = 800 * (1 - Math.cos(th));
+  const sc = a === 0 ? 1.15 : a === 1 ? 1 : a === 2 ? 0.9 : a === 3 ? 0.78 : 0.7;
+  dates.push({
+    n: d, w: WD[(d - 9) % 7], label: WD[(d - 9) % 7] + ' ' + d + ' October',
+    active: a === 0,
+    tf: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotateY(' + (-o * 9) + 'deg) rotate(' + (th * 180 / Math.PI).toFixed(1) + 'deg) scale(' + sc + ')',
+    op: a === 0 ? 1 : a < 3 ? 0.6 : a === 3 ? 0.3 : 0,
+    pe: a > 3 ? 'none' : 'auto', z: 10 - a,
+    pill: a === 0 ? 'background:var(--sage);color:var(--on-sage)' : 'background:var(--bg);color:var(--ink)',
+    pick: () => { if (this._sw) { this._sw = false; return; } this.setState({ sel: d }); }
+  });
+}
+const P = [
+['Blue Bottle','Coffee · Morning run','Coffee',-5.5,'8:05 AM','std','coffee',62,2],
+['City Transit','Transit · Commute','Transit',-2.75,'7:42 AM','std','bus',35,1],
+['Whole Foods','Groceries · Weekly shop','Groceries',-64.2,'6:18 PM','std','cart',80,3],
+['Nimbus Cloud','Subscription · Software','Subscription',-12.99,'9:00 AM','std','laptop',45,1],
+['Lakeside Rent','Housing · Monthly rent','High expense',-1850,'10:00 AM','alt','home',96,2],
+['Apple Store','Electronics · Laptop','High expense',-1299,'3:24 PM','alt','laptop',88,1],
+['Acme Payroll','Income · Salary','Income',3210,'9:00 AM','inc','wallet',100,1],
+['Studio Kite','Income · Freelance invoice','Income',640,'11:30 AM','inc','wallet',64,2],
+['Fresh Bowl','Dining · Lunch','Dining',-14.8,'1:10 PM','std','coffee',52,2],
+['Metro Fuel','Transport · Fuel','Transit',-48.3,'5:45 PM','std','bus',58,1],
+['Cinema Rex','Entertainment · Movies','Leisure',-22,'8:15 PM','std','laptop',30,3]
+];
+const D = {9:[1,0,8,2],10:[0,10,9],11:[0,8,3],12:[1,0,2,8],13:[1,8,5,0],14:[0,9,7,3],15:[1,0,4,8],16:[6,1,0,5],17:[0,10,8],18:[2,0,9],19:[1,0,8,3],20:[7,0,2],21:[1,0,8,9],22:[0,10,5],23:[1,0,6,8]};
+const K = {
+std:{shape:'fill:var(--card);stroke:var(--line)',fg:'color:var(--ink)',fg2:'color:var(--ink2)',dia:'background:var(--bg)',ico:'color:var(--ink)',barc:'var(--sage)'},
+inc:{shape:'fill:var(--sage);stroke:var(--sage)',fg:'color:var(--on-sage)',fg2:'color:var(--on-sage)',dia:'background:var(--on-sage)',ico:'color:var(--sage)',barc:'var(--sage)'},
+alt:{shape:'fill:var(--clay);stroke:var(--clay)',fg:'color:var(--on-clay)',fg2:'color:var(--on-clay)',dia:'background:var(--on-clay)',ico:'color:var(--clay)',barc:'var(--clay)'}
+};
+const AV = ['AK','MR','SJ'];
+const AS = ['background:var(--sage);color:var(--on-sage)','background:var(--clay);color:var(--on-clay)','background:var(--ink);color:var(--bg)'];
+const fmt = (a) => (a > 0 ? '+' : '−') + '$' + Math.abs(a).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const txs = (D[sel] || []).map((i, k) => {
+  const p = P[i], kd = K[p[5]], ic = {};
+  ic[p[6]] = true;
+  return {
+    m: p[0], c: p[1], tag: p[2], amt: fmt(p[3]), t: p[4], pct: p[7] + '%', ic: ic,
+    shape: kd.shape, fg: kd.fg, fg2: kd.fg2, dia: kd.dia, ico: kd.ico, barc: kd.barc,
+    av: AV.slice(0, p[8]).map((n, j) => ({ n: n, s: AS[(j + k) % 3] }))
+  };
+});
+return {
+  theme: dark ? 'dark' : 'light',
+  toggleLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
+  isLight: !dark,
+  toggleTheme: () => this.setState({ isDarkMode: !dark }),
+  sunO: dark ? 1 : 0, sunT: dark ? 'rotate(0deg) scale(1)' : 'rotate(90deg) scale(0.4)',
+  moonO: dark ? 0 : 1, moonT: dark ? 'rotate(-90deg) scale(0.4)' : 'rotate(0deg) scale(1)',
+  dates: dates, txs: txs, cardAnim: sel % 2 ? 'inA' : 'inB',
+  down: (e) => { this._x = e.clientX; this._sw = false; },
+  up: (e) => {
+    if (this._x == null) return;
+    const dx = e.clientX - this._x; this._x = null;
+    if (Math.abs(dx) > 24) {
+      const n = Math.max(-3, Math.min(3, Math.round(-dx / 60))) || (dx < 0 ? 1 : -1);
+      this._sw = true;
+      this.setState({ sel: clamp(sel + n) });
+    }
+  },
+  key: (e) => {
+    if (e.key === 'ArrowRight') this.setState({ sel: clamp(sel + 1) });
+    else if (e.key === 'ArrowLeft') this.setState({ sel: clamp(sel - 1) });
+  }
+};
+}
+}
+</script>
+</body>
+</html>

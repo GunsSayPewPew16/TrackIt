@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+/*
+ * TrackIt — the design system, taken verbatim from the two artboards.
+ *
+ * `Main.dc.html` (the bento dashboard) and `Ledger.dc.html` (the spinning date
+ * wheel) each carry the same `<helmet><style>` block, and every value below is
+ * copied out of it rather than invented: the ten colour roles, the two typefaces,
+ * the 0.35s repaint, the focus ring, the hidden scrollbar on the horizontal trays
+ * and the 8px rhythm the whole layout is built on. Where this file says more than
+ * the artboards did, it is only to explain where a value comes from.
+ *
+ * Light and dark are the same ten roles with different values, so no component
+ * ever needs to know which theme it is drawn in: it says `bg-card` and `text-ink2`
+ * and gets the right pair. Dark is the default (the artboards' own `:root`), and
+ * `data-theme="light"` on `<html>` swaps the table — see `src/lib/theme.ts`.
+ */
+
+/* ------------------------------------------------------------------ *
+ * Neue Haas Grotesk, both faces
+ *
+ * Converted by tools/vendor-neue-haas.py from Commercial Type's trial
+ * collection; the licence they travel under is beside them in
+ * src/assets/fonts/neue-haas-grotesk-LICENSE.txt, it restricts web
+ * embedding, and the owner has chosen to ship them anyway.
+ *
+ * Display sets the headings and the money figures — it is cut tighter for
+ * large sizes, which is what the artboards ask for at 28–44px. Text sets
+ * everything else, paragraphs down to the small letterspaced labels.
+ *
+ * Both stacks name Neue Haas Grotesk first and then step outward: the "… Pro"
+ * spellings the artboards use, for a machine that has the collection installed,
+ * then plain system faces. **Helvetica Neue is deliberately not among them** —
+ * it was in the previous app's stacks, and on a machine with that face present
+ * it is what any missing glyph silently resolves to, which makes a Neue Haas
+ * screen read as Helvetica. What is left behind the webfont is only a
+ * last-resort sans, and the rupee sign (U+20B9, which neither Neue Haas cut
+ * carries) is the one character that uses it.
+ * ------------------------------------------------------------------ */
+@font-face {
+  font-family: "Neue Haas Grotesk Display";
+  src: url("./assets/fonts/neue-haas-grotesk-display-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesk Display";
+  src: url("./assets/fonts/neue-haas-grotesk-display-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesk Text";
+  src: url("./assets/fonts/neue-haas-grotesk-text-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesk Text";
+  src: url("./assets/fonts/neue-haas-grotesk-text-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Neue Haas Grotesk Text";
+  src: url("./assets/fonts/neue-haas-grotesk-text-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Playfair Display, the greeting's face. The dashboard artboard loads it from
+ * fonts.googleapis.com; this app vendors it instead — one latin cut at 400 —
+ * so the screen carries its own typeface and keeps the OFL that travels with
+ * it (src/assets/fonts/playfair-display-OFL.txt). Only the greeting uses it.
+ */
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/playfair-display-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root,
+:root[data-theme="dark"] {
+  --canvas: #0a0f0d;
+  --card: #1a221e;
+  --line: #28332e;
+  --ink: #f4f0ea;
+  /* 60% of the primary ink: the artboards' own --ink2, written out as a pair. */
+  --ink2: #f4f0ea99;
+  --clay: #d4a373;
+  --sage: #a3b19b;
+  --on-clay: #0a0f0d;
+  --on-sage: #0a0f0d;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --canvas: #f8f6f2;
+  --card: #ffffff;
+  --line: #e2ddd5;
+  --ink: #1a221e;
+  --ink2: #1a221e99;
+  --clay: #c58b54;
+  --sage: #6b7f64;
+  --on-clay: #1a221e;
+  --on-sage: #ffffff;
+  color-scheme: light;
+}
+
+/*
+ * `inline` is what makes the swap work: each utility is written against the
+ * variable, not against a copy of its value, so changing `data-theme` repaints
+ * without a rebuild or a second stylesheet.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-clay: var(--clay);
+  --color-sage: var(--sage);
+  --color-on-clay: var(--on-clay);
+  --color-on-sage: var(--on-sage);
+
+  /* The reading face: paragraphs, labels, fields — everything but a heading. */
+  --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
+  /* Headings and the money figures. Its two cuts are Medium and Bold. */
+  --font-display: "Neue Haas Grotesk Display", "Neue Haas Grotesk Display Pro", Helvetica, Arial, sans-serif;
+  /* The greeting, and nothing else. */
+  --font-serif: "Playfair Display", Georgia, serif;
+}
+
+/*
+ * The artboards' own reset, kept as they wrote it — **inside `base`**.
+ *
+ * That layer matters more than it looks: an unlayered rule beats every layered
+ * one no matter how specific it is, so putting `button { color: inherit }` at the
+ * top level quietly wins over Tailwind's own utilities and a `text-on-sage` on a
+ * button never applies. Everything that sets a property a utility might also set
+ * therefore lives in `base`, where utilities (in `utilities`) still win.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    /* A theme change is a repaint of every surface at once; this is what keeps it
+       fluid instead of a flash. The artboard carries it, so the app does too. */
+    transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease,
+      stroke 0.35s ease, fill 0.35s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    /* The artboards set the whole page in 13/16 and size up from there. */
+    font-size: 13px;
+    line-height: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  /* One focus ring for everything focusable, from the artboards. */
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* The horizontal trays (quick actions, envelope chips) scroll without a bar. */
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

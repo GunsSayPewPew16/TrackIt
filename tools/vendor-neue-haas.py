@@ -1,7 +1,7 @@
 """Vendor the owner's two faces, Neue Haas Grotesk Display and Text, from their zip.
 
 The zip is Commercial Type's trial collection, and it carries four families:
-Display, Text, and a "Round Dots" novelty cut of each. The mockup needs two of
+Display, Text, and a "Round Dots" novelty cut of each. The app needs two of
 them, because it sets dialogue type in one and headings in the other:
 
 * **Display** is the heading face — the wordmark, the screen titles and the
@@ -18,13 +18,20 @@ and this writes that licence beside the files so the terms are on record.
 
 It converts three weights of Text (Roman 400, Medium 500, Bold 700) and two of
 Display (Medium 500, Bold 700), and nothing else: no italics, because nothing in
-the mockup is set italic and an italic file for every weight would double the
+the app is set italic and an italic file for every weight would double the
 payload, and no Round Dots cut, which is a novelty drawing of the same letters.
 A weight the screen does not use yet costs nothing to keep, because a browser
 only downloads a face some element actually matches; Display's Medium is one of
-those today. Neither face carries the rupee sign, so amounts draw their ₹ from
-Helvetica Neue behind it, and the weight each file reports is checked against
-the file's own `usWeightClass` rather than trusted from the name.
+those today. The weight each file reports is checked against the file's own
+`usWeightClass` rather than trusted from the name.
+
+**Mind the trial's short character set.** Each trial face carries 74 glyphs —
+the letters, the digits, the space and a handful of punctuation — and nothing
+else: no `%`, `/`, `:`, `+`, `·`, no true minus (U+2212) and no rupee sign
+(U+20B9). Those characters are therefore drawn by the next family in the
+stylesheet's stack (Helvetica, then Arial), which is why `app/src/index.css`
+names them and does not name Helvetica Neue. Only a full commercial face would
+draw them all, and no purchased cut of Neue Haas Grotesk carries ₹ either.
 
     python3 tools/vendor-neue-haas.py ~/Downloads/Neue_Haas_Grotesk_Collection.zip
 """
@@ -47,7 +54,7 @@ except ImportError:  # pragma: no cover - the message is the point
 RUPEE = 0x20B9
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "mockups/meetgen/src/assets/fonts"
+OUT_DIR = ROOT / "app/src/assets/fonts"
 LICENCE_FILE = OUT_DIR / "neue-haas-grotesk-LICENSE.txt"
 
 # Family -> the zip's own file stem, the name fragment this tool writes, and the
@@ -65,7 +72,7 @@ FAMILIES = {
     },
 }
 
-NOTE = """Neue Haas Grotesk Display and Text — the mockup's two faces.
+NOTE = """Neue Haas Grotesk Display and Text — the app's two faces.
 
 Supplied to this repository by the app's owner from Commercial Type's trial
 collection (`{source}`). Display sets the headings and the money figures; Text sets
