@@ -41,8 +41,9 @@ export function DashboardScreen({
 }: {
   model: DashboardModel
   /**
-   * This open's greeting, which is nobody's data: it comes from the pool in
-   * `lib/greetings.ts`, or from a model that was asked once (`hooks/useGreeting.ts`).
+   * This open's greeting, which is nobody's data: it comes from the fifty words in
+   * `lib/greetings.ts`, or from the greetings table the server draws one row from
+   * (`hooks/useGreeting.ts`).
    */
   greeting: GreetingLine
   theme: Theme
@@ -86,7 +87,8 @@ export function DashboardScreen({
           reader pronounces `Nǐ hǎo` as Mandarin rather than as English letters; a `title`,
           so a pointer that rests on the line is told what it means; and a sr-only phrase
           after the name for the same reason. `data-greeting` is not for a reader at all —
-          it is how a browser check can tell whether a model answered or the pool did.
+          it is how a browser check can tell whether the greeting's server answered or the
+          copy in the bundle did.
         */}
         <h1
           title={`hello in ${greeting.language}`}

@@ -3,7 +3,9 @@ import type { IDetectedBarcode, IScannerError, ScannerErrorKind } from "@yudiel/
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
 
+import { PaySheet } from "@/components/PaySheet"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import type { PaidDraft } from "@/features/upi/logScan"
 import { parseUpiCode, UPI_PARSE_MESSAGE, type UpiPayee } from "@/features/upi/upi"
 import type { Theme } from "@/lib/theme"
 
@@ -18,7 +20,7 @@ import type { Theme } from "@/lib/theme"
  * then, 700px down, the little letterspaced label and the manual row — a 7fr/3fr
  * grid of the field and the clay **Use it** button.
  *
- * Two things are this app's rather than the artboard's, and both are deliberate:
+ * Three things are this app's rather than the artboard's, and they are deliberate:
  *
  * - **The frame holds a camera, not a drawing.** The artboard paints a stylised
  *   code inside the viewfinder — three finder squares and a generated 13×13 mark,
@@ -36,16 +38,21 @@ import type { Theme } from "@/lib/theme"
  *   one would be this app's taste rather than the artboard's. It carries
  *   `role="status"` so the words are announced as well as drawn.
  *
+ * - **The money screen** (`components/PaySheet.tsx`), which most scanned codes need: a
+ *   merchant's code usually carries no amount, because the amount is the merchant's to ask
+ *   for and the owner's to choose. Those codes open it rather than being refused — the one
+ *   number this app will not guess is the money.
+ *
  * The artboard's scrim — a full-bleed mask with a square hole punched where the
  * camera is — composites to `--canvas` at 87% over `--card`, which is the canvas to
  * within two levels of red per channel, so the screen simply stands on the canvas
  * (the body's own background) and the frame is drawn `bg-card` on it. Nothing else
  * in the artboard's stack of layers has to be reproduced to get the same pixels.
  *
- * Paying is not part of this screen yet. A code that carries an amount logs a row
- * under **Wallet - OneClick record** (`features/upi/logScan.ts`), a code without one
- * says so rather than guessing, and `features/upi/upi.ts` holds the `upi://` builder
- * for the pay sheet that would hand a link to another app.
+ * What a read code becomes is `features/upi/logScan.ts`: a code that carries an amount logs
+ * a row under **Wallet - OneClick record** on the spot, a code without one opens the money
+ * screen and is logged when the owner confirms it, and `features/upi/upi.ts` holds the
+ * `upi://` builders both halves hand to another app.
  *
  * One thing the screen does not control: the decoder's own WASM. On a phone without
  * a native `BarcodeDetector` — an iPhone — the library fetches that file from the
@@ -67,11 +74,17 @@ export type Props = {
   /** Back to the dashboard — the header's circle. */
   onBack: () => void
   /**
-   * A valid UPI code was read, and its answer is what the status line shows:
-   * `logScannedPayee` logs the row and returns the sentence, so the screen never
+   * A valid UPI code was read **with its amount in it**, and its answer is what the status
+   * line shows: `logScannedPayee` logs the row and returns the sentence, so the screen never
    * has to know whether a row was written or why it was not.
    */
   onPayee: (payee: UpiPayee) => string
+  /**
+   * What the money screen collected, when a code arrived without an amount: `logPaidPayee`
+   * writes the row and returns the sentence, which the status line shows once the screen is
+   * closed — the scanner is where the answer to "what did that do?" belongs.
+   */
+  onPaid: (payee: UpiPayee, draft: PaidDraft) => string
 }
 
 /**
@@ -96,9 +109,16 @@ const CAMERA_MESSAGE: Record<ScannerErrorKind, string> = {
 /** The artboard's own hint, which is what the status line says until something happens. */
 const HINT = "Point the camera at the merchant’s UPI QR code."
 
-export function ScanScreen({ theme, onToggleTheme, onBack, onPayee }: Props) {
+export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Props) {
   const [status, setStatus] = useState<string | null>(null)
   const [manual, setManual] = useState("")
+  /**
+   * The payee the money screen is open for, if any. A code with no amount in it comes here
+   * rather than being refused, because the amount is the owner's to type.
+   */
+  const [paying, setPaying] = useState<UpiPayee | null>(null)
+  /** What that screen's row was logged as, so the status line can say it on the way out. */
+  const wrote = useRef<string | null>(null)
   /**
    * The last value the camera handed over, so a code held in front of it is one read
    * rather than dozens a second. Resetting on a *different* value is what lets the
@@ -108,17 +128,39 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee }: Props) {
    * the ref dies with the screen, which is the right memory for it.
    */
   const lastRead = useRef<string | null>(null)
+  /**
+   * Whether the money screen is open, for `accept` to see. It is a `useCallback` whose only
+   * dependency is `onPayee`, so it cannot read the state above without being rebuilt on
+   * every render — a ref is what answers the same question for it.
+   */
+  const sheetOpen = useRef(false)
 
   const accept = useCallback(
     (raw: string) => {
+      // A code read *behind* the money screen must not change what is on it: the camera runs
+      // on under the sheet, and a second code in the frame would otherwise rewrite the payee
+      // the owner is halfway through paying for.
+      if (sheetOpen.current) return
+
       const result = parseUpiCode(raw)
-      if (result.ok) {
-        setStatus(onPayee(result.payee))
+      if (!result.ok) {
+        // Not a payment code: say so and keep looking, because a phone often catches
+        // whatever else is printed beside the QR code.
+        setStatus(`${UPI_PARSE_MESSAGE[result.reason]} Move a little closer and hold still.`)
         return
       }
-      // Not a payment code: say so and keep looking, because a phone often catches
-      // whatever else is printed beside the QR code.
-      setStatus(`${UPI_PARSE_MESSAGE[result.reason]} Move a little closer and hold still.`)
+
+      // A code that carried its amount is logged on the spot — the merchant printed it.
+      // A code that did not opens the money screen, which is the whole reason it is here.
+      if (result.payee.amountCents === null) {
+        wrote.current = null
+        sheetOpen.current = true
+        setStatus(null)
+        setPaying(result.payee)
+        return
+      }
+
+      setStatus(onPayee(result.payee))
     },
     [onPayee],
   )
@@ -267,6 +309,26 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee }: Props) {
           </button>
         </form>
       </div>
+
+      {/*
+        The money screen, over everything, for a code that carried no amount. The status
+        line tells the story once it closes: what the row was logged as, or — if the owner
+        left without paying — the artboard's own hint again, because nothing happened.
+      */}
+      {paying !== null && (
+        <PaySheet
+          payee={paying}
+          onPay={(draft) => {
+            wrote.current = onPaid(paying, draft)
+            return wrote.current
+          }}
+          onClose={() => {
+            sheetOpen.current = false
+            setPaying(null)
+            setStatus(wrote.current)
+          }}
+        />
+      )}
     </div>
   )
 }

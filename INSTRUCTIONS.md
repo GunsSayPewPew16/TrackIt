@@ -172,43 +172,49 @@ left out and why.
   Neue Haas Grotesk's trial. If a serif question comes up again, that is the family to
   extend rather than swapping in a third.
 - **The greeting says hello in a different language every open**, which is the owner's
-  ask and the one thing on screen that is neither data nor design. `lib/greetings.ts`
-  holds the pool and the per-open rotation, `hooks/useGreeting.ts` composes the line, and
-  `lib/hello.ts` may ask a model for a language the pool lacks. Three rules go with it:
-  the pool's word is on screen first and a model only swaps in after — never a wait and
-  never an error state; a model's word must survive `validateGreeting` (one latin word
-  the serif can draw) or the pool's stands; and **no API key ever goes in the bundle.**
-  The key is either the owner's own, pasted once as `?gemini_key=…` and kept in that
-  browser, or it lives in a server-side proxy the build is pointed at with
-  `VITE_GREETING_ENDPOINT`. A key compiled into a public build is a key anyone can spend.
-- **The question a model is asked is written once.** `lib/gemini.ts` owns the prompt, the
-  model, the request and the parse, and it is deliberately portable — no `import.meta`,
-  no `window` — because two different runtimes import it: the browser, when the owner has
-  brought their own key, and `api/greeting.ts`, the Vercel function that holds the key for
-  every visitor. Change the prompt or the accepted answer there or not at all; editing one
-  caller is how the two routes start disagreeing about what a greeting is.
-- **`api/greeting.ts` is the greeting's server, and it is not `backend/`.** Vercel builds
-  every file in the project's root `api/` directory, and this project's Root Directory is
-  `app/`, so the function answers on the *site's own origin* at `/api/greeting`. The
-  contract is one way: `POST { avoid: string[] }` in, `{ greeting: { word, language,
-  lang } }` out, anything else 502, and no key 503 (the app keeps the pool's word for
-  every one of those). It asks nothing of a caller but a list of languages *not* to pick —
-  it is not a proxy for the model. The Worker in `backend/` stays what it is, the
-  Shortcut's endpoint; the app still does not call it.
-- **A public endpoint that holds a key is rationed.** `api/greeting.ts` answers twelve
-  requests a minute per caller and 240 a minute altogether, and refuses the rest with
-  `429` and a `Retry-After` the app treats like any other failure — the pool's word
-  stands. The counters are one `Map` in the instance's own memory and nothing more: a
-  cold start forgets them, a second instance has its own, and `x-forwarded-for` is a
-  header a caller can write. That makes a stray loop or a crawler pointless, which is the
-  job; it is not a firewall, and if this endpoint ever matters it wants a WAF rule or a
-  shared counter in front of it rather than a bigger `Map`. `allow()` is exported and
-  takes `now` as a parameter precisely so a test can step past a window instead of
-  waiting a minute for it.
-- **The pool is checked against the font, not eyeballed.** `tools/vendor-anthropic-serif.py`
+  ask and the one thing on screen that is neither data nor design. It is **fifty greetings
+  in fifty languages — the world's most spoken ones, romanized into latin letters** — and
+  the same fifty exist twice on purpose: as rows in the `greetings` table in D1, which
+  `backend/` serves, and as the array in `lib/greetings.ts` that ships in the bundle, which
+  is what makes the first render instant and offline. `lib/rotation.ts` walks the array and
+  remembers what it has just shown, `hooks/useGreeting.ts` composes the line, and
+  `lib/hello.ts` asks the server for a row. Three rules go with it: **a word is on screen
+  in the first render** and a server's answer only ever replaces it — never a wait and never
+  an error state; **an answer must survive `validateGreeting`** (one latin word the serif can
+  draw, a plausible tag) or the bundle's word stands, and that guard covers a row somebody
+  added to the database by hand as much as it ever covered a model; and **no key ever goes in
+  the bundle** — nothing in the greeting needs one any more, and the parked `?gemini_key=…`
+  path below must stay out of the arrival path.
+- **The greeting is data, and the database is where it can be changed.** `lib/greetings.ts`
+  is the source the table is seeded from (the Worker imports it, so the fifty in D1 and the
+  fifty in the bundle cannot drift apart), and a word is corrected the same way a row of
+  money is: one `wrangler d1 execute` against the live database, no rebuild, no redeploy.
+  **The seed is decided by the draw, not by a flag** — `POST /api/greeting` fills the table
+  only when a request finds it empty, so a fresh deploy fills it on its first greeting, a
+  table somebody emptied fills again on the next request, and a word edited by hand is never
+  overwritten. That is why `ensureGreetings` (the DDL, cached per isolate) and
+  `seedGreetings` (the rows) are two functions: keep it that way, or "empty the table" stops
+  being a way to put the deployed list back.
+- **The route is public and holds nothing.** `backend/`'s `/api/greeting` is the one route
+  there that is not behind the Shortcut's token, and the reason is that there is nothing to
+  guard: no key, no name, no money — fifty hellos and which one to draw. What it can spend is
+  the day's D1 reads, and a script that hammered it would take the greeting down to the
+  app's own fifty; that is a graceful failure, which is why there is no rate limiter here.
+  The limiter in `app/api/greeting.ts` belongs to the parked model route, where the thing
+  being protected is a key's quota rather than a table.
+- **The parked model is parked, not deleted.** `lib/gemini.ts` (the question, the model, the
+  parse), the `askModel`/`geminiKey`/`rememberKeyFromUrl` half of `lib/hello.ts`, and
+  `app/api/greeting.ts` (a key held server-side, with the per-caller and global rationing)
+  all still work and nothing calls them: a model will be wanted for something else in this
+  project. Do not wire them back into the greeting, and do not delete them to tidy up. The
+  key lives in the gitignored `backend/.dev.vars`; production would want
+  `wrangler secret put GEMINI_API_KEY`.
+- **The table is checked against the font, not eyeballed.** `tools/vendor-anthropic-serif.py`
   reads every `word:` out of `lib/greetings.ts` and fails if either cut cannot draw one
   of those characters — the check exists because a missing glyph is finished by Georgia,
-  and one masthead line in two typefaces is the whole risk of this feature.
+  and one masthead line in two typefaces is the whole risk of this feature. It covers what
+  the app ships; a word added straight into D1 is checked by `validateGreeting` at the
+  masthead instead, which refuses it rather than drawing it in two faces.
 - **Panels the design does not draw are the app's own, and wear the app's clothes.**
   `components/DataSheet.tsx` is not in any artboard, so it is built from the same
   tokens — 48px circles with a hairline in a header, `bg-clay text-on-clay` for the
@@ -220,16 +226,25 @@ left out and why.
   mounts it, because the owner is placing it themselves. `useLedger` still exposes
   `importHistory` and `clear`; do not delete either as dead code, and do not "fix" the
   missing entry point by inventing a new one without asking.
-- **The UPI scanner logs a row, it does not pay.** A code that carries an amount is
-  logged under **Wallet - OneClick record**; one without says so instead of guessing
-  (`features/upi/logScan.ts`, which returns the sentence the status line shows).
-  Nothing hands a `upi://` link to another app yet, and the pay sheet is a screen this
-  design does not have. The screen itself is the second artboard, so keep it at the
-  artboard's geometry: the frame is 358×358 at 224px and the manual row 724px down,
-  and the frame holds the live camera where the artboard paints a code.
-- **`backend/` is not called by the app.** It is the Shortcut endpoint, kept as it is;
-  the two screens read and write only the device's own ledger. Do not wire the app to
-  it without saying why.
+- **The UPI scanner logs a row; the money screen is what fills in an amount.** A code
+  that carries an amount is logged on the spot under **Wallet - OneClick record**; one
+  without opens `components/PaySheet.tsx` — **the retired app's `UpiPaySheet.tsx` brought
+  back at the owner's request**, whose structure and wording are therefore not this design's
+  to re-imagine, and which the owner is restyling themselves. Two of its details are load
+  bearing: **the row is logged before any payment is handed off** (the handoff is one-way, so
+  a row written afterwards is a row a crash can lose), and the handoff happens only where
+  something can take it (`canHandOffToUpiApp` — a phone), because on a desktop the generic
+  `upi://` link is a scheme nothing claims. `features/upi/logScan.ts` is the only thing that
+  writes either row and returns the sentence the status line shows; keep the id the payee
+  plus the amount, so re-reading a code is the same row rather than a second one. The scanner
+  itself is the second artboard, so keep it at that geometry: the frame is 358×358 at 224px
+  and the manual row 724px down, and the frame holds the live camera where the artboard
+  paints a code.
+- **`backend/` is the Shortcut's endpoint and the greeting's server, and the app calls
+  exactly one of its routes.** That one is `POST /api/greeting`, which draws a random row
+  out of `greetings`; every expense route is the Shortcut's, stays token-guarded, and is
+  untouched by the app. The two screens still read and write only the device's own ledger —
+  do not wire them to the expense routes without saying why.
 - **The owner's Wallet export is personal data.** An export of it once sat in
   `app/public/` (which is published) and was removed; keep backups of real money out of
   the repository and out of anything that is deployed, and prefer
@@ -253,8 +268,10 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |
-| The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the pool or a model answered; every word is drawn by the serif and never finished by a fallback face; and with a key set, the request that goes out is one sentence to the Interactions API (or to `VITE_GREETING_ENDPOINT`) and its failure leaves the pool's word on screen |
-| The greeting's server | `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set: ask it a Request and read the Response. Vercel is a deploy target, not a thing to install to find out whether the endpoint works — the handler is a plain `fetch`, so Node is enough. Check the 200 and the `{ greeting }` shape, the same-origin answer with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one getting 403, `OPTIONS` → 204, `GET` → 405, an unusable model answer → 502, and no key → 503 without a call upstream. Then drive it from the app: run the bundle behind loopback HTTP and `npm --prefix app run dev -- --port 4325` with `VITE_GREETING_ENDPOINT=http://127.0.0.1:4399/api/greeting`, and watch the heading become the model's word with `data-greeting="model"` |
+| The money screen | a hand-typed code with **no** `am` must open it, with the amount empty and the category guessed from the merchant's name (`Swiggy` → restaurant, `Blinkit` → groceries); typing `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals); the row must be in `trackit-ledger` **before** any handoff; on a desktop nothing must navigate away, and the generic `upi://` link plus the payee's UPI id must be on screen; a code **with** an `am` must still log with no screen at all; and a code read while the screen is open must not change the payee under it |
+| The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
+| The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
+| The parked model route | still, if it is ever woken up: `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set and ask it a Request. Vercel is a deploy target, not a thing to install — the handler is a plain `fetch`, so Node is enough. 200 and `{ greeting }`, same-origin with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one 403, `OPTIONS` → 204, `GET` → 405, an unusable answer 502, and no key 503 without a call upstream |
 
 `app/design/` is what to compare against when the question is "has a design feature
 been lost or changed".

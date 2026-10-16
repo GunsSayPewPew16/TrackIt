@@ -55,6 +55,24 @@ export function netMoney(cents: number): string {
   return `${cents < 0 ? "−" : "+"}${money(Math.abs(cents))}`
 }
 
+/**
+ * What the owner typed into an amount field, as integer paise — `null` when it is not a
+ * number at all.
+ *
+ * Commas are **grouping** in this app's own money (`18,084.07`), so they are dropped
+ * rather than read as a decimal point: `1,500` is fifteen hundred rupees, not one and a
+ * half. Everything that is not a digit or a dot is ignored, which is what makes a pasted
+ * `₹250` a number; a minus sign goes with it, because a payment is not negative and the
+ * caller refuses an empty or zero field anyway.
+ */
+export function parseAmountToCents(input: string): number | null {
+  const cleaned = input.replace(/,/g, "").replace(/[^0-9.]/g, "")
+  if (!cleaned || cleaned === ".") return null
+  const value = Number(cleaned)
+  if (!Number.isFinite(value)) return null
+  return Math.round(value * 100)
+}
+
 const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
 const SHORT_DAY = new Intl.DateTimeFormat("en-US", { weekday: "short" })
 const DAY_AND_MONTH = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" })

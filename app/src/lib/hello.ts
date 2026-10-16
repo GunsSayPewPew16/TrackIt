@@ -1,45 +1,97 @@
 /**
- * Saying hello in a language the pool does not have.
+ * The greeting's server half, seen from the app: one question out, one word back.
  *
- * `lib/greetings.ts` is the greeting's floor: thirty-six languages, instantly, offline,
- * with no key anywhere. This file is the ceiling — one short question to a model per app
- * open, for a language and a romanization the pool never thought of — and it is written
- * as something that can fail silently, because a greeting is not worth an error state.
- * What is *asked* and what an answer has to look like before it is shown are not here:
- * they are `lib/gemini.ts`, because the server asks the same question
- * (`app/api/greeting.ts`) and one of the two must not drift from the other.
+ * The masthead greets out of the fifty words that ship in the bundle (`lib/rotation.ts`),
+ * instantly and offline. This file is the second source: it asks **the greeting's server**
+ * for a row at random, and swaps that word in if — and only if — an answer arrives.
  *
- * **The key is the hard part, and it is not in this repository.** The site is a static
- * build published to GitHub Pages: anything compiled into it is public, and a Google AI
- * Studio key in a public bundle is a key anyone can spend. So there are exactly two ways
- * in, and neither one ships a secret:
+ * **The server is the Worker in `backend/`**, which keeps the words in the `greetings`
+ * table in D1 and draws one with `ORDER BY RANDOM()`. It used to be a model (and a Vercel
+ * function holding the model's key); it is a table now, because a greeting is data. What it
+ * costs is a network round trip on a masthead that is already drawn, and what it buys is
+ * that a language can be added, or a romanization fixed, with one `wrangler d1 execute`
+ * against the live database instead of a rebuild and a redeploy of the site.
  *
- * 1. **Bring your own key.** Visit the app once with `?gemini_key=…` on the URL;
- *    `rememberKeyFromUrl` stores it in this browser's `localStorage` and takes it back
- *    out of the address bar, so it is not in the history, a bookmark or a shared link.
- *    That browser then gets model greetings; every other device falls back to the pool.
- * 2. **A server-side proxy.** Build with `VITE_GREETING_ENDPOINT=/api/greeting` (or any
- *    absolute URL) and the app posts `{ avoid: [...] }` there instead, expecting
- *    `{ greeting: { word, language, lang } }` back. The key lives in the host's
- *    environment — the Vercel function in `app/api/greeting.ts`, or the Cloudflare Worker
- *    in `backend/` — and never reaches the browser. That is the only shape in which
- *    *every* visitor gets a model greeting, and the README's *Deploying* section is how it
- *    is set up.
+ * **The contract is one way and is unchanged from the model's day**: `POST { avoid: string[]
+ * }` in, `{ greeting: { word, language, lang } }` out, anything else and the app keeps the
+ * word it is already showing. `avoid` is the languages this browser has just seen
+ * (`lib/rotation.ts`), which is what keeps "a different language every open" true now that
+ * the choice is a roll of the dice rather than a walk through a shuffled list.
  *
- * Google's own key documentation says the same thing in as many words: do not expose a
- * key in client-side production code, and for a public app use a proxy.
+ * **Which server, and how the build is told.** `VITE_GREETING_ENDPOINT`, set at build time.
+ * On the Worker's own domain the app and this route share an origin, so a relative
+ * `/api/greeting` is the whole configuration; a build served from somewhere else (GitHub
+ * Pages, say) points at the Worker's absolute URL and the Worker's CORS headers answer it.
+ * **No build without that variable has a server at all**, which is not a broken build: the
+ * pool is the greeting, and it is the same fifty words.
+ *
+ * ## Parked below: the model
+ *
+ * The owner's Gemini key and the code that asks it are kept here and kept working, because
+ * a language model will be wanted for something else in this project. Nothing on the
+ * greeting's path calls them: the key is *stored* and never spent, `?gemini_key=…` still
+ * takes a key out of the URL and into this browser (`main.tsx` calls `rememberKeyFromUrl`
+ * at boot), and `askModel` below is reachable by whatever asks next. The question itself and
+ * the parse of its answer are `lib/gemini.ts`, untouched.
  */
 
-import { askGemini, TIMEOUT_MS } from "./gemini"
+import { askGemini } from "./gemini"
 import { validateGreeting, type Greeting } from "./greetings"
 
-/** The proxy, when the build was given one. Empty string and undefined are the same. */
+/** The greeting's server, when the build was given one. Empty string and undefined are the same. */
 const ENDPOINT: string | null = import.meta.env.VITE_GREETING_ENDPOINT?.trim() || null
+
+/**
+ * How long the table is given to answer, which is short on purpose — and the opposite
+ * reasoning to the model's own fifteen seconds (`lib/gemini.ts`).
+ *
+ * Drawing a row out of fifty is a database read: it is milliseconds, and this runs while
+ * the reader is looking at a word that is already right. Something that has not answered in
+ * four seconds is not going to improve the masthead, and holding a request open for it is a
+ * socket and a promise spent on nothing.
+ */
+const TIMEOUT_MS = 4_000
+
+/** Whether this build has a greeting server at all. */
+export function hasGreetingServer(): boolean {
+  return ENDPOINT !== null
+}
+
+/**
+ * One word from the greeting's server, or `null` for every way it can go wrong: no
+ * endpoint, no network, a refusal, a timeout, a word the serif cannot draw.
+ *
+ * The caller keeps the pool's word in that case, which is what makes this safe to ask on
+ * every open and safe to lose. The answer is validated here rather than trusted, because
+ * the table is a database anyone with the credentials can add a row to, and the thing being
+ * protected is not a secret but the masthead: a word must be one the serif can draw, or the
+ * line reads in two typefaces.
+ */
+export async function greetingFromServer(avoid: string[]): Promise<Greeting | null> {
+  if (ENDPOINT === null) return null
+  try {
+    const answer = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avoid }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    if (!answer.ok) return null
+    const payload: unknown = await answer.json()
+    // `{ greeting: … }` is the documented shape; the flat object is accepted too, so a
+    // server that simply forwards the row is not a broken one.
+    return validateGreeting((payload as { greeting?: unknown } | null)?.greeting ?? payload)
+  } catch {
+    return null
+  }
+}
+
+/* ------------------------------------------------------- parked: the model */
 
 /** Where a pasted key is kept. This browser only, never the repository. */
 export const KEY_STORAGE = "trackit-gemini-key"
 
-/** The key this browser was given, if any. */
+/** The key this browser was given, if any. Nothing spends it at the moment. */
 export function geminiKey(): string | null {
   try {
     return window.localStorage.getItem(KEY_STORAGE)?.trim() || null
@@ -51,9 +103,9 @@ export function geminiKey(): string | null {
 /**
  * Take a key out of the URL, if one is there, and forget the URL had it.
  *
- * Called once, before the app renders. The `replaceState` is the point of the exercise:
- * a key left in the address bar ends up in the browser's history, in any bookmark the
- * owner makes, and in a screenshot of the app.
+ * Called once, before the app renders. The `replaceState` is the point of the exercise: a
+ * key left in the address bar ends up in the browser's history, in any bookmark the owner
+ * makes, and in a screenshot of the app.
  */
 export function rememberKeyFromUrl(): void {
   const url = new URL(window.location.href)
@@ -62,55 +114,21 @@ export function rememberKeyFromUrl(): void {
   try {
     window.localStorage.setItem(KEY_STORAGE, pasted)
   } catch {
-    // Nowhere to keep it; the app simply keeps using the pool.
+    // Nowhere to keep it; there is nothing waiting on it either way.
   }
   url.searchParams.delete("gemini_key")
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
 }
 
-/** Whether this open can ask a model at all — a key here, or a proxy in the build. */
-export function hasModel(): boolean {
-  return ENDPOINT !== null || geminiKey() !== null
-}
-
 /**
- * The proxy's answer, which is the model's word forwarded by a server that holds the key
- * (`app/api/greeting.ts`, or any proxy speaking the same shape).
- *
- * It is validated here as well as there, and that is not redundancy for its own sake: the
- * function is one deployment of one contract, the contract is public, and the thing being
- * protected is not the key but the masthead — a word must be one the serif can draw, or
- * the line reads in two typefaces. A proxy that answered with something else costs the
- * reader nothing, because the pool's word is already on screen behind it.
+ * Ask the model for a greeting with a key this browser holds. Not on the greeting's path —
+ * kept for whatever asks for a model next, and deliberately still here rather than deleted,
+ * because the key plumbing (`?gemini_key=…`, `geminiKey`) is the fiddly half and it is
+ * already right. Google's own key documentation is the reason it works the way it does: a
+ * key must not be compiled into a public bundle, so a browser is only ever given one by
+ * whoever is using that browser.
  */
-async function askProxy(endpoint: string, avoid: string[]): Promise<Greeting | null> {
-  try {
-    const answer = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ avoid }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    if (!answer.ok) return null
-    const payload: unknown = await answer.json()
-    // `{ greeting: … }` is the documented shape; the flat object is accepted too, so a
-    // proxy that simply forwards the model's JSON is not a broken proxy.
-    return validateGreeting((payload as { greeting?: unknown } | null)?.greeting ?? payload)
-  } catch {
-    return null
-  }
-}
-
-/**
- * Ask for a greeting, and answer `null` for every way it can go wrong: no key, no proxy,
- * no network, a refusal, a timeout, a word the serif cannot draw. The caller keeps the
- * pool's word in that case, which is what makes this safe to call on every open.
- *
- * The proxy wins when the build has one, because a build that was pointed at a server was
- * pointed there so that nobody needs a key of their own.
- */
-export async function askGreeting(avoid: string[]): Promise<Greeting | null> {
-  if (ENDPOINT !== null) return askProxy(ENDPOINT, avoid)
+export async function askModel(avoid: string[]): Promise<Greeting | null> {
   const key = geminiKey()
   if (key === null) return null
   return askGemini(key, avoid)

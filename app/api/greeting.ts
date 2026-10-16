@@ -1,5 +1,13 @@
 /**
- * POST /api/greeting — the greeting's server half, and the only place a key may live.
+ * POST /api/greeting — the greeting's model, behind a server so a key can live somewhere.
+ *
+ * **Parked, and not deployed by anything today.** The greeting's server is the Worker in
+ * `backend/` now, which draws a row out of the `greetings` table in D1 and needs no key at
+ * all; nothing points here, and the app's `VITE_GREETING_ENDPOINT` is aimed at the Worker.
+ * This file is kept because it is the whole of "ask a model from a server" — the key, the
+ * origin check, the rationing — and that is what a future feature will want to copy. If it
+ * is ever wired up again, it needs `GEMINI_API_KEY` in the host's environment and the app
+ * pointed at it, and nothing else about it has changed.
  *
  * A static build cannot hold a key: whatever is compiled into it is public, and a Google
  * AI Studio key in a public bundle is a key anyone can spend. So the app is pointed at
@@ -32,7 +40,8 @@
  * shared counter) in front of it. A greeting is worth neither, until it is.
  */
 
-import { askGemini, cleanAvoid } from "../src/lib/gemini"
+import { askGemini } from "../src/lib/gemini"
+import { cleanAvoid } from "../src/lib/greetings"
 
 type Environment = {
   /** The deployment's own key. Set it in the host's environment; never in this repository. */

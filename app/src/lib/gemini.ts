@@ -1,10 +1,17 @@
 /**
  * The one question this app asks a model, and the one place its shape is written down.
  *
- * The greeting can come from a model by two different routes, and both of them end here:
- * **the browser**, when the owner has pasted their own key (`lib/hello.ts` keeps it in
- * that browser and nowhere else), and **a server function**, when the key is the
- * deployment's and every visitor is meant to get a model's word (`app/api/greeting.ts`).
+ * **Nothing asks it at the moment, and that is deliberate.** The greeting used to be a
+ * model's word — first from the owner's own key, then from a function holding one for every
+ * visitor — and it is a row drawn out of the `greetings` table in D1 now (`backend/`),
+ * because a greeting is data. This module is kept whole and working for whatever asks a
+ * model next, together with the parked half of `lib/hello.ts` and the key itself, which
+ * lives in a gitignored `.dev.vars` rather than in this repository.
+ *
+ * When something does ask it, there are two routes and both end here: **the browser**, when
+ * the owner has pasted their own key (`lib/hello.ts` keeps it in that browser and nowhere
+ * else), and **a server function**, when the key is the deployment's and every visitor is
+ * meant to get a model's word (`app/api/greeting.ts`).
  * The request is the same either way — `POST /v1beta/interactions`, the key in
  * `x-goog-api-key`, one sentence in and JSON out — and, more to the point, the *answer*
  * has to be judged the same way on both routes, or the two would drift into accepting
@@ -15,9 +22,10 @@
  * Vite-specific stays in `lib/hello.ts`; everything that decides *which* language is
  * spoken stays in `lib/greetings.ts`.
  *
- * Two things it deliberately does not do: choose the language (the pool's word and the
- * list a model is asked to avoid both come from `lib/greetings.ts`), and hold a key (each
- * caller holds its own — the browser's, or the deployment's environment).
+ * Two things it deliberately does not do: choose the language (the word the masthead opens
+ * with and the list a model is asked to avoid both come from `lib/greetings.ts`, which also
+ * cleans that list), and hold a key (each caller holds its own — the browser's, or the
+ * deployment's environment).
  */
 
 import { validateGreeting, type Greeting } from "./greetings"
@@ -33,16 +41,48 @@ export const MODEL = "gemini-3.5-flash-lite"
 export const INTERACTIONS = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
 /**
- * Long enough for a slow phone on a slow network to answer, short enough that the pool's
- * word is already the one being read — this request is a swap, not a wait.
+ * How long a model is given, which is a long time on purpose.
+ *
+ * Nothing waits on this: the pool's word is already on screen and a model's answer only ever
+ * replaces it, so the only thing a short timeout can do is throw away a greeting that
+ * arrived. **Measured against the real API with a real key** (October 2026,
+ * `thinking_level: minimal`): 3.7–9.6 s for this question, with 10–14 s at the model's own
+ * default thinking. The 6 s that stood here before that measurement was discarding answers
+ * that had already been paid for, and 10 s was still cutting the slow tail — hence: long,
+ * because the wait costs the reader nothing.
+ *
+ * On the server route (`app/api/greeting.ts`) the host may kill the function before this
+ * fires. That is not a special case: a platform error is a failed request like any other,
+ * the app keeps the pool's word, and the only cost is the model call nobody saw.
  */
-export const TIMEOUT_MS = 6000
+export const TIMEOUT_MS = 15_000
 
-/** How many languages back a model is told to avoid. The pool's own memory is longer. */
-export const AVOID_MAX = 8
+/**
+ * How much the model is allowed to think before it answers, and the single biggest lever on
+ * this call's latency: the same question took **9–14 s** at the model's own default and
+ * 0.9–2.3 s at `minimal`. It is one word of JSON about a language, which is what `minimal`
+ * is for; `thinking_budget` is the older `generateContent` spelling and is a 400 here.
+ */
+const THINKING = { thinking_level: "minimal" } as const
 
-/** And how long any one of those names may be, so a request cannot carry an essay. */
-const AVOID_LENGTH = 40
+/**
+ * The shape of the answer, as a schema rather than as a request.
+ *
+ * The prompt still shows the model what JSON to write, because an example is the cheapest
+ * way to ask in a one-shot question — but a schema is what makes the answer an object
+ * instead of prose that happens to contain one, and it is why `firstObject` below is a
+ * belt to this pair of braces rather than the only thing standing between a model and the
+ * masthead.
+ */
+const SHAPE = {
+  type: "text",
+  mime_type: "application/json",
+  schema: {
+    type: "object",
+    properties: { word: { type: "string" }, language: { type: "string" }, lang: { type: "string" } },
+    required: ["word", "language", "lang"],
+  },
+} as const
 
 /**
  * What to ask, in one paragraph.
@@ -64,23 +104,6 @@ export function askPrompt(avoid: string[]): string {
       : "Choose any language at all.",
     "Prefer a language with a few million speakers, and one a reader in India would enjoy meeting.",
   ].join(" ")
-}
-
-/**
- * An avoid-list as it arrived, reduced to something a prompt can safely carry.
- *
- * Its caller is a JSON body from the network, so nothing about it is assumed: not that it
- * is an array, not that its entries are strings, not that there are few of them or that
- * any one is short. Whatever survives is a list of language names, which is the only thing
- * the prompt can use.
- */
-export function cleanAvoid(input: unknown): string[] {
-  if (!Array.isArray(input)) return []
-  return input
-    .filter((name): name is string => typeof name === "string")
-    .map((name) => name.trim())
-    .filter((name) => name.length > 0 && name.length <= AVOID_LENGTH)
-    .slice(0, AVOID_MAX)
 }
 
 /** The first JSON object in a string — models fence their answers, or wrap them in a sentence. */
@@ -130,7 +153,13 @@ export async function askGemini(key: string, avoid: string[]): Promise<Greeting 
     const answer = await fetch(INTERACTIONS, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({ model: MODEL, input: askPrompt(avoid), store: false }),
+      body: JSON.stringify({
+        model: MODEL,
+        input: askPrompt(avoid),
+        store: false,
+        generation_config: THINKING,
+        response_format: SHAPE,
+      }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
     if (!answer.ok) return null

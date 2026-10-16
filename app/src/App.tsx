@@ -6,7 +6,7 @@ import { DashboardScreen } from "@/components/DashboardScreen"
 // `import type` is erased, so nothing here fetches them until a tap does.
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
 import type { Props as ScanProps } from "@/components/ScanScreen"
-import { logScannedPayee } from "@/features/upi/logScan"
+import { logPaidPayee, logScannedPayee } from "@/features/upi/logScan"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
@@ -18,8 +18,9 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  *
  * **The greeting is the one thing here that is neither.** It is a different language
  * every time the app is opened — the owner's ask — so it is chosen once per load by
- * `useGreeting`, from the pool in `lib/greetings.ts` and, where there is a key for it,
- * from a model. That is why it is a prop rather than a field of the dashboard model:
+ * `useGreeting`, out of the fifty words in the bundle (`lib/greetings.ts`) and, where the
+ * build has a server, out of the `greetings` table the Worker draws one row from
+ * (`backend/`). That is why it is a prop rather than a field of the dashboard model:
  * the models are the owner's money, derived from their rows, and this is a line of
  * decoration that has to be on screen before anything is derived at all.
  *
@@ -201,7 +202,11 @@ export default function App() {
             theme={theme}
             onToggleTheme={toggleTheme}
             onBack={() => void goTo("dashboard")}
+            // Two ways a scanned code becomes a row, and both are handed in here so the
+            // screen itself never touches the ledger: a code that carried its amount, and
+            // what the money screen collected for one that did not.
             onPayee={logScannedPayee}
+            onPaid={logPaidPayee}
           />
         ) : null}
       </motion.div>

@@ -1,16 +1,28 @@
 /**
  * TrackIt API — Cloudflare Worker.
  *
- * Serves the built PWA from static assets and exposes a small, token-guarded
+ * Serves the built app from static assets and exposes a small, token-guarded
  * JSON API. The primary consumer is an Apple Shortcut on the phone, which can
  * POST a transaction straight into D1 without opening the app.
  *
  *   GET    /api/health            → liveness probe (no auth)
+ *   POST   /api/greeting          → one random hello     (no auth, see below)
  *   POST   /api/expense           → create one expense   (auth)
  *   POST   /api/expenses          → upsert many expenses (auth, used by sync)
  *   GET    /api/expenses          → list expenses        (auth)
  *   DELETE /api/expense/:id       → delete one expense   (auth)
+ *
+ * **`/api/greeting` is the odd one out, and the only route the app itself calls.** The
+ * dashboard's masthead says hello in a different language every open, out of the
+ * `greetings` table below rather than out of any model — the languages are data, the
+ * table is the data, and this route reads one row at random. It carries no token because
+ * there is nothing here to protect: no key, no money, no name — fifty hellos and which
+ * one to draw. It is also the one route whose answer the app can afford to lose, since
+ * the same fifty words ship inside the app (`app/src/lib/greetings.ts`) and are already
+ * on screen before this is asked.
  */
+
+import { GREETINGS, cleanAvoid, type Greeting } from '../app/src/lib/greetings'
 
 export interface Env {
   DB: D1Database
@@ -233,6 +245,119 @@ function ensureSchema(env: Env): Promise<unknown> {
   return schemaReady
 }
 
+/* -------------------------------------------------------------- greetings */
+
+/**
+ * The greetings table: created on first use, and filled whenever a draw finds it empty.
+ *
+ * It exists so that the words are **data rather than a build artifact**. Adding a language,
+ * or correcting a romanization, is one `wrangler d1 execute` against the live database —
+ * no rebuild, no redeploy, and the next app open may draw it. That is the whole reason this
+ * is a table and not an array: the array is already in the app, and the app is what serves
+ * it when this route is not there.
+ *
+ * The seed is the app's own list, imported above rather than copied here, so the fifty in
+ * the database and the fifty in the bundle cannot drift apart. **Seeding is decided by the
+ * draw, not by a flag**: `randomGreeting` fills the table only when a request finds nothing
+ * in it, so a fresh deployment fills it on its first greeting, a table somebody emptied
+ * fills again on the next one, and a word edited in D1 by hand is never overwritten by a
+ * request that found the table full. To put the deployed list back over an edited table,
+ * empty it and ask once:
+ *
+ *   wrangler d1 execute trackit-db --remote --config backend/wrangler.toml \
+ *     --command 'DELETE FROM greetings'
+ */
+let greetingsReady: Promise<unknown> | undefined
+
+/** The table, created once per isolate — the DDL half of `seedGreetings` below. */
+function ensureGreetings(env: Env): Promise<unknown> {
+  greetingsReady ??= env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS greetings (
+      language TEXT PRIMARY KEY,
+      word TEXT NOT NULL,
+      lang TEXT NOT NULL
+    )
+  `)
+    .run()
+    .catch((failure: unknown) => {
+      // A cold start that failed must not poison the instance for as long as it lives:
+      // forget the promise, so the next reader tries the table again.
+      greetingsReady = undefined
+      throw failure
+    })
+  return greetingsReady
+}
+
+/**
+ * The fifty, written over an empty table. `OR REPLACE` on the language key, so running it
+ * twice cannot duplicate a language and cannot half-fill the table.
+ */
+function seedGreetings(env: Env): Promise<unknown> {
+  return env.DB.batch(
+    GREETINGS.map((greeting) =>
+      env.DB.prepare('INSERT OR REPLACE INTO greetings (language, word, lang) VALUES (?, ?, ?)')
+        .bind(greeting.language, greeting.word, greeting.lang),
+    ),
+  )
+}
+
+/**
+ * One row, at random — and never a language the caller has just seen.
+ *
+ * The `avoid` list is what keeps "a different language every open" true even though the
+ * choice is now a roll of the dice rather than a walk through a shuffled list: the app
+ * sends the languages it has shown lately and the query excludes them. If that leaves
+ * nothing to draw — a caller that has seen all fifty — the filter is dropped rather than
+ * the greeting refused, because a repeat is a smaller failure than no word at all.
+ */
+async function pickGreeting(env: Env, avoid: string[]): Promise<Greeting | null> {
+  const draw = async (exclude: string[]): Promise<Greeting | null> => {
+    const columns = 'word, language, lang FROM greetings'
+    const statement = exclude.length
+      ? env.DB.prepare(
+          `SELECT ${columns} WHERE language NOT IN (${exclude.map(() => '?').join(', ')}) ORDER BY RANDOM() LIMIT 1`,
+        ).bind(...exclude)
+      : env.DB.prepare(`SELECT ${columns} ORDER BY RANDOM() LIMIT 1`)
+    const rows = await statement.all<Greeting>()
+    return rows.results[0] ?? null
+  }
+
+  return (await draw(avoid)) ?? (avoid.length > 0 ? draw([]) : null)
+}
+
+/** The request body as JSON, or `null`: a body that is not JSON is an empty avoid-list. */
+async function jsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json()
+  } catch {
+    return null
+  }
+}
+
+async function randomGreeting(request: Request, env: Env): Promise<Response> {
+  const body = await jsonBody(request)
+  const avoid = cleanAvoid((body as { avoid?: unknown } | null)?.avoid)
+
+  try {
+    await ensureGreetings(env)
+    // `null` here means one thing only — the table is empty — because `pickGreeting` drops
+    // its filter rather than coming back with nothing. So this is where a fresh database,
+    // and a table somebody emptied, get the fifty.
+    let greeting = await pickGreeting(env, avoid)
+    if (greeting === null) {
+      await seedGreetings(env)
+      greeting = await pickGreeting(env, avoid)
+    }
+    if (greeting === null) return error('No greetings are stored.', 503)
+    return json({ greeting })
+  } catch {
+    // Whatever went wrong, the answer is the same one the app uses for every other
+    // failure: it keeps the word it is already showing, which came out of its own copy of
+    // the fifty. Nothing here is worth an error state on a masthead.
+    return error('The greetings table could not be read.', 503)
+  }
+}
+
 /* ----------------------------------------------------------------- routes */
 
 async function createExpense(request: Request, env: Env): Promise<Response> {
@@ -320,6 +445,13 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
 
   if (pathname === '/api/health') {
     return json({ ok: true, service: 'trackit' })
+  }
+
+  if (pathname === '/api/greeting') {
+    if (request.method !== 'POST') return error('POST only.', 405)
+    // Before the token check, and deliberately: this is the one route that is not the
+    // Shortcut's, the only one the app calls, and the only one with nothing to guard.
+    return randomGreeting(request, env)
   }
 
   if (!isAuthorized(request, env)) {
