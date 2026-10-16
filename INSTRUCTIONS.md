@@ -99,9 +99,14 @@ left out and why.
   them together with the comment that says where they came from.
 - **The column is 390px and centred.** It is a phone design; it is centred rather than
   stretched, and it keeps the artboard's 24/16/32 padding.
-- **A screen starts at its own top.** Both ways in are pressed from down a long
-  column, so `goTo` in `App.tsx` resets the scroll — instantly, because the cross-fade
-  is what carries the change.
+- **A screen starts at its own top.** The way back is pressed from the foot of the
+  ledger's rows and either screen scrolls on a short window, so `goTo` in `App.tsx`
+  resets the scroll — instantly, because the cross-fade is what carries the change.
+- **The ledger is opened from the dashboard header's circle**, beside the theme toggle;
+  the artboard's "See all" button has been taken out of the recent card, where it was a
+  second door to the same room. That circle carries `ArrowDownUp` because it is the
+  control the owner pointed at — the glyph is what to change first if it reads as
+  "swap".
 - **The wheel's geometry is the artboard's**, not a tuning: radius 800, one fifteenth
   of the arc per capsule, `rotY(−9°·n)`, scales 1.15/1/0.9/0.78/0.7, opacity
   1/0.6/0.6/0.3/0, and only ±3 reachable. The gesture is too: 60px per step, up to
@@ -128,20 +133,29 @@ left out and why.
   wallet) come from `lucide-react`. `RowIcon` treats one string as either, which is only
   safe because no face name is also a category id — check `categories.ts` before adding
   one.
-- **Neue Haas Grotesk is the face**, with **Helvetica Neue deliberately absent** from
+- **Neue Haas Grotesk is the sans**, with **Helvetica Neue deliberately absent** from
   the stacks: the trial faces carry 74 glyphs, so `%`, `/`, `:`, `+`, `·`, `−` and `₹`
   come from the next family, and naming Helvetica Neue is what made a Neue Haas screen
   read as Helvetica on a Mac. The trial's EULA forbids web embedding; the owner has
   chosen to ship it on their personal site anyway, and the licence travels beside the
   files. `tools/vendor-neue-haas.py` is what converts them.
+- **The greeting is Bodoni, not the artboard's Playfair Display.** The owner asked for
+  Bodoni; `tools/vendor-bodoni.py` vendors Google's Bodoni Moda (OFL, variable on the
+  optical-size axis) and it is the only thing in the app that departs from the
+  artboards' own type. If a serif question comes up again, that is the face to extend
+  rather than swapping in a third.
 - **Panels the design does not draw are the app's own, and wear the app's clothes.**
-  *Your history* (import/export) and the scan sheet are not in either artboard, so
-  they are built from the same tokens — 48px circles with a hairline in a header,
-  `bg-clay text-on-clay` for the primary action, 20px radii — and they follow the
-  theme like everything else. `scan.module.css` maps the previous app's token names
-  (`--bg-color`, `--accent-yellow`, …) onto the current ten roles rather than
-  restating colours, which is what keeps the pay sheet (kept for the flow that is not
-  built yet) already themed.
+  The scan sheet is not in either artboard, so it is built from the same tokens — 48px
+  circles with a hairline in a header, `bg-clay text-on-clay` for the primary action,
+  20px radii — and it follows the theme like everything else. `scan.module.css` maps the
+  previous app's token names (`--bg-color`, `--accent-yellow`, …) onto the current ten
+  roles rather than restating colours, which is what keeps the pay sheet (kept for the
+  flow that is not built yet) already themed.
+- **Import and export are written and unwired.** `components/DataSheet.tsx` is whole —
+  the file input, the two exports, the two-tap clear, the report wording — and nothing
+  mounts it, because the owner is placing it themselves. `useLedger` still exposes
+  `importHistory` and `clear`; do not delete either as dead code, and do not "fix" the
+  missing entry point by inventing a new one without asking.
 - **The UPI scanner logs a row, it does not pay.** A code that carries an amount is
   logged under **Wallet - OneClick record**; one without says so instead of guessing.
   Nothing hands a `upi://` link to another app yet, and the pay sheet is a screen this
@@ -170,8 +184,8 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
 | The wheel | a real mouse drag (−130px ⇒ +2 days), the ±3 clamp, the 24px threshold, the arrow keys, and the spring settling |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
-| The importer | a real file through the file input; the report's words; the stored row count; and the balance worked out from the stored rows by hand |
-| The scanner or *Your history* | both themes, since neither is in the artwork |
+| The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
+| The scanner | both themes, since it is not in the artwork |
 
 `app/design/` is what to compare against when the question is "has a design feature
 been lost or changed".

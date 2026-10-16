@@ -26,7 +26,8 @@
  *
  * Display sets the headings and the money figures — it is cut tighter for
  * large sizes, which is what the artboards ask for at 28–44px. Text sets
- * everything else, paragraphs down to the small letterspaced labels.
+ * everything else, paragraphs down to the small letterspaced labels, and the
+ * greeting alone is a serif (Bodoni, below).
  *
  * Both stacks name Neue Haas Grotesk first and then step outward: the "… Pro"
  * spellings the artboards use, for a machine that has the collection installed,
@@ -78,14 +79,22 @@
 }
 
 /*
- * Playfair Display, the greeting's face. The dashboard artboard loads it from
- * fonts.googleapis.com; this app vendors it instead — one latin cut at 400 —
- * so the screen carries its own typeface and keeps the OFL that travels with
- * it (src/assets/fonts/playfair-display-OFL.txt). Only the greeting uses it.
+ * Bodoni Moda, the greeting's face — the one serif in the app.
+ *
+ * The dashboard artboard sets its greeting in Playfair Display and the owner
+ * asked for Bodoni instead: a Didone, where the contrast between the thick stems
+ * and the hairline serifs is the point, so the line reads as a masthead rather
+ * than as the same sans at a larger size. It arrives from Google's CSS API as the
+ * variable face — one latin cut, 26 KiB, carrying the `opsz` axis and not the
+ * weight one, because the greeting is only ever 400 — which is what lets the
+ * browser pick the display cut for 28px and a text cut for anything smaller
+ * without a second file. `tools/vendor-bodoni.py` writes it and the OFL beside
+ * it (src/assets/fonts/bodoni-moda-OFL.txt); the artboards' own value is the only
+ * thing this departs from, and it departs from it deliberately.
  */
 @font-face {
-  font-family: "Playfair Display";
-  src: url("./assets/fonts/playfair-display-400.woff2") format("woff2");
+  font-family: "Bodoni Moda";
+  src: url("./assets/fonts/bodoni-moda-400.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -139,8 +148,8 @@
   --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
   /* Headings and the money figures. Its two cuts are Medium and Bold. */
   --font-display: "Neue Haas Grotesk Display", "Neue Haas Grotesk Display Pro", Helvetica, Arial, sans-serif;
-  /* The greeting, and nothing else. */
-  --font-serif: "Playfair Display", Georgia, serif;
+  /* The greeting, and nothing else. Its optical size follows the font size. */
+  --font-serif: "Bodoni Moda", "Bodoni 72", Didot, "Times New Roman", Georgia, serif;
 }
 
 /*

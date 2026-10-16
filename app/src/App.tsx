@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from "framer-motion"
 import { useCallback, useMemo, useState } from "react"
 
 import { DashboardScreen } from "@/components/DashboardScreen"
-import { DataSheet } from "@/components/DataSheet"
 import { LedgerScreen } from "@/components/LedgerScreen"
 import { ScanSheet } from "@/components/ScanSheet"
 import { useLedger } from "@/hooks/useLedger"
@@ -29,25 +28,28 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * ends on, and `ledgerModel` builds the fortnight behind it. With no anchor the
  * window ends on the newest row, which is what the owner came to see.
  *
- * **Where a screen starts.** At its top, every time. Both ways in are pressed from
- * somewhere down a long column — "See all" sits at the foot of the dashboard, and
- * the ledger's back button is under a day's rows — and the browser would otherwise
- * hand the new screen the old one's scroll offset, opening the ledger halfway down
- * a day the owner has not seen yet. `scrollTo` is instant rather than smooth on
- * purpose: this is not a movement the owner asked for, and the cross-fade is what
- * carries the change of screen.
+ * **Where a screen starts.** At its top, every time. The way back is pressed from
+ * the foot of the ledger's rows, and on a short window either screen scrolls, so the
+ * browser would otherwise hand the new one the old one's scroll offset — the dashboard
+ * opening halfway down its cards, or the ledger past a day the owner has not seen.
+ * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
+ * owner asked for, and the cross-fade is what carries the change of screen.
  *
- * The two panels are the app's, not the design's — a dialog is a dialog, and Radix
- * is what makes it one — and they are opened from the dashboard's header, which is
- * why they are mounted here rather than inside a screen.
+ * The scan sheet is the app's, not the design's — a dialog is a dialog, and Radix is
+ * what makes it one — and it is opened from the dashboard's scan square, which is why
+ * it is mounted here rather than inside a screen.
+ *
+ * **The ledger is opened from the header's circle**, and importing is not reachable
+ * from the UI at all at the moment: `components/DataSheet.tsx` is written and unwired,
+ * waiting for the owner to place it. The import path behind it (`useLedger`'s
+ * `importHistory`) still works the moment something calls it.
  */
 export default function App() {
   const { theme, toggleTheme } = useTheme()
-  const { rows, budgets, importHistory, clear } = useLedger()
+  const { rows, budgets } = useLedger()
   const [view, setView] = useState<"dashboard" | "ledger">("dashboard")
   /** The day the wheel's window ends on; `undefined` means "the newest row". */
   const [anchor, setAnchor] = useState<number | undefined>(undefined)
-  const [dataOpen, setDataOpen] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
 
   /** Change screens, whichever way, and start the new one at its own top. */
@@ -86,9 +88,8 @@ export default function App() {
               model={dashboard}
               theme={theme}
               onToggleTheme={toggleTheme}
-              onSeeAll={() => goTo("ledger")}
+              onOpenLedger={() => goTo("ledger")}
               onScan={() => setScanOpen(true)}
-              onOpenData={() => setDataOpen(true)}
             />
           ) : (
             <LedgerScreen
@@ -101,14 +102,6 @@ export default function App() {
           )}
         </motion.div>
       </AnimatePresence>
-
-      <DataSheet
-        open={dataOpen}
-        onOpenChange={setDataOpen}
-        rows={rows}
-        onImport={importHistory}
-        onClear={clear}
-      />
 
       {scanOpen && <ScanSheet onClose={() => setScanOpen(false)} />}
     </>

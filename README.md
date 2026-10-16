@@ -33,7 +33,9 @@ two round header controls; the balance card, which owns the month's cash flow; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
 side, the envelope gauge (twenty segments and a needle at the same percentage as
-the pill above it), and the recent rows, whose "See all" opens the ledger.
+the pill above it), and the recent rows. The ledger is opened from the header's
+second circle, beside the theme toggle; the artboard's own "See all" button is gone
+from the recent card, where it would have been a second door to the same room.
 
 **The ledger** is one day, chosen on a wheel. The wheel is a circle of radius 800
 turned on its side: every capsule is drawn at `translate(800·sin θ, 800·(1 − cos θ))
@@ -66,17 +68,22 @@ screen never flashes dark.
 
 ## Importing, and where the rows live
 
-The header's second circle opens **Your history**: import a file, export JSON or CSV,
-or start over. The importer reads `src/lib/history.ts` — Wallet's own PouchDB backup
-(the owner's real export), this app's own JSON, or the JSON other trackers write —
-skips internal transfers, keeps income as income, and reuses each document's own id
-so importing the same backup twice changes nothing. Rows are paise, integer
-throughout, and the CSV divides by 100 once, at the edge.
+The importer reads `src/lib/history.ts` — Wallet's own PouchDB backup (the owner's real
+export), this app's own JSON, or the JSON other trackers write — skips internal
+transfers, keeps income as income, and reuses each document's own id so importing the
+same backup twice changes nothing. Rows are paise, integer throughout, and the CSV
+divides by 100 once, at the edge.
+
+**It has no way in from the UI at the moment.** The panel that drives it
+(`src/components/DataSheet.tsx`) is written and unwired while the owner decides where
+it belongs — so today the app cannot take a file, and both screens stay on the
+artboards' own content until something calls `useLedger`'s `importHistory`. Wiring it
+back up is one piece of state and two props.
 
 Everything imported is kept in `localStorage` under `trackit-ledger`
-(`src/lib/ledger.ts`), which is the app's only storage. An import of the owner's four
-months of history is 122 rows and 1 envelope; a browser that refuses storage costs a
-remembered row, never the page.
+(`src/lib/ledger.ts`), which is the app's only storage, so a ledger imported by an
+earlier build still shows. An import of the owner's four months of history is 122 rows
+and 1 envelope; a browser that refuses storage costs a remembered row, never the page.
 
 `tools/wallet-import.py` predates the in-app importer and is still the owner of two
 tables the app reads: it writes `src/lib/categories.ts` (every category, with Wallet's
@@ -90,7 +97,11 @@ and re-run it rather than editing either file by hand.
 The design is set in **Neue Haas Grotesk**: Display for the headings and the money
 figures, Text for everything else, both vendored as woff2 in `app/src/assets/fonts/`
 (the conversion and the trial licence are in `tools/vendor-neue-haas.py` and beside
-the files). Two things about the stacks are deliberate:
+the files). The one serif is the greeting, and it is **Bodoni Moda** (Google's
+variable Bodoni, OFL) rather than the artboard's Playfair Display — the owner asked
+for Bodoni, `tools/vendor-bodoni.py` vendors it, and its optical size follows the
+font size so 28px gets the display cut. Two things about the sans stacks are
+deliberate:
 
 - **Helvetica Neue is not in them.** The trial faces carry 74 glyphs — letters,
   digits, space and a handful of punctuation — so `%`, `/`, `:`, `+`, `·`, the true
@@ -100,8 +111,7 @@ the files). Two things about the stacks are deliberate:
 - **The licence is a trial's.** Its EULA forbids web embedding (`@font-face`) and
   redistribution without a separate web licence. The owner has chosen to publish it on
   their personal site anyway. Buy the web licence, or drop the files, before the site
-  is shared more widely. (Playfair Display, the greeting's serif, is OFL and travels
-  with its licence beside it.)
+  is shared more widely. (Bodoni Moda is OFL and travels with its licence beside it.)
 
 ## Scanning a UPI code
 
@@ -152,7 +162,7 @@ app/                    the whole product — one Vite app
       derive.ts         rows → both screens' models
       demo.ts           the artboards' own content, before an import
       view.ts           the two models, one shape for both sources
-      format.ts         rupees, clocks, "Yesterday"
+      format.ts         rupees, clocks, "Yesterday" (the greeting's face is Bodoni)
       categories.ts     the owner's category tree (written by tools/)
       category-icons.tsx, accounts.ts, owner.ts
   design/               see above
@@ -166,5 +176,6 @@ Working: both screens in both themes, the wheel's drag/keys/springs, the month m
 that reaches past the wheel's fifteen-day window, the Wallet import and both exports,
 the scanner, and the Pages deploy. Not built yet: the UPI pay sheet, per-account
 balances on screen (the accounts are known and used, but only their sum is drawn), and
-savings goals. The app is no longer a service-worker PWA — the previous one was
-retired with its design.
+savings goals. Import and export are implemented but **unwired** — the owner is placing
+that panel themselves, which is why no screen opens it. The app is no longer a
+service-worker PWA — the previous one was retired with its design.

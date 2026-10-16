@@ -115,9 +115,13 @@ export type DashboardModel = {
     /** The other envelopes, as the artboard's little pills say them. */
     chips: string[]
   }
+  /**
+   * What just happened. There is no "See all" action here on purpose: the ledger
+   * is opened from the dashboard's header now, so the card holds the rows and
+   * nothing else.
+   */
   recent: {
     title: string
-    action: string
     rows: { id: string; title: string; sub: string; amount: string }[]
   }
 }

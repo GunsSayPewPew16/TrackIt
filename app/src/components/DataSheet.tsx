@@ -8,11 +8,12 @@ import type { Row } from "@/lib/types"
 /**
  * Where a history comes in and goes out.
  *
- * The two screens the design draws have no room for this, and it is not decoration:
- * the app is driven by the owner's Wallet export, so there has to be one place that
- * takes the file and one that hands the ledger back. It lives behind the second
- * 48px circle in the dashboard's header — the same treatment as the theme toggle,
- * so the header still reads as the artboard's.
+ * **Not mounted at the moment.** The owner has taken it out of the UI while they
+ * decide where it belongs — the header's second 48px circle now opens the ledger — so
+ * nothing renders this panel today. It is kept whole because the import is not
+ * decoration: the app is driven by the owner's Wallet export, and the panel is the only
+ * place that takes the file. Wiring it up again is one state hook and one `onImport` /
+ * `onClear` in `App.tsx` (see `useLedger`, which still exposes both).
  *
  * The arrangement is deliberate, and it is the one the previous design arrived at:
  * **importing is the primary action** (it is the rare, hard-to-undo direction),

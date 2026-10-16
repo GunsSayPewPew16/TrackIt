@@ -378,7 +378,6 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
     envelope: envelope(rows, budgets, monthSpent, now),
     recent: {
       title: "Recent transactions",
-      action: "See all",
       rows: recent.map((row) => ({
         id: row.id,
         title: row.title || categoryFor(row.category).label,

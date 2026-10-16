@@ -193,5 +193,5 @@ export const DEMO_DASHBOARD: DashboardModel = {
     pct: 40,
     chips: ["GROCERIES: 80% FULL", "DINING: 62% FULL", "TRANSIT: 35% FULL"],
   },
-  recent: { title: "Recent transactions", action: "See all", rows: DEMO_RECENT },
+  recent: { title: "Recent transactions", rows: DEMO_RECENT },
 }
