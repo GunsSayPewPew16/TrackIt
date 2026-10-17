@@ -26,6 +26,10 @@ export type LedgerCard = {
   amount: string
   /** The row's clock, `8:05 AM`. */
   time: string
+  /** The account the row moved through, by its name: `UPI` or `Cash`. */
+  account: string
+  /** Initials of the person or merchant paid, for the face at the top of the card: `CP`. */
+  payee: string
   /** How much of the category's budget this row's category has used, 0–100. */
   pct: number
   /** The same figure as the card prints it, `62%`. */

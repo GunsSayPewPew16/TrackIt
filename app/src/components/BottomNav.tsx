@@ -21,8 +21,8 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  * shape holds on every tab, through every slide and at every width the phone allows.
  *
  * **Icons, not labels.** Each slot is one 28px mark, its name kept as the button's
- * accessible name. The marks change ink the instant the circle arrives: `transition-none`
- * is what stops them fading between the two inks.
+ * accessible name. The marks change ink on the same 0.35s ease as every other piece of text,
+ * so a theme change repaints the whole page as one.
  *
  * **The tabs.** Home, Ledger, Stats and Profile, in that order. Profile has no screen yet,
  * so it is a placeholder: its tap does nothing but tick. Stats is the analytics screen.
@@ -114,8 +114,8 @@ function useWidth<T extends HTMLElement>() {
   return [ref, width] as const
 }
 
-/** A slot's icon: one mark, 28px, centred in its slot. `transition-none` keeps it from fading. */
-const iconClass = "absolute top-1/2 left-1/2 z-[2] size-7 -translate-x-1/2 -translate-y-1/2 transition-none"
+/** A slot's icon: one mark, 28px, centred in its slot. */
+const iconClass = "absolute top-1/2 left-1/2 z-[2] size-7 -translate-x-1/2 -translate-y-1/2"
 
 interface BottomNavProps {
   /** The screen on show. `null` (the scanner) leaves the circle where it was. */

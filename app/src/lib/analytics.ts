@@ -1,5 +1,5 @@
 import { OPENING_BALANCE_CENTS } from "./accounts"
-import { CATEGORY_GROUPS, categoryFor, groupLabel } from "./categories"
+import { categoryFor, groupLabel } from "./categories"
 import { MONTHLY_BUDGET_CENTS } from "./derive"
 import { addDays, localDayKey, startOfDay, startOfMonth, startOfNextMonth } from "./format"
 import type { Row } from "./types"
@@ -16,6 +16,17 @@ export const HEAT_WEEKS = 10
 export const ALLOCATION_MONTHS = 12
 /** How many groups get their own colour in the allocation; the rest are one grey band. */
 const TOP_GROUPS = 4
+
+/**
+ * The allocation's colours: the app's own muted data tokens, not Wallet's saturated group paint.
+ * The biggest groups take these in order; everything past them is "Other".
+ */
+const ALLOCATION_COLOURS = [
+  "var(--data-red)",
+  "var(--data-gold)",
+  "var(--data-teal)",
+  "color-mix(in oklab, var(--ink) 55%, var(--card))",
+]
 
 export interface HeatCell {
   key: string
@@ -194,7 +205,7 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
   const segments: AllocationSegment[] = named.map((group) => ({
     key: group,
     label: groupLabel(group),
-    color: CATEGORY_GROUPS.find((g) => g.id === group)?.color ?? "var(--ink2)",
+    color: ALLOCATION_COLOURS[named.indexOf(group)] ?? "var(--ink2)",
   }))
   if (hasOther) segments.push({ key: "other", label: "Other", color: "var(--ink2)" })
 

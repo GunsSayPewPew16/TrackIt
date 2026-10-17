@@ -42,7 +42,7 @@ export function AnalyticsScreen({ rows, theme, onToggleTheme }: Props) {
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="mx-auto flex w-full max-w-[390px] flex-col gap-4 p-4 pt-6"
+      className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pt-6 pb-nav"
     >
       <motion.header variants={rise} className="flex items-start justify-between">
         <h1 className="font-serif text-[28px] leading-8 tracking-[-0.01em]">

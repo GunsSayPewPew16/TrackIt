@@ -186,6 +186,16 @@
 }
 
 /*
+ * Every `transition-*` utility takes the page's one speed. Tailwind's defaults are 150ms and
+ * its own curve, and a utility outranks the reset above, so without these a utility-driven
+ * colour would finish before the rest of the page had started.
+ */
+@theme {
+  --default-transition-duration: 350ms;
+  --default-transition-timing-function: ease;
+}
+
+/*
  * `inline` is what makes the swap work: each utility is written against the
  * variable, not against a copy of its value, so changing `data-theme` repaints
  * without a rebuild or a second stylesheet.

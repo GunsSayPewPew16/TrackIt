@@ -16,6 +16,8 @@ const EVERY = 5
 /** A flat month still gets a scale of this many paise to draw in. */
 const MIN_RANGE = 10_000
 const SPRING = { type: "spring", stiffness: 300, damping: 30 } as const
+/** While a finger or pointer is down the markers sit exactly on the line, with no spring to lag or overshoot. */
+const INSTANT = { duration: 0 } as const
 
 /** Catmull-Rom spline converted to cubic Béziers: smooth, and it passes through every point. */
 function splinePath(pts: { x: number; y: number }[]): string {
@@ -54,6 +56,10 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
   }, [])
 
   const [idx, setIdx] = useState(today)
+  const [dragging, setDragging] = useState(false)
+  /** Where the marker sits on the drawn line, in plot coordinates. `null` until a pointer or key moves it. */
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
+  const pathRef = useRef<SVGPathElement>(null)
   const focusIndex = Math.min(idx, today)
 
   // The scale: the drawn range with 6% air above and below it, and a minimum span so a flat
@@ -76,18 +82,42 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
     setIdx(next)
     lightTap() // a light click each time the focus snaps to a new day
   }
+  /**
+   * The point on the drawn line at a given x. The curve is monotonic in x, so a bisection on its
+   * length lands on the exact point the line passes through, not a day's point beside it.
+   */
+  const pointAtX = (px: number) => {
+    const path = pathRef.current
+    if (!path) return null
+    let lo = 0
+    let hi = path.getTotalLength()
+    for (let step = 0; step < 32; step++) {
+      const mid = (lo + hi) / 2
+      if (path.getPointAtLength(mid).x < px) lo = mid
+      else hi = mid
+    }
+    const at = path.getPointAtLength((lo + hi) / 2)
+    return { x: at.x, y: at.y }
+  }
+
   const fromPointer = (e: PointerEvent) => {
     const r = plot.current!.getBoundingClientRect()
-    focus(Math.round(((e.clientX - r.left) / r.width) * (dayCount - 1)))
+    const px = Math.max(0, Math.min(xOf(today), e.clientX - r.left))
+    setCursor(pointAtX(px))
+    // The nearest day drives the labels, the aria value and the light tick; the marker itself does not snap.
+    focus(Math.round(px / xOf(1)))
   }
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "ArrowRight") focus(focusIndex + 1)
     if (e.key === "ArrowLeft") focus(focusIndex - 1)
+    // A key puts the marker back on a day's own point.
+    setCursor(null)
   }
 
-  const p = pts[focusIndex]
+  const p = cursor ?? pts[focusIndex]
   const bubbleX = Math.max(30, Math.min(width - 30, p.x))
-  const focusedCents = model.days[focusIndex].cents as number
+  // The scale run backwards: the height of the marker on the line is the money it stands for.
+  const focusedCents = cursor ? low + ((H - cursor.y) / H) * (high - low) : (model.days[focusIndex].cents as number)
   const month = new Date(now).toLocaleDateString("en-US", { month: "long" })
 
   // The labels: every fifth day from the 1st, which is what the card writes under the line.
@@ -122,12 +152,19 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
           onKeyDown={onKey}
           onPointerDown={(e) => {
             pressed.current = true
+            setDragging(true)
             e.currentTarget.setPointerCapture(e.pointerId)
             fromPointer(e)
           }}
           onPointerMove={(e) => pressed.current && fromPointer(e)}
-          onPointerUp={() => (pressed.current = false)}
-          onPointerCancel={() => (pressed.current = false)}
+          onPointerUp={() => {
+            pressed.current = false
+            setDragging(false)
+          }}
+          onPointerCancel={() => {
+            pressed.current = false
+            setDragging(false)
+          }}
           className="relative h-full min-w-0 flex-1 touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ink"
         >
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} className="absolute left-0 overflow-visible" style={{ top: TOP }} aria-hidden>
@@ -143,6 +180,7 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
             ))}
             <path d={AREA} fill={`url(#${gradId})`} />
             <motion.path
+              ref={pathRef}
               d={LINE}
               fill="none"
               strokeWidth={1.5}
@@ -160,21 +198,21 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
             className="absolute w-2 -translate-x-1/2 bg-gradient-to-b from-data-gold/70 to-data-gold/0"
             initial={false}
             animate={{ left: p.x, top: TOP + p.y, height: H - p.y }}
-            transition={SPRING}
+            transition={dragging ? INSTANT : SPRING}
           />
           <motion.span
             aria-hidden
             className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink bg-card"
             initial={false}
             animate={{ left: p.x, top: TOP + p.y }}
-            transition={SPRING}
+            transition={dragging ? INSTANT : SPRING}
           />
           <motion.span
             aria-hidden
             className="absolute top-0 -translate-x-1/2 rounded-full bg-black px-2 text-[10px] leading-5 font-bold tracking-[0.01em] whitespace-nowrap text-[#F4F0EA]"
             initial={false}
             animate={{ left: bubbleX }}
-            transition={SPRING}
+            transition={dragging ? INSTANT : SPRING}
           >
             {money(focusedCents)}
           </motion.span>

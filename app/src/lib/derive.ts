@@ -106,6 +106,17 @@ function tagOf(row: Row, style: "std" | "alt" | "inc"): string {
   return categoryFor(row.category).label
 }
 
+/**
+ * The initials of a name: the first letter of its first two words (`Chai Point` → `CP`), or the
+ * first two letters of a single word (`Blinkit` → `BL`).
+ */
+export function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ""
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)
+  return letters.toUpperCase()
+}
+
 /** One row as the ledger draws it. */
 function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, number>, budgets: Budget[]): LedgerCard {
   const category = categoryFor(row.category)
@@ -128,6 +139,8 @@ function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, nu
     tag: row.tag ?? tagOf(row, style),
     amount: signedMoney(row.amountCents, row.kind),
     time: clock(row.at),
+    account: accountFor(row.account).name,
+    payee: initialsOf(row.title || category.label),
     pct,
     pctLabel: `${pct}%`,
     pctAria,

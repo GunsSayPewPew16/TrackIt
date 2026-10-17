@@ -1,5 +1,5 @@
 import { motion } from "framer-motion"
-import { Check, ChevronDown, Plus } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { DropdownMenu } from "radix-ui"
 import { useState } from "react"
 
@@ -103,17 +103,23 @@ function Card({ card, index }: { card: LedgerCard; index: number }) {
             {initials}
           </span>
         ))}
-        <span className="flex size-8 items-center justify-center rounded-2xl border-2 border-canvas bg-card text-ink">
-          <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />
+        {/* The person or merchant paid, as initials in the text face. */}
+        <span
+          aria-hidden="true"
+          className="flex size-8 items-center justify-center rounded-full border-2 border-canvas bg-card font-sans text-[10px] font-bold leading-4 text-ink"
+        >
+          {card.payee}
         </span>
       </div>
 
-      {/* How far into the category's budget this row is. */}
-      <div
-        role="img"
-        aria-label={card.pctAria}
-        className="absolute right-0 top-2 flex h-4 items-center gap-2"
-      >
+      {/* The account the row moved through, then how far into the category's budget it is. */}
+      <div className="absolute right-0 top-2 flex h-4 items-center gap-2">
+        <span className="text-[10px] leading-4 tracking-[0.01em] text-ink2">{card.account}</span>
+        <span
+          role="img"
+          aria-label={card.pctAria}
+          className="flex items-center gap-2"
+        >
         <span className="relative h-1 w-14 rounded-xs bg-line">
           <span
             className={`absolute left-0 top-0 h-1 rounded-xs ${skin.bar}`}
@@ -121,7 +127,8 @@ function Card({ card, index }: { card: LedgerCard; index: number }) {
             style={{ width: `${card.pct}%` }}
           />
         </span>
-        <span className="text-ink2">{card.pctLabel}</span>
+          <span className="text-ink2">{card.pctLabel}</span>
+        </span>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 top-10 flex items-center justify-between p-4">

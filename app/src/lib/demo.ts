@@ -16,6 +16,7 @@
  * replaces it the moment there is something real to show.
  */
 
+import { initialsOf } from "./derive"
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
 import type { CardStyle, Kind } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
@@ -113,6 +114,9 @@ function cardFor(sample: Sample, day: number, index: number): LedgerCard {
     tag: sample.tag,
     amount: signedMoney(paise(sample.rupees), kind),
     time: sample.time,
+    // The artboard's samples are all drawn from the primary account.
+    account: "UPI",
+    payee: initialsOf(sample.title),
     pct: sample.pct,
     pctLabel: `${sample.pct}%`,
     // The artboard's own words for the bar.
