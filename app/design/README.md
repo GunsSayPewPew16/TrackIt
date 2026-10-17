@@ -15,7 +15,9 @@ from:
   virtual scroll offset, the inertia snapping to the capsule pitch, the light haptic,
   the keyboard and the focus behaviour — rebuilt in this app's tokens (`--pill` and
   `--pill-ink` are its two additions to the palette) and against this app's own model
-  of fifteen days rather than its twelve mock transactions.
+  of the owner's month rather than its twelve mock transactions — its own date array
+  runs the whole month (the 1st to today), and so does the app's, which is why the
+  wheel's older fifteen-day window is gone.
 
 They are **reference, not build input**: nothing imports them, Vite never sees
 them, and they are excluded from the deploy (only `app/dist` is published). They

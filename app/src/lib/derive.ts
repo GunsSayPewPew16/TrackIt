@@ -49,9 +49,6 @@ import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
  */
 export const MONTHLY_BUDGET_CENTS = 150000
 
-/** How wide the wheel's window is — the artboard draws fifteen capsules. */
-const WHEEL_DAYS = 15
-
 /** The sparkline's own box, from the artboard: points are written into 174×56. */
 const SPARK = { width: 174, height: 56, steps: 15, top: 8, bottom: 48 }
 
@@ -162,22 +159,32 @@ function monthsWithRows(rows: Row[]): { key: string; label: string; anchor: numb
 }
 
 /**
- * The ledger screen: a window of days ending on the anchor, each with its cards.
- * The window is whole days rather than "days with rows", because the wheel is a
+ * The ledger screen: the month the anchor falls in, **every day of it**, each with its
+ * cards. The window is whole days rather than "days with rows", because the wheel is a
  * calendar — a day the owner spent nothing on is a day, not a gap.
  *
- * The anchor defaults to the day of the **newest row**, not to today: opening the
- * ledger on a day nothing happened yet would be a poor first look, and the newest
- * row is what the owner came to see. Picking a month from the menu moves the
- * window (see `LedgerModel.months`).
+ * **It runs from the month's 1st.** It used to be a fifteen-day window, which meant the
+ * first of the month was simply not reachable by dragging — the owner's newer date
+ * container is a month, and the month menu is what reaches the months behind it. The
+ * ongoing month stops at **today**, because a day that has not happened yet is not a day
+ * to scroll to; a month in the past runs to its own last day.
+ *
+ * The anchor defaults to the day of the **newest row**, not to today: opening the ledger
+ * on a day nothing happened yet would be a poor first look, and the newest row is what
+ * the owner came to see. That day is also the capsule the wheel opens on, so `selected`
+ * is an index into the month rather than a fixed seat at its end.
  */
 export function ledgerModel(rows: Row[], budgets: Budget[] = [], anchor?: number): LedgerModel {
   const newest = newestFirst(rows)[0]
-  const lastDay = startOfDay(anchor ?? newest?.at ?? Date.now())
-  const firstDay = addDays(lastDay, -(WHEEL_DAYS - 1))
+  const anchorDay = startOfDay(anchor ?? newest?.at ?? Date.now())
 
-  const monthStart = startOfMonth(lastDay)
-  const monthRows = inWindow(rows, monthStart, startOfNextMonth(lastDay))
+  const monthStart = startOfMonth(anchorDay)
+  const monthEnd = startOfNextMonth(anchorDay)
+  const today = startOfDay(Date.now())
+  // The ongoing month stops at today; one behind us runs to its last day.
+  const lastDay = Math.max(monthStart, monthEnd > today ? today : addDays(monthEnd, -1))
+
+  const monthRows = inWindow(rows, monthStart, monthEnd)
   const monthSpend = sum(monthRows.filter(isExpense))
 
   // How each category stands this month, in one pass: the bars are per category.
@@ -189,17 +196,16 @@ export function ledgerModel(rows: Row[], budgets: Budget[] = [], anchor?: number
 
   const days = new Map(byDay(rows))
   const window: LedgerDay[] = []
-  for (let index = 0; index < WHEEL_DAYS; index += 1) {
-    const at = addDays(firstDay, index)
+  for (let at = monthStart; at <= lastDay; at = addDays(at, 1)) {
     const held = days.get(localDayKey(at)) ?? []
     window.push({ at, cards: held.map((row) => cardOf(row, monthSpend, monthCategorySpend, budgets)) })
   }
 
   return {
     days: window,
-    // The anchor is the last capsule: it holds what just happened, or the newest
-    // thing in the month the owner picked.
-    selected: WHEEL_DAYS - 1,
+    // The anchor's own day, clamped into the month the window actually holds — which is
+    // what puts the wheel on what just happened rather than on the 1st.
+    selected: Math.max(0, Math.min(window.length - 1, new Date(anchorDay).getDate() - 1)),
     emptyNote: "Nothing logged on this day.",
     months: monthsWithRows(rows),
   }

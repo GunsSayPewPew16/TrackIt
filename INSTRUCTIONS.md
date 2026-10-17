@@ -144,9 +144,15 @@ left out and why.
   (so a finger moves the row one-to-one), a flick keeps its inertia and `modifyTarget`
   snaps the projected end-point to the nearest multiple of the ~69px capsule pitch, and
   every capsule that crosses the axis plays a light haptic (`hooks/useTick.ts`:
-  `navigator.vibrate(8)` on Android, a hidden `<input switch>` clicked through its
-  label on iOS, which is a side effect Apple could remove; a silent wheel is the
-  acceptable fallback). The old 60px-per-step / 24px-threshold / three-at-a-time
+  `navigator.vibrate(8)` on Android; on iOS a scripted click through an
+  `<input type="checkbox" switch>`'s label). Two things about the iOS half: the switch
+  **must stay rendered** — 1×1, transparent, `pointer-events: none` — because a
+  `display: none` switch is one iOS never lays out and never ticks for, which is why
+  the first version was silent on the owner's phone; and the whole trick is a side
+  effect of a control rather than an API, so it is version-sensitive (scripted clicks
+  have been reported to stop ticking from iOS 26.5, where only a real tap does). A
+  silent wheel is the accepted fallback — never let the tick become something the UI
+  waits on. The old 60px-per-step / 24px-threshold / three-at-a-time
   arithmetic is **gone on purpose — do not reintroduce it**: it is what made the row
   step on release instead of following the thumb. Taps and the keyboard move the row
   with a spring (stiffness 320, damping 28); the theme toggle's curve is still the
@@ -154,11 +160,15 @@ left out and why.
   that is what the design drew. The container's two idle colours (`--pill`,
   `--pill-ink`) are its own tokens: the capsule rests on the card in dark and on the
   canvas in light, so neither can be a fixed utility.
-- **The wheel is a fifteen-day window**, so it can only ever reach the last fortnight
-  on its own. The chevron beside the month is the way further back: a Radix menu of
-  the months the history touches (`LedgerModel.months`), each anchored on the newest
-  day *in that month* rather than on its end, so picking one cannot open on an empty
-  sheet. Selecting the month already showing is a no-op.
+- **The wheel holds one month, from its 1st**, and opens on the anchor's own day —
+  the newest row (or today, with nothing imported), not the last capsule. The ongoing
+  month runs from the 1st to **today**; a month behind us runs to its last day. It was
+  a fifteen-day window until the owner pointed out October could only go 23→9: the
+  first of a month was unreachable by dragging, so the model no longer clips the
+  window. The chevron beside the month is the way to the months behind it: a Radix
+  menu of the months the history touches (`LedgerModel.months`), each anchored on the
+  newest day *in that month* rather than on its end, so picking one cannot open on an
+  empty sheet. Selecting the month already showing is a no-op.
 - **The day's rows are rebuilt, not cross-faded.** The artboard re-runs one fade-up
   keyframe on every change of day, and has no exit animation; a `mode="wait"` swap
   leaves the sheet empty for as long as a fade lasts, which is the one thing the
@@ -281,7 +291,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
-| The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and every tick is a haptic call (count them by replacing `navigator.vibrate`). With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
+| The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |

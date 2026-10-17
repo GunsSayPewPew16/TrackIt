@@ -328,7 +328,7 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 ## Status
 
 Working: all three screens in both themes, the wheel's drag/snap/haptics/keys, the month
-menu that reaches past the wheel's fifteen-day window, the Wallet import and both
+menu that reaches the months past the one the wheel holds, the Wallet import and both
 exports, the scanner (camera and manual entry, the money screen for a code with no amount,
 and one row per code), the greeting in a different language every open, and the Pages
 deploy. The greeting's table is written and driven end to end against local D1 — the route's

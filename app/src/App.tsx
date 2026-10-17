@@ -35,10 +35,11 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * layout and fades out in place while the new one fades in over it. The duration is
  * the design's own 0.35s, the constant its repaint uses.
  *
- * **Where the ledger opens.** The wheel is a fifteen-day window, so the month menu
- * on the ledger screen is what reaches further back: this holds the day the window
- * ends on, and `ledgerModel` builds the fortnight behind it. With no anchor the
- * window ends on the newest row, which is what the owner came to see.
+ * **Where the ledger opens.** The wheel holds one month — the 1st through today, or a
+ * past month's last day — so the month menu on the ledger screen is what reaches the
+ * rest of the history: this holds the day the ledger is anchored on, and `ledgerModel`
+ * builds that month around it and opens the wheel on its day. With no anchor the anchor
+ * is the newest row, which is what the owner came to see.
  *
  * **Where a screen starts.** At its top, every time. The way back is pressed from
  * the foot of the ledger's rows, and on a short window either screen scrolls, so the

@@ -139,20 +139,27 @@ export type DashboardModel = {
  * rather than reading a stale string from a model that cannot see the selection.
  */
 export type LedgerModel = {
-  /** Every capsule, oldest first; the artboard draws fifteen of them. */
+  /**
+   * Every capsule, oldest first: the days of one month, from its 1st to today (or
+   * the month's last day, for a month already behind us). A day with no rows is
+   * still a day — the wheel is a calendar, not a list.
+   */
   days: LedgerDay[]
-  /** Which capsule is under the pointer of the wheel on arrival. */
+  /**
+   * Which capsule the wheel opens on: the anchor's own day, which is the newest row
+   * in the month (or today, with nothing imported), not the last capsule.
+   */
   selected: number
   /** What to say when a day has no rows, in the artboard's own voice. */
   emptyNote: string
   /**
-   * The months the account menu offers, newest first.
+   * The months the history touches, newest first, each anchored on the newest row
+   * *in that month*.
    *
-   * The wheel is a fifteen-day window — that is the design — so on its own it can
-   * only ever reach the last fortnight. The artboard draws a chevron beside the
-   * month, which is what this fills: picking a month moves the window to end on
-   * the newest row *in that month*, so a history that runs for months is reachable
-   * without changing the wheel's geometry at all.
+   * The wheel holds one month, so this is the way back through the rest of the
+   * history: picking one rebuilds the window for that month, opening on the day its
+   * newest row happened rather than on its end — landing on a month someone stopped
+   * spending in the middle of would open the ledger on an empty sheet.
    */
   months: { key: string; label: string; anchor: number }[]
 }

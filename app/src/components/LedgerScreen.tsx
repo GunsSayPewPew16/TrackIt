@@ -29,16 +29,16 @@ import type { LedgerCard, LedgerModel } from "@/lib/view"
  *   as each one crosses. It is the owner's newer container, and unlike the wheel it
  *   replaced, the row travels with the finger rather than stepping on release.
  *
- * The month above the wheel is the one control the artboard drew but could not
- * use: it is a chevron beside a month name, and the wheel is a fifteen-day window,
- * so on its own it can only ever reach the last fortnight. It is a Radix menu of
- * the months the history touches (`LedgerModel.months`), and picking one moves the
- * window to end on the newest row in it — the wheel's geometry untouched.
+ * The month above the wheel is the one control the artboard drew but could not use:
+ * it is a chevron beside a month name, and the wheel holds **one month**, so on its
+ * own it can only reach the month it is in. It is a Radix menu of the months the
+ * history touches (`LedgerModel.months`), and picking one rebuilds the wheel for that
+ * month, opening on the day its newest row happened — the geometry untouched.
  *
  * Two notes on the artboard's behaviour that were kept deliberately: a drag moves
  * *forward* in time when it goes left (the newer days are to the right), and the
- * month above the wheel follows the selected day, so a window that spans a month
- * boundary says which month it is in.
+ * month above the wheel follows the selected day, which now only matters while a
+ * month change is being rebuilt behind it.
  */
 
 /** The three card treatments, and every colour each one uses. */

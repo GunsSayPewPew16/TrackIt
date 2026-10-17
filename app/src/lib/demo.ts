@@ -4,7 +4,7 @@
  * Both screens have two states. With the owner's Wallet history imported they show
  * real money; before anything has been imported they show **exactly what the
  * artboards draw** — $24,860.40 of balance, Blue Bottle Coffee at 8:05 AM, the
- * eleven sample rows spread across the fifteen days the wheel spins through. That
+ * eleven sample rows spread across the days of the one month the wheel spins through. That
  * is what this file is: the design, kept as literals, so a first visit looks like
  * the design and nothing about it has to be guessed.
  *
@@ -24,8 +24,10 @@ import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 const DEMO_YEAR = 2026
 const DEMO_MONTH = 9 // October, zero-based
 
-/** The fifteen days the wheel draws, and the one it starts on. */
-export const DEMO_FIRST_DAY = 9
+/**
+ * The month the wheel draws, and the day it starts on: the 1st through the artboard's
+ * newest row, which is what its own month looks like part-way through.
+ */
 export const DEMO_LAST_DAY = 23
 export const DEMO_SELECTED_DAY = 16
 
@@ -121,20 +123,17 @@ function cardFor(sample: Sample, day: number, index: number): LedgerCard {
   }
 }
 
-/** The fifteen days the wheel spins through, each with its cards. */
-export const DEMO_DAYS: LedgerDay[] = Array.from(
-  { length: DEMO_LAST_DAY - DEMO_FIRST_DAY + 1 },
-  (_, offset) => {
-    const day = DEMO_FIRST_DAY + offset
-    const cards = (BY_DAY[day] ?? []).map((sample, index) => cardFor(SAMPLES[sample], day, index))
-    return { at: moment(day, "12:00 AM"), cards }
-  },
-)
+/** The month's days up to the artboard's last one, each with its cards. */
+export const DEMO_DAYS: LedgerDay[] = Array.from({ length: DEMO_LAST_DAY }, (_, offset) => {
+  const day = offset + 1
+  const cards = (BY_DAY[day] ?? []).map((sample, index) => cardFor(SAMPLES[sample], day, index))
+  return { at: moment(day, "12:00 AM"), cards }
+})
 
 /** The ledger screen as the design draws it. */
 export const DEMO_LEDGER: LedgerModel = {
   days: DEMO_DAYS,
-  selected: DEMO_SELECTED_DAY - DEMO_FIRST_DAY,
+  selected: DEMO_SELECTED_DAY - 1,
   emptyNote: "Nothing logged on this day.",
   // The artboard's whole history is the one month it draws, so the menu has one
   // entry — and picking it is a no-op that leaves the wheel where it is.
