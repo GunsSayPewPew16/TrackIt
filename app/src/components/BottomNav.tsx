@@ -30,8 +30,8 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  * `tailwind-merge`, and the dock was the only module in the entry chunk that used
  * it: importing `cn` cost **27.9 kB minified** of the first load (measured by
  * inlining a three-line join: 457.69 kB → 429.80 kB) to merge class names that are
- * already written so that the last one wins. The whole dock now costs ~4.8 kB over
- * a build with no dock at all.
+ * already written so that the last one wins. With that gone the whole dock is
+ * **6.4 kB** over a build with no dock at all (430.76 kB against 424.41 kB).
  *
  * **The panel is not the imported one either.** The original opens a Radix
  * `Popover`, and Radix's popper stack — popper, floating-ui, the dismissable layer,
