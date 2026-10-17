@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useId, useRef } from "react"
 
 /**
+ * How close two ticks have to be to be heard as one. The wheel primes the switch on
+ * contact and then ticks again as the first capsule crosses the axis, and those two
+ * are one touch, not two detents.
+ */
+const COOLDOWN = 40
+
+/**
  * The click a control plays under the thumb as it passes a step.
  *
  * The date wheel changes its value while a finger is moving, so the only usable
@@ -13,13 +20,19 @@ import { useCallback, useEffect, useId, useRef } from "react"
  *   as an alert rather than as a detent.
  * - **iOS** — Safari has never implemented `vibrate`. What it does have is the
  *   haptic the system plays when a switch is flipped, so the trick is to keep a
- *   `<input type="checkbox" switch>` in the document and click its label: iOS
- *   plays the system click and toggles a checkbox nobody ever sees.
+ *   `<input type="checkbox" switch>` in the document and `.click()` it: the toggle
+ *   plays the system click on a checkbox nobody ever sees.
  *
  *   The input has to stay **rendered**. It used to be `display: none`, which is a
  *   control iOS never lays out and therefore never ticks for — the wheel was silent
  *   on the owner's phone. It is now a 1×1 transparent switch in the corner of the
  *   page: invisible, out of the way, and real as far as the system is concerned.
+ *
+ *   The click goes to the **input itself**, not to a label wrapped around it. A
+ *   label's forwarding is a DOM convenience that WebKit has never promised to turn
+ *   into a taptic pulse; the switch's own `click()` is the gesture the system
+ *   handles. Both are kept in the DOM so a real tap on either would work, but a
+ *   scripted tick only ever clicks the switch.
  *
  *   This is a side effect of a control rather than a documented API, and it is
  *   version-sensitive: the scripted `click()` has been reported to stop producing
@@ -35,7 +48,14 @@ import { useCallback, useEffect, useId, useRef } from "react"
  */
 export function useTick() {
   const uid = useId()
-  const label = useRef<HTMLLabelElement | null>(null)
+  const input = useRef<HTMLInputElement | null>(null)
+  /**
+   * When the last tick was played. A crossing can land twice in a few frames — the
+   * pointer that primed the switch, and then the first capsule crossing under it —
+   * and two 8ms buzzes back to back read as one broken buzz rather than a detent.
+   * Anything this close is the same tap.
+   */
+  const playedAt = useRef(0)
   /**
    * iOS is asked for the switch whatever its navigator says: no Safari there has ever
    * implemented `vibrate`, and an in-app browser that exposes a stub would take this
@@ -61,30 +81,34 @@ export function useTick() {
     // out of the way of a thumb without taking it out of the page.
     const hidden = "position:fixed;top:0;left:0;width:1px;height:1px;margin:0;padding:0;border:0;opacity:0;pointer-events:none;"
 
-    const input = document.createElement("input")
-    input.type = "checkbox"
-    input.setAttribute("switch", "")
-    input.id = id
-    input.tabIndex = -1
-    input.setAttribute("aria-hidden", "true")
-    input.style.cssText = hidden
+    const switchInput = document.createElement("input")
+    switchInput.type = "checkbox"
+    switchInput.setAttribute("switch", "")
+    switchInput.id = id
+    switchInput.tabIndex = -1
+    switchInput.setAttribute("aria-hidden", "true")
+    switchInput.style.cssText = hidden
 
     const host = document.createElement("label")
     host.htmlFor = id
     host.setAttribute("aria-hidden", "true")
     host.style.cssText = hidden
 
-    document.body.append(input, host)
-    label.current = host
+    document.body.append(switchInput, host)
+    input.current = switchInput
     return () => {
-      label.current = null
-      input.remove()
+      input.current = null
+      switchInput.remove()
       host.remove()
     }
   }, [uid, vibrates])
 
   return useCallback(() => {
+    const now = Date.now()
+    if (now - playedAt.current < COOLDOWN) return
+    playedAt.current = now
+
     if (vibrates) navigator.vibrate(8)
-    else label.current?.click()
+    else input.current?.click()
   }, [vibrates])
 }

@@ -105,6 +105,7 @@ const Capsule = memo(function Capsule({
   active,
   distance,
   onPick,
+  onPress,
 }: {
   day: LedgerDay
   index: number
@@ -112,6 +113,7 @@ const Capsule = memo(function Capsule({
   active: boolean
   distance: number
   onPick: (index: number) => void
+  onPress: () => void
 }) {
   // Signed distance from the focal axis, live: the capsule's own index plus however
   // far the row has been dragged past it.
@@ -125,6 +127,9 @@ const Capsule = memo(function Capsule({
       aria-label={`${dayOfWeek(day.at)} ${dayNumber(day.at)} ${monthLabel(day.at)}`}
       aria-pressed={active}
       tabIndex={active ? 0 : -1}
+      // The thumb landing on a capsule is the gesture iOS needs before it will play
+      // anything at all; the first tick of the drag then has a live switch behind it.
+      onPointerDown={onPress}
       onClick={() => onPick(index)}
       style={{
         transform,
@@ -272,6 +277,7 @@ export function DateWheel({ days, initialIndex, onActiveChange, className = "" }
             active={index === active}
             distance={Math.min(Math.abs(index - active), 4)}
             onPick={pick}
+            onPress={tick}
           />
         ))}
       </motion.div>
