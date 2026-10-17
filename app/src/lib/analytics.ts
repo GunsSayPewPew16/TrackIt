@@ -68,9 +68,28 @@ export interface AllocationSegment {
   color: string
 }
 
+export interface AllocationMonth {
+  at: number
+  /** The short label under the bar: `OCT`. */
+  label: string
+  /** The month in full, for the breakdown: `October 2026`. */
+  name: string
+  /** Integer paise spent in each segment, lined up with `segments`. */
+  cents: number[]
+  /** Integer paise: the month's whole spend. */
+  total: number
+  /** Each segment's share of the month, lined up with `segments`. Sums to 1, or to 0 for a month with no spend. */
+  shares: number[]
+  /**
+   * Segment indexes with any spend, biggest first. A bar stacks in this order from the bottom, so
+   * its largest category sits at the foot and its smallest at the top.
+   */
+  order: number[]
+}
+
 export interface AllocationModel {
-  /** Oldest month first. `shares` lines up with `segments`, bottom to top, and sums to 1 — or to 0 for a month with no spend. */
-  months: { at: number; label: string; shares: number[] }[]
+  /** Oldest month first. */
+  months: AllocationMonth[]
   segments: AllocationSegment[]
 }
 
@@ -183,7 +202,12 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
     const first = new Date(thisMonth)
     first.setMonth(first.getMonth() - (ALLOCATION_MONTHS - 1 - i))
     const at = first.getTime()
-    return { at, to: startOfNextMonth(at), label: first.toLocaleDateString("en-US", { month: "short" }).toUpperCase() }
+    return {
+      at,
+      to: startOfNextMonth(at),
+      label: first.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+      name: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    }
   })
 
   // Spend per month, per category group.
@@ -209,18 +233,22 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
   }))
   if (hasOther) segments.push({ key: "other", label: "Other", color: "var(--ink2)" })
 
-  const months = windows.map((window, index) => {
+  const months = windows.map((window, index): AllocationMonth => {
     const groups = perMonth[index]
-    let monthTotal = 0
-    for (const cents of groups.values()) monthTotal += cents
-    const shares = segments.map((segment) => {
-      if (monthTotal === 0) return 0
-      if (segment.key !== "other") return (groups.get(segment.key) ?? 0) / monthTotal
+    const cents = segments.map((segment) => {
+      if (segment.key !== "other") return groups.get(segment.key) ?? 0
       let other = 0
-      for (const [group, cents] of groups) if (!named.includes(group)) other += cents
-      return other / monthTotal
+      for (const [group, amount] of groups) if (!named.includes(group)) other += amount
+      return other
     })
-    return { at: window.at, label: window.label, shares }
+    let total = 0
+    for (const amount of cents) total += amount
+    const shares = cents.map((amount) => (total === 0 ? 0 : amount / total))
+    const order = segments
+      .map((_, k) => k)
+      .filter((k) => cents[k] > 0)
+      .sort((a, b) => cents[b] - cents[a] || a - b)
+    return { at: window.at, label: window.label, name: window.name, cents, total, shares, order }
   })
 
   return { months, segments }

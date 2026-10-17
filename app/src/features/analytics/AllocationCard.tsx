@@ -1,14 +1,45 @@
-import { useMemo } from "react"
-import { motion } from "framer-motion"
+import { useEffect, useMemo, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 
 import { Tile, tileTitle } from "@/features/analytics/Tile"
 import { allocationModel } from "@/lib/analytics"
+import { wholeMoney } from "@/lib/format"
 import type { Row } from "@/lib/types"
 
 const TICKS = [100, 80, 60, 40, 20]
+/** How long a breakdown stays up after a press, unless the owner presses the bar again first. */
+const POPUP_MS = 3200
+/** The breakdown's width: enough for a category name and a rupee figure on one line. */
+const POPUP_W = 176
+
+/** The bar that is open, and where its breakdown sits over the chart, in px from the left. */
+type Open = { index: number; left: number }
 
 export function AllocationCard({ rows, now }: { rows: Row[]; now: number }) {
   const model = useMemo(() => allocationModel(rows, now), [rows, now])
+  const [open, setOpen] = useState<Open | null>(null)
+
+  // Each press starts a fresh clock, and the breakdown leaves on its own once it has been read.
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setTimeout(() => setOpen(null), POPUP_MS)
+    return () => window.clearTimeout(timer)
+  }, [open])
+
+  /** Press a bar to open its breakdown; press the same bar again to close it. */
+  const press = (index: number, bar: HTMLButtonElement) => {
+    if (open?.index === index) {
+      setOpen(null)
+      return
+    }
+    // The bar and the breakdown share the chart's box, so the bar's offset is the same as the popup's.
+    const chart = bar.offsetParent as HTMLElement
+    const centre = bar.offsetLeft + bar.offsetWidth / 2
+    const left = Math.max(0, Math.min(centre - POPUP_W / 2, chart.clientWidth - POPUP_W))
+    setOpen({ index, left })
+  }
+
+  const shown = open ? model.months[open.index] : null
 
   return (
     <Tile className="flex h-[360px] flex-col gap-2">
@@ -32,31 +63,72 @@ export function AllocationCard({ rows, now }: { rows: Row[]; now: number }) {
             ))}
             <div className="absolute inset-0 flex items-stretch justify-between pr-2">
               {model.months.map((month, i) => (
-                <motion.div
+                <motion.button
+                  type="button"
                   key={month.at}
-                  role="img"
-                  aria-label={`${month.label}: ${
-                    model.segments.length === 0
-                      ? "no spending"
-                      : model.segments.map((s, k) => `${s.label} ${Math.round(month.shares[k] * 100)}%`).join(", ")
+                  aria-label={`${month.name}: ${
+                    month.total === 0
+                      ? "nothing spent"
+                      : model.segments
+                          .flatMap((segment, k) => (month.cents[k] > 0 ? [`${segment.label} ${wholeMoney(month.cents[k])}`] : []))
+                          .join(", ")
                   }`}
-                  className="flex w-4 origin-bottom flex-col-reverse gap-0.5 overflow-hidden rounded-[3px]"
+                  aria-expanded={open?.index === i}
+                  onClick={(e) => press(i, e.currentTarget)}
+                  whileTap={{ scaleX: 0.8 }}
+                  className="flex w-4 cursor-pointer origin-bottom flex-col-reverse gap-0.5 overflow-hidden rounded-[3px] border-0 bg-transparent p-0"
                   initial={{ scaleY: 0 }}
                   animate={{ scaleY: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30, delay: i * 0.03 }}
                 >
-                  {month.shares.map((share, k) =>
-                    share > 0 ? (
-                      <span
-                        key={model.segments[k].key}
-                        className="basis-0"
-                        style={{ flexGrow: share, backgroundColor: model.segments[k].color }}
-                      />
-                    ) : null,
-                  )}
-                </motion.div>
+                  {/* The first child sits at the bottom of a column-reversed stack: the biggest spend. */}
+                  {month.order.map((k) => (
+                    <span
+                      key={model.segments[k].key}
+                      className="basis-0"
+                      style={{ flexGrow: month.shares[k], backgroundColor: model.segments[k].color }}
+                    />
+                  ))}
+                </motion.button>
               ))}
             </div>
+
+            <AnimatePresence>
+              {open && shown && (
+                <motion.div
+                  key={open.index}
+                  role="status"
+                  initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  style={{ left: open.left, width: POPUP_W }}
+                  className="absolute top-0 z-10 rounded-[16px] border border-dock-line bg-dock p-3"
+                >
+                  <p className="text-[11px] leading-4 tracking-[0.01em] text-ink2">{shown.name}</p>
+                  <p className="font-display text-xl leading-7 font-bold tracking-[-0.03em] tabular-nums">
+                    {wholeMoney(shown.total)}
+                  </p>
+                  {shown.order.length === 0 ? (
+                    <p className="mt-2 text-[11px] leading-4 text-ink2">Nothing spent that month</p>
+                  ) : (
+                    <ul className="mt-2 flex flex-col gap-1.5 text-[11px] leading-4 tracking-[0.01em]">
+                      {shown.order.map((k) => (
+                        <li key={model.segments[k].key} className="flex items-center gap-2">
+                          <span
+                            className="size-2 flex-none rounded-sm"
+                            style={{ backgroundColor: model.segments[k].color }}
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1 truncate text-ink2">{model.segments[k].label}</span>
+                          <span className="tabular-nums">{wholeMoney(shown.cents[k])}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <div className="mt-2 flex h-8 items-start justify-between pr-2 text-[10px] leading-4 tracking-[0.01em] text-ink2">
             {model.months.map((month) => (
