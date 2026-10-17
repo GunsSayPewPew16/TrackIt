@@ -20,19 +20,13 @@ import type { Theme } from "@/lib/theme"
  */
 
 /**
- * The turn, on the artboard's curve. It is written as a bezier rather than a
- * spring on purpose: this is a small hand-off between two icons, and the design's
- * own overshoot is what gives it its flick — a spring here would be this app's
- * taste rather than the artboard's.
+ * The one speed a theme change moves at, shared with every text colour on the page.
+ * The page's colours fade over `0.35s ease` (the artboard's repaint constant, set in
+ * `index.css`), and the icon swap uses the same duration and curve, so the mark and the
+ * words change together rather than one lagging the other. Written as CSS `ease`'s own
+ * bezier, which is what that `ease` resolves to.
  */
-const TURN = { duration: 0.45, ease: [0.34, 1.56, 0.64, 1] as [number, number, number, number] }
-
-/**
- * The fade behind it, which is shorter and never the thing being watched. Written
- * as CSS `ease`'s own bezier, since that is the curve the artboard's `opacity .25s
- * ease` resolves to.
- */
-const FADE = { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }
+const THEME = { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }
 
 export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const isLight = theme === "light"
@@ -53,7 +47,7 @@ export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () =>
             ? { opacity: 0, rotate: 90, scale: 0.4 }
             : { opacity: 1, rotate: 0, scale: 1 }
         }
-        transition={{ rotate: TURN, scale: TURN, opacity: FADE }}
+        transition={THEME}
       >
         <Sun strokeWidth={1.5} className="size-6" />
       </motion.span>
@@ -66,7 +60,7 @@ export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () =>
             ? { opacity: 1, rotate: 0, scale: 1 }
             : { opacity: 0, rotate: -90, scale: 0.4 }
         }
-        transition={{ rotate: TURN, scale: TURN, opacity: FADE }}
+        transition={THEME}
       >
         <Moon strokeWidth={1.5} className="size-6" />
       </motion.span>

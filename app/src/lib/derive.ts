@@ -349,6 +349,7 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
       id: account.id,
       name: account.name,
       icon: account.id === "upi" ? ("qr" as const) : ("cash" as const),
+      cents: Math.max(balance, 0),
       balance: money(Math.max(balance, 0)),
       spent: wholeMoney(spentBetween(own, monthStart, monthEnd)),
     }

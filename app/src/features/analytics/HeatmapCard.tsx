@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Tile, tileTitle } from "@/features/analytics/Tile"
-import { heatmapModel, type HeatLevel } from "@/lib/analytics"
+import { heatmapModel } from "@/lib/analytics"
 import { join } from "@/lib/classes"
 import { wholeMoney } from "@/lib/format"
 import { lightTap } from "@/lib/haptics"
@@ -11,13 +11,20 @@ import type { Row } from "@/lib/types"
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"]
 
-/** Zero spend is an outline only; the four tiers are the data red at 20, 40, 75 and 100%. */
-const LEVEL: Record<HeatLevel, string> = {
-  0: "border border-line",
-  1: "bg-data-red/20",
-  2: "bg-data-red/40",
-  3: "bg-data-red/75",
-  4: "bg-data-red",
+/**
+ * How light the least-spent square is. Any day with spending is at least this far toward the
+ * full hue, so a small day still reads as a colour rather than vanishing into the card.
+ */
+const FLOOR = 0.14
+
+/**
+ * A square's fill: the one data hue, mixed into the card by how much was spent. The card
+ * is the lightest end and the full hue the heaviest, so the scale runs in one direction and
+ * needs no legend. A day with nothing is an outline, not a tint.
+ */
+function fillFor(intensity: number): string {
+  const mix = Math.round((FLOOR + (1 - FLOOR) * intensity) * 100)
+  return `color-mix(in oklab, var(--data-red) ${mix}%, var(--card))`
 }
 
 const shortDate = (at: number) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -42,9 +49,9 @@ export function HeatmapCard({ rows, now }: { rows: Row[]; now: number }) {
       <h2 className={tileTitle}>Daily spend</h2>
 
       <div className="flex gap-2">
-        <div className="grid grid-rows-7 gap-[2px] text-[10px] leading-3 tracking-[0.01em] text-ink2" aria-hidden>
+        <div className="grid grid-rows-7 gap-[2px] text-[10px] leading-[10px] tracking-[0.01em] text-ink2" aria-hidden>
           {DAY_LABELS.map((label, i) => (
-            <span key={i} className="grid h-3 items-center">
+            <span key={i} className="grid h-[10px] items-center">
               {label}
             </span>
           ))}
@@ -61,11 +68,19 @@ export function HeatmapCard({ rows, now }: { rows: Row[]; now: number }) {
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4, ease: "easeOut", delay: Math.floor(i / 7) * 0.015 }}
-              className={join("size-3 rounded-[3px]", cell.future ? "invisible" : LEVEL[cell.level])}
+              style={cell.future || cell.intensity === 0 ? undefined : { backgroundColor: fillFor(cell.intensity) }}
+              className={join(
+                "size-[10px] rounded-[3px]",
+                cell.future ? "invisible" : cell.intensity === 0 ? "border border-line" : "",
+              )}
             />
           ))}
         </div>
       </div>
+
+      <p className="text-center text-[12px] leading-4 tracking-[0.01em]">
+        <span className="italic">{monthDay(model.start)}</span> — <span className="italic">{shortDate(model.end)}</span>
+      </p>
 
       <div className="flex items-center justify-between gap-2">
         <button
@@ -77,9 +92,6 @@ export function HeatmapCard({ rows, now }: { rows: Row[]; now: number }) {
         >
           <ChevronLeft strokeWidth={1.5} className="size-5" aria-hidden="true" />
         </button>
-        <p className="text-[13px] leading-4 tracking-[0.01em]">
-          <span className="italic">{monthDay(model.start)}</span> — <span className="italic">{shortDate(model.end)}</span>
-        </p>
         <button type="button" onClick={() => step(-1)} disabled={page === 0} aria-label="Later weeks" className={stepButton}>
           <ChevronRight strokeWidth={1.5} className="size-5" aria-hidden="true" />
         </button>

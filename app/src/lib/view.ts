@@ -142,6 +142,8 @@ export type BalanceCard = {
   name: string
   /** Which glyph the card carries in its top-left: the UPI code, or a banknote. */
   icon: "qr" | "cash"
+  /** The account's own balance in paise: what the figure counts up to. */
+  cents: number
   /** The account's own balance, `₹18,420.50`. */
   balance: string
   /** What has gone out of that account this month, `₹3,240`. */

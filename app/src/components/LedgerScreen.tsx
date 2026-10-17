@@ -233,7 +233,10 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props
         </svg>
 
         <header className="relative flex h-12 items-center justify-between px-4">
-          <h1 className="font-display text-lg font-medium leading-6 tracking-[-0.01em]">Daily ledger</h1>
+          {/* The same heading as the greeting and the analytics screen: the serif at 28px, with its first word in italic. */}
+          <h1 className="m-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink">
+            <em className="italic">Daily</em> ledger
+          </h1>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </header>
 

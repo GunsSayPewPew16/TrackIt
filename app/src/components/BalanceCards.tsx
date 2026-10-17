@@ -2,7 +2,9 @@ import { animate, motion, motionValue, useReducedMotion, type MotionValue } from
 import { Banknote, Plus, QrCode } from "lucide-react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
+import { CountUp } from "@/components/CountUp"
 import { useTick } from "@/hooks/useTick"
+import { money } from "@/lib/format"
 import type { BalanceCard } from "@/lib/view"
 
 /**
@@ -282,7 +284,7 @@ export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
             <div
               className={`absolute top-[68px] left-4 font-display text-[40px] leading-[48px] font-medium tracking-[-0.03em] whitespace-nowrap ${skin.figure}`}
             >
-              {card.balance}
+              <CountUp cents={card.cents} format={money} />
             </div>
 
             <div className={`absolute bottom-4 left-4 text-[13px] leading-4 whitespace-nowrap ${skin.foot}`}>

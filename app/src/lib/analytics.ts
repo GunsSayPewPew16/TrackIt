@@ -1,3 +1,4 @@
+import { OPENING_BALANCE_CENTS } from "./accounts"
 import { CATEGORY_GROUPS, categoryFor, groupLabel } from "./categories"
 import { MONTHLY_BUDGET_CENTS } from "./derive"
 import { addDays, localDayKey, startOfDay, startOfMonth, startOfNextMonth } from "./format"
@@ -5,26 +6,27 @@ import type { Row } from "./types"
 
 /**
  * The analytics screen's figures, derived from the owner's rows the way the dashboard and
- * the ledger are. Every figure here is spend: money in is not a bar, a cell or a point.
+ * the ledger are. The spend figures count expenses only; the balance is what both accounts
+ * hold together, which is income and expense alike.
  */
 
-/** The heatmap's window: the weeks it shows, one page at a time. */
-export const HEAT_WEEKS = 21
-/** The trend's window: the last few days, ending today. */
-export const TREND_DAYS = 12
+/** The heatmap's window: ten weeks, which is what fits beside the gauge. */
+export const HEAT_WEEKS = 10
 /** The allocation's window: the months it stacks, ending this one. */
 export const ALLOCATION_MONTHS = 12
 /** How many groups get their own colour in the allocation; the rest are one grey band. */
 const TOP_GROUPS = 4
-
-export type HeatLevel = 0 | 1 | 2 | 3 | 4
 
 export interface HeatCell {
   key: string
   /** Local midnight of the day. */
   at: number
   cents: number
-  level: HeatLevel
+  /**
+   * How much was spent that day, from 0 (nothing: an outline) to 1 (the page's busiest day).
+   * Drawn as a single hue whose lightness follows it, so the lightest square is the least.
+   */
+  intensity: number
   /** After today: drawn as nothing at all. Only the newest page can have these. */
   future: boolean
 }
@@ -39,11 +41,14 @@ export interface HeatmapModel {
   canGoEarlier: boolean
 }
 
-export interface TrendModel {
-  /** Oldest first, one per day, ending today. */
-  days: { at: number; cents: number }[]
-  /** The largest day in the window, for the scale. Never zero, so the plot can divide by it. */
-  max: number
+export interface BalanceModel {
+  /** Every day of the current month, the 1st first. `cents` is `null` after today. */
+  days: { at: number; cents: number | null }[]
+  /** The index of today: the last day with a balance. */
+  today: number
+  /** The lowest and highest balance drawn, in paise: the two ends the money scale is labelled with. */
+  low: number
+  high: number
 }
 
 export interface AllocationSegment {
@@ -66,6 +71,9 @@ export interface GaugeModel {
 }
 
 const isExpense = (row: Row) => row.kind === "expense"
+
+/** What a row does to the money both accounts hold. */
+const signed = (row: Row) => (row.kind === "income" ? row.amountCents : -row.amountCents)
 
 /** Spend per local calendar day, keyed the way `localDayKey` writes a day. */
 function spendByDay(rows: Row[]): Map<string, number> {
@@ -106,7 +114,7 @@ export function heatmapModel(rows: Row[], page: number, now: number): HeatmapMod
     return { at, future, cents: byDay.get(localDayKey(at)) ?? 0 }
   })
 
-  // The scale is the busiest day the page shows, so the darkest cell is always "the most".
+  // The scale is the busiest day the page shows, so the heaviest square is always "the most".
   let max = 0
   for (const day of days) if (!day.future && day.cents > max) max = day.cents
 
@@ -115,7 +123,7 @@ export function heatmapModel(rows: Row[], page: number, now: number): HeatmapMod
     at: day.at,
     cents: day.cents,
     future: day.future,
-    level: day.cents === 0 || max === 0 ? 0 : (Math.min(4, Math.ceil((day.cents / max) * 4)) as HeatLevel),
+    intensity: day.cents === 0 || max === 0 ? 0 : day.cents / max,
   }))
 
   let earliest = Number.POSITIVE_INFINITY
@@ -124,15 +132,38 @@ export function heatmapModel(rows: Row[], page: number, now: number): HeatmapMod
   return { cells, start, end, canGoEarlier: earliest < start }
 }
 
-export function trendModel(rows: Row[], now: number): TrendModel {
-  const byDay = spendByDay(rows)
+/**
+ * The money both accounts hold, day by day across the current month. The balance at the
+ * end of a day is the openings plus every row up to that day, so the series is built by
+ * walking the rows once in time order rather than summing each day from scratch.
+ */
+export function balanceModel(rows: Row[], now: number): BalanceModel {
+  const monthStart = startOfMonth(now)
+  const monthEnd = startOfNextMonth(now)
+  const dayCount = Math.round((monthEnd - monthStart) / 86_400_000)
+  const days: BalanceModel["days"] = Array.from({ length: dayCount }, (_, i) => ({
+    at: addDays(monthStart, i),
+    cents: null,
+  }))
+
+  const ordered = [...rows].sort((a, b) => a.at - b.at)
+  let total = OPENING_BALANCE_CENTS
+  let next = 0
+  // Everything before the month is already in the opening of its first day.
+  while (next < ordered.length && ordered[next].at < monthStart) total += signed(ordered[next++])
+
   const today = startOfDay(now)
-  const days = Array.from({ length: TREND_DAYS }, (_, i) => {
-    const at = addDays(today, i - (TREND_DAYS - 1))
-    return { at, cents: byDay.get(localDayKey(at)) ?? 0 }
+  let todayIndex = 0
+  days.forEach((day, i) => {
+    if (day.at > today) return
+    const endOfDay = addDays(day.at, 1)
+    while (next < ordered.length && ordered[next].at < endOfDay) total += signed(ordered[next++])
+    day.cents = total
+    todayIndex = i
   })
-  const max = days.reduce((largest, day) => Math.max(largest, day.cents), 0)
-  return { days, max: Math.max(1, max) }
+
+  const drawn = days.slice(0, todayIndex + 1).map((day) => day.cents as number)
+  return { days, today: todayIndex, low: Math.min(...drawn), high: Math.max(...drawn) }
 }
 
 export function allocationModel(rows: Row[], now: number): AllocationModel {

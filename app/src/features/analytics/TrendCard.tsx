@@ -1,16 +1,20 @@
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 import { motion } from "framer-motion"
 
 import { Tile, tileTitle } from "@/features/analytics/Tile"
-import { trendModel } from "@/lib/analytics"
+import { balanceModel } from "@/lib/analytics"
 import { join } from "@/lib/classes"
-import { wholeMoney } from "@/lib/format"
+import { money, wholeMoney } from "@/lib/format"
 import { lightTap } from "@/lib/haptics"
 import type { Row } from "@/lib/types"
 
-const W = 111 // plot width
-const H = 96 // plot height
-const TOP = 24 // headroom for the tooltip
+const H = 168 // plot height
+const TOP = 16 // headroom above the plot, for the tooltip
+const AXIS = 52 // the left column the money scale is written in
+/** A label every fifth day, starting on the 1st. */
+const EVERY = 5
+/** A flat month still gets a scale of this many paise to draw in. */
+const MIN_RANGE = 10_000
 const SPRING = { type: "spring", stiffness: 300, damping: 30 } as const
 
 /** Catmull-Rom spline converted to cubic Béziers: smooth, and it passes through every point. */
@@ -34,63 +38,87 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
   const gradId = useId().replace(/:/g, "")
   const plot = useRef<HTMLDivElement>(null)
   const pressed = useRef(false)
-  const model = useMemo(() => trendModel(rows, now), [rows, now])
-  const last = model.days.length - 1
-  const [idx, setIdx] = useState(last)
+  const model = useMemo(() => balanceModel(rows, now), [rows, now])
+  const dayCount = model.days.length
+  const today = model.today
 
-  const pts = model.days.map((day, i) => ({ x: (i * W) / last, y: H - (day.cents / model.max) * H }))
+  // The plot is as wide as the card allows, so it is measured rather than drawn to a number.
+  const [width, setWidth] = useState(300)
+  useEffect(() => {
+    const el = plot.current
+    if (!el) return
+    setWidth(Math.round(el.getBoundingClientRect().width))
+    const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const [idx, setIdx] = useState(today)
+  const focusIndex = Math.min(idx, today)
+
+  // The scale: the drawn range with 6% air above and below it, and a minimum span so a flat
+  // month still draws a line rather than a flat edge.
+  const range = Math.max(model.high - model.low, MIN_RANGE)
+  const mid = (model.high + model.low) / 2
+  const low = mid - range * 0.56
+  const high = mid + range * 0.56
+  const xOf = (i: number) => (i * width) / (dayCount - 1)
+  const yOf = (cents: number) => H - ((cents - low) / (high - low)) * H
+
+  const pts = model.days.slice(0, today + 1).map((day, i) => ({ x: xOf(i), y: yOf(day.cents as number) }))
   const LINE = splinePath(pts)
-  const AREA = `${LINE}L${W} ${H}L0 ${H}Z`
-  const AXIS = [
-    { label: wholeMoney(model.max), y: 0 },
-    { label: wholeMoney(model.max / 2), y: H / 2 },
-    { label: wholeMoney(0), y: H },
-  ]
-
-  const dayOf = (i: number) => new Date(model.days[i].at).getDate()
+  const AREA = `${LINE}L${xOf(today).toFixed(1)} ${H}L0 ${H}Z`
+  const dayNumber = (i: number) => new Date(model.days[i].at).getDate()
 
   const focus = (i: number) => {
-    const next = Math.max(0, Math.min(last, i))
-    if (next === idx) return
+    const next = Math.max(0, Math.min(today, i))
+    if (next === focusIndex) return
     setIdx(next)
-    lightTap() // a light click each time the focus snaps to a new point
+    lightTap() // a light click each time the focus snaps to a new day
   }
   const fromPointer = (e: PointerEvent) => {
     const r = plot.current!.getBoundingClientRect()
-    focus(Math.round(((e.clientX - r.left) / r.width) * last))
+    focus(Math.round(((e.clientX - r.left) / r.width) * (dayCount - 1)))
   }
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowRight") focus(idx + 1)
-    if (e.key === "ArrowLeft") focus(idx - 1)
+    if (e.key === "ArrowRight") focus(focusIndex + 1)
+    if (e.key === "ArrowLeft") focus(focusIndex - 1)
   }
 
-  const p = pts[idx]
-  const bubbleX = Math.max(22, Math.min(W - 22, p.x))
+  const p = pts[focusIndex]
+  const bubbleX = Math.max(30, Math.min(width - 30, p.x))
+  const focusedCents = model.days[focusIndex].cents as number
+  const month = new Date(now).toLocaleDateString("en-US", { month: "long" })
+
+  // The labels: every fifth day from the 1st, which is what the card writes under the line.
+  const labels = Array.from({ length: Math.ceil(dayCount / EVERY) }, (_, k) => k * EVERY)
 
   return (
-    <Tile className="flex h-56 flex-col gap-2">
-      <h2 className={tileTitle}>Spend velocity</h2>
+    <Tile className="flex flex-col gap-2">
+      <h2 className={tileTitle}>
+        Total balance <span className="text-ink2">· {month}</span>
+      </h2>
 
-      <div className="relative h-[120px]">
-        {AXIS.map((a) => (
-          <span
-            key={a.y}
-            className="absolute left-0 -translate-y-1/2 text-[10px] leading-3 tracking-[0.01em] text-ink2"
-            style={{ top: TOP + a.y }}
-          >
-            {a.label}
+      <div className="relative flex" style={{ height: H + TOP }}>
+        {/* The money scale, flush left, at the top and bottom of the drawn range. */}
+        <div className="relative shrink-0 text-[10px] leading-3 tracking-[0.01em] text-ink2" style={{ width: AXIS }} aria-hidden>
+          <span className="absolute left-0 -translate-y-1/2" style={{ top: TOP + yOf(model.high) }}>
+            {wholeMoney(model.high)}
           </span>
-        ))}
+          <span className="absolute left-0 -translate-y-1/2" style={{ top: TOP + yOf(model.low) }}>
+            {wholeMoney(model.low)}
+          </span>
+        </div>
 
         <div
           ref={plot}
           role="slider"
           tabIndex={0}
-          aria-label={`Daily spend, last ${model.days.length} days`}
-          aria-valuemin={0}
-          aria-valuemax={last}
-          aria-valuenow={idx}
-          aria-valuetext={`${wholeMoney(model.days[idx].cents)} on day ${dayOf(idx)}`}
+          aria-label={`Total balance, ${month}`}
+          aria-valuemin={1}
+          aria-valuemax={today + 1}
+          aria-valuenow={focusIndex + 1}
+          aria-valuetext={`${money(focusedCents)} on day ${dayNumber(focusIndex)}`}
           onKeyDown={onKey}
           onPointerDown={(e) => {
             pressed.current = true
@@ -100,15 +128,19 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
           onPointerMove={(e) => pressed.current && fromPointer(e)}
           onPointerUp={() => (pressed.current = false)}
           onPointerCancel={() => (pressed.current = false)}
-          className="absolute top-0 right-0 h-full w-[111px] touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          className="relative h-full min-w-0 flex-1 touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ink"
         >
-          <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="absolute left-0 overflow-visible" style={{ top: TOP }} aria-hidden>
+          <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} className="absolute left-0 overflow-visible" style={{ top: TOP }} aria-hidden>
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-                <stop offset="0" style={{ stopColor: "var(--ink)", stopOpacity: 0.2 }} />
+                <stop offset="0" style={{ stopColor: "var(--ink)", stopOpacity: 0.18 }} />
                 <stop offset="1" style={{ stopColor: "var(--ink)", stopOpacity: 0 }} />
               </linearGradient>
             </defs>
+            {/* the guides at every label day, which is what the labels read against */}
+            {labels.map((i) => (
+              <line key={i} x1={xOf(i)} x2={xOf(i)} y1={0} y2={H} className="stroke-line" strokeWidth={1} />
+            ))}
             <path d={AREA} fill={`url(#${gradId})`} />
             <motion.path
               d={LINE}
@@ -144,19 +176,23 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
             animate={{ left: bubbleX }}
             transition={SPRING}
           >
-            {wholeMoney(model.days[idx].cents)}
+            {money(focusedCents)}
           </motion.span>
         </div>
       </div>
 
-      <div className="relative ml-7 h-4 text-[10px] leading-4 tracking-[0.01em]">
-        {[0, 4, 8, last].map((i) => (
+      {/* The day labels: every fifth day from the 1st, placed on the same scale as the plot. */}
+      <div className="relative h-4 text-[10px] leading-4 tracking-[0.01em] text-ink2" style={{ marginLeft: AXIS }}>
+        {labels.map((i) => (
           <span
             key={i}
-            className={join("absolute -translate-x-1/2", Math.abs(idx - i) < 2 ? "font-bold text-ink" : "text-ink2")}
-            style={{ left: pts[i].x }}
+            className={join(
+              "absolute -translate-x-1/2",
+              Math.abs(focusIndex - i) < EVERY / 2 ? "font-bold text-ink" : "text-ink2",
+            )}
+            style={{ left: xOf(i) }}
           >
-            {dayOf(i)}
+            {dayNumber(i)}
           </span>
         ))}
       </div>

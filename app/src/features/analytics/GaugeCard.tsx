@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useState } from "react"
-import { animate, motion, useMotionValue, useTransform } from "framer-motion"
+import { useId, useMemo, useState } from "react"
+import { motion } from "framer-motion"
 import { Switch } from "radix-ui"
 
+import { CountUp } from "@/components/CountUp"
 import { Tile } from "@/features/analytics/Tile"
 import { gaugeModel } from "@/lib/analytics"
 import { wholeMoney } from "@/lib/format"
@@ -27,14 +28,6 @@ export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
   const model = useMemo(() => gaugeModel(rows, now), [rows, now])
   const spent = lastMonth ? model.lastMonth : model.thisMonth
   const fraction = model.target > 0 ? Math.min(1, spent / model.target) : 0
-
-  // The figure counts up to its value on every change, as the dial sweeps to its fraction.
-  const count = useMotionValue(0)
-  const label = useTransform(count, (v) => wholeMoney(Math.round(v)))
-  useEffect(() => {
-    const controls = animate(count, spent, { duration: 0.6, ease: "easeOut" })
-    return () => controls.stop()
-  }, [spent, count])
 
   return (
     <Tile className="flex h-56 flex-col">
@@ -65,7 +58,11 @@ export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
           <p className="w-[88px] text-[10px] leading-3 tracking-[0.01em] text-ink2">
             {lastMonth ? "Spent last month" : "Spent this month"}
           </p>
-          <motion.p className="font-display text-2xl leading-7 font-bold tracking-[-0.03em]">{label}</motion.p>
+          <CountUp
+            cents={spent}
+            format={wholeMoney}
+            className="block font-display text-2xl leading-7 font-bold tracking-[-0.03em]"
+          />
           <p className="text-[11px] leading-3 tracking-[0.01em] text-ink2">/ {wholeMoney(model.target)}</p>
         </div>
       </div>
@@ -78,9 +75,9 @@ export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
             lightTap()
             setLastMonth(v)
           }}
-          className="relative h-4 w-7 shrink-0 rounded-full bg-line outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ink data-[state=checked]:bg-sage"
+          className="relative h-4 w-7 shrink-0 rounded-full bg-line outline-none transition-[background-color] duration-[350ms] ease-[ease] focus-visible:ring-2 focus-visible:ring-ink data-[state=checked]:bg-sage"
         >
-          <Switch.Thumb className="block size-3 translate-x-0.5 rounded-full bg-ink transition-transform data-[state=checked]:translate-x-[14px] data-[state=checked]:bg-card" />
+          <Switch.Thumb className="block size-3 translate-x-0.5 rounded-full bg-ink transition-[transform,background-color] duration-[350ms] ease-[ease] data-[state=checked]:translate-x-[14px] data-[state=checked]:bg-card" />
         </Switch.Root>
       </label>
     </Tile>

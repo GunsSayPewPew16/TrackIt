@@ -53,12 +53,12 @@ export function AnalyticsScreen({ rows, theme, onToggleTheme }: Props) {
       </motion.header>
 
       <motion.div variants={rise}>
-        <HeatmapCard rows={rows} now={now} />
+        <TrendCard rows={rows} now={now} />
       </motion.div>
 
       <motion.div variants={rise} className="grid grid-cols-2 gap-4">
         <GaugeCard rows={rows} now={now} />
-        <TrendCard rows={rows} now={now} />
+        <HeatmapCard rows={rows} now={now} />
       </motion.div>
 
       <motion.div variants={rise}>

@@ -152,8 +152,8 @@ export const DEMO_DASHBOARD: DashboardModel = {
   // The artboard's two cards, with its own figures: UPI and Cash, what each holds and
   // what has gone out of it. The stack is where the accounts are drawn apart.
   cards: [
-    { id: "upi", name: "UPI", icon: "qr", balance: money(paise(18420.5)), spent: wholeMoney(paise(3240)) },
-    { id: "cash", name: "Cash", icon: "cash", balance: money(paise(6440)), spent: wholeMoney(paise(500)) },
+    { id: "upi", name: "UPI", icon: "qr", cents: paise(18420.5), balance: money(paise(18420.5)), spent: wholeMoney(paise(3240)) },
+    { id: "cash", name: "Cash", icon: "cash", cents: paise(6440), balance: money(paise(6440)), spent: wholeMoney(paise(500)) },
   ],
   quickLog: {
     title: "Quick log",
