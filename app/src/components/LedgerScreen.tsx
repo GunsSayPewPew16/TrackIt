@@ -1,5 +1,5 @@
 import { motion } from "framer-motion"
-import { ArrowLeft, Check, ChevronDown, Plus } from "lucide-react"
+import { Check, ChevronDown, Plus } from "lucide-react"
 import { DropdownMenu } from "radix-ui"
 import { useState } from "react"
 
@@ -155,12 +155,11 @@ export type Props = {
   model: LedgerModel
   theme: Theme
   onToggleTheme: () => void
-  onBack: () => void
   /** Move the wheel's window to end on the day the picked month's newest row is. */
   onPickMonth: (anchor: number) => void
 }
 
-export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth }: Props) {
+export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props) {
   const [selected, setSelected] = useState(model.selected)
 
   /**
@@ -234,14 +233,6 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
         </svg>
 
         <header className="relative flex h-12 items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to the dashboard"
-            className="flex size-12 items-center justify-center rounded-3xl border border-line bg-card text-ink"
-          >
-            <ArrowLeft className="size-6" strokeWidth={1.5} aria-hidden="true" />
-          </button>
           <h1 className="font-display text-lg font-medium leading-6 tracking-[-0.01em]">Daily ledger</h1>
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </header>

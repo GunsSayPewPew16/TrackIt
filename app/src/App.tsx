@@ -1,5 +1,4 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Camera } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 
 import { BottomNav } from "@/components/BottomNav"
@@ -8,6 +7,7 @@ import { DashboardScreen } from "@/components/DashboardScreen"
 // `import type` is erased, so nothing here fetches them until a tap does.
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
 import type { Props as ScanProps } from "@/components/ScanScreen"
+import type { Props as StatsProps } from "@/components/AnalyticsScreen"
 import { logPaidPayee, logScannedPayee } from "@/features/upi/logScan"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
@@ -43,16 +43,15 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * builds that month around it and opens the wheel on its day. With no anchor the anchor
  * is the newest row, which is what the owner came to see.
  *
- * **Where a screen starts.** At its top, every time. The way back is pressed from
- * the foot of the ledger's rows, and on a short window either screen scrolls, so the
+ * **Where a screen starts.** At its top, every time. Every way between screens is the
+ * dock, and on a short window any screen scrolls, so the
  * browser would otherwise hand the new one the old one's scroll offset — the dashboard
  * opening halfway down its cards, or the ledger past a day the owner has not seen.
  * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
  * owner asked for, and the cross-fade is what carries the change of screen.
  *
- * **The scanner is a screen too.** The dashboard's scan square opens it — and the
- * dock's Create panel is the second way in, for a row the owner only realises they
- * want once the dashboard has scrolled away — and it wears the second artboard's design
+ * **The scanner is a screen too.** The dashboard's scan square opens it, and it is the
+ * only way in — the dock has no Create — and it wears the second artboard's design
  * (`components/ScanScreen.tsx`) rather than the dialog the previous app opened: it
  * has its own header and its own way back, and the cross-fade carries the change like
  * the other two. What a read code becomes — one row, or a refusal — is
@@ -71,13 +70,13 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * leaves the page when the screen does: the tabs are a level above the views and
  * stay put while the content cross-fades over them. Its `active` is the view itself
  * — the tab keys are view names, so a tab is a screen — and the scanner is the one
- * name it knows that is not a tab: it is Create's destination, so the circle waits
- * on Create while the camera is up and the way back slides from there.
+ * view that is not a tab, so the circle holds its place while the camera is up and
+ * slides from there when the owner goes back.
  *
  * **Only the dashboard is in the file that must arrive before the first pixel.** Nothing
  * renders until this module runs, so everything it imports is a cost the owner pays before
- * seeing anything — and the other two screens sit behind a tap most opens never make. They
- * are two chunks of their own for that reason: the ledger's month menu is the app's only
+ * seeing anything — and the other screens sit behind a tap most opens never make. They
+ * are chunks of their own for that reason: the ledger's month menu is the app's only
  * Radix dependency, and the scanner is a whole decoder (barcode detection, WebRTC shims, and
  * a WASM build fetched from a CDN in turn). Out of the entry file they took it from 657 kB
  * to 415 kB, which is 216 kB over the wire down to 129.
@@ -98,21 +97,23 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  */
 
 /**
- * The two screens that arrive when they are asked for. The named exports are the only reason
+ * The three screens that arrive when they are asked for. The named exports are the only reason
  * these are not plain `lazy` calls — a `lazy` component suspends on first render, and a
  * suspension is exactly what the cross-fade cannot carry.
  */
 const screens = {
   ledger: () => import("@/components/LedgerScreen").then((screen) => screen.LedgerScreen),
   scan: () => import("@/components/ScanScreen").then((screen) => screen.ScanScreen),
+  stats: () => import("@/components/AnalyticsScreen").then((screen) => screen.AnalyticsScreen),
 } as const
 
-type View = "dashboard" | "ledger" | "scan"
+type View = "dashboard" | "ledger" | "scan" | "stats"
 
-/** Whichever of the two lazy screens has arrived — normally both, from the idle fetch. */
+/** Whichever of the lazy screens has arrived — normally all of them, from the idle fetch. */
 type Arrived = {
   ledger?: ComponentType<LedgerProps>
   scan?: ComponentType<ScanProps>
+  stats?: ComponentType<StatsProps>
 }
 export default function App() {
   const { theme, toggleTheme } = useTheme()
@@ -139,6 +140,7 @@ export default function App() {
     const warm = () => {
       void screens.ledger()
       void screens.scan()
+      void screens.stats()
     }
     if (typeof window.requestIdleCallback === "function") {
       const idle = window.requestIdleCallback(warm, { timeout: 2000 })
@@ -168,18 +170,6 @@ export default function App() {
   }, [])
 
   /**
-   * What Create offers. The scanner is the app's only way to make a row from the
-   * dock at the moment, so it is the whole list — and a second entry is a second
-   * object here, which is the point of the dock taking them as data.
-   */
-  const actions = useMemo(
-    () => [
-      { id: "scan", label: "Scan a receipt", icon: Camera, onSelect: () => void goTo("scan") },
-    ],
-    [goTo],
-  )
-
-  /**
    * Both models are rebuilt when the ledger changes and not on every render: the
    * derivation walks every row, and a screen that re-renders for a hover must not
    * make it do that.
@@ -196,6 +186,7 @@ export default function App() {
 
   const Ledger = arrived.ledger
   const Scan = arrived.scan
+  const Stats = arrived.stats
 
   return (
     <>
@@ -220,10 +211,11 @@ export default function App() {
               model={ledger}
               theme={theme}
               onToggleTheme={toggleTheme}
-              onBack={() => void goTo("dashboard")}
-              onPickMonth={setAnchor}
+            onPickMonth={setAnchor}
             />
-          ) : view === "scan" && Scan ? (
+          ) : view === "stats" && Stats ? (
+          <Stats rows={rows} theme={theme} onToggleTheme={toggleTheme} />
+        ) : view === "scan" && Scan ? (
             <Scan
               theme={theme}
               onToggleTheme={toggleTheme}
@@ -243,9 +235,8 @@ export default function App() {
         inside, not a fourth screen. `null` on the scanner leaves no tab marked.
       */}
       <BottomNav
-        active={view}
+        active={view === "scan" ? null : view}
         onChange={(tab) => void goTo(tab)}
-        actions={actions}
       />
     </>
   )

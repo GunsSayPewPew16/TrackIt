@@ -150,6 +150,17 @@
    */
   --pill: #1a221e;
   --pill-ink: #f4f0ea99;
+  /*
+   * The dock's own surface and hairline: a step lighter than the card, so the floating
+   * bar still reads against the list scrolling behind it.
+   */
+  --dock: #222c27;
+  --dock-line: #33423b;
+  /* The data-viz colours: the same reds, golds and indigo in both themes. */
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
   color-scheme: dark;
 }
 
@@ -165,6 +176,12 @@
   --on-sage: #ffffff;
   --pill: #f8f6f2;
   --pill-ink: #1a221e99;
+  --dock: #ffffff;
+  --dock-line: #dad4c9;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
   color-scheme: light;
 }
 
@@ -185,6 +202,12 @@
   --color-on-sage: var(--on-sage);
   --color-pill: var(--pill);
   --color-pill-ink: var(--pill-ink);
+  --color-dock: var(--dock);
+  --color-dock-line: var(--dock-line);
+  --color-data-red: var(--data-red);
+  --color-data-gold: var(--data-gold);
+  --color-data-teal: var(--data-teal);
+  --color-data-indigo: var(--data-indigo);
 
   /* The reading face: paragraphs, labels, fields — everything but a heading. */
   --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
