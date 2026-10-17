@@ -201,12 +201,23 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
         geometry and is moved down by `safe-area-inset-top` itself: a strip of the card
         colour still covers the notch at the top of the page, and the drawing below it
         is the artboard's, unchanged in size and curvature.
+
+        **The strip is fixed, and that is the whole point.** iOS 26 does not paint the
+        status bar with `theme-color`; Safari samples the page along the top edge and
+        tints the bar with what it finds. The centre point is hit-tested, and only a
+        `fixed` or `sticky` element may answer, and only if it spans the viewport's
+        width and is more than 10px tall. An `absolute` strip is invisible to that
+        lookup, so the bar fell through to the page background — the canvas — and the
+        owner saw a canvas band above a card-coloured panel. Fixed, full-width and
+        `safe-area-inset-top` tall, the strip is the top edge Safari finds, and the
+        status bar wears the panel's colour. `pointer-events: none` keeps it out of
+        the thumb's way; it is decoration, not a control.
       */}
       <div className="relative mx-auto w-full max-w-[390px] pt-safe">
         {/* The part of the panel that sits under the status bar and the notch. */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 bg-card"
+          className="pointer-events-none fixed inset-x-0 top-0 bg-card"
           style={{ height: "env(safe-area-inset-top, 0px)" }}
         />
         <svg
