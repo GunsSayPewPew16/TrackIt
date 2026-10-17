@@ -16,7 +16,8 @@ import type { Theme } from "@/lib/theme"
  * with Tailwind utilities in the app's own tokens. The screen is the artboard's
  * four bands, at its own coordinates: the 48px header (a back circle, the title and
  * the theme toggle); the hint in muted ink 88px down; the 358×358 viewfinder at
- * 224px, hairline in sage with its four corner brackets and the travelling line;
+ * 224px, hairline in sage with its four corner brackets and the travelling line —
+ * every one of those offsets plus `--safe-top`, which is 0 on a desktop;
  * then, 700px down, the little letterspaced label and the manual row — a 7fr/3fr
  * grid of the field and the clay **Use it** button.
  *
@@ -194,7 +195,7 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
 
   return (
     <div className="relative min-h-dvh w-full bg-canvas text-ink">
-      <div className="relative mx-auto w-full max-w-[390px] px-4 pt-6 pb-8">
+      <div className="relative mx-auto w-full max-w-[390px] px-4 pt-safe pb-8">
         <header className="flex h-12 items-center justify-between">
           <button
             type="button"
@@ -214,8 +215,17 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
           camera failure) can wrap without pushing the viewfinder down the screen. The
           frame sits at a fixed 224px because the artboard fixes it, not because it
           follows the text.
+
+          The offset carries `--safe-top` because absolute children are placed against
+          the column's padding box, not inside its padding: without it the hint would
+          stay at 88px while the header above it moved down for the notch, and the two
+          would overlap on an iPhone.
         */}
-        <p className="absolute inset-x-4 top-[88px] m-0 text-ink2" role="status">
+        <p
+          className="absolute inset-x-4 m-0 text-ink2"
+          style={{ top: "calc(88px + var(--safe-top))" }}
+          role="status"
+        >
           {status ?? HINT}
         </p>
 

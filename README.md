@@ -43,18 +43,21 @@ from the recent card, where it would have been a second door to the same room.
 **The ledger** is one day, chosen on a wheel. The wheel is a circle of radius 800
 turned on its side: every capsule is drawn at `translate(800·sin θ, 800·(1 − cos θ))
 rotY(−9°·n) rot(θ) scale(s)`, so the far ones curve away and fade out, and only ±3
-are reachable. Dragging it with a mouse or a thumb steps the day by the artboard's
-own arithmetic — one step per 60px of travel, up to three at a time, and nothing at
-all under 24px — and the capsules spring to their new places (stiffness 300, damping
-30). The arrow keys step it too. Each day is a stack of **notched cards**: a 358×128
-outline with a step cut out of its top-left corner, the category pill sitting in the
-cut and the faces on the step, in one of three treatments — plain, clay for a month's
-big expenses, sage for money in.
+are reachable. It is **dragged as one row**, not stepped: a single scroll offset drives
+every capsule's seat on every frame, so the row follows the finger, a flick keeps its
+momentum and lands on the day nearest the middle (`modifyTarget` snapping to the
+capsule pitch of ~69px), and each capsule that crosses the axis plays a light haptic
+(`navigator.vibrate` on Android, the system's switch click on iOS). The arrow keys,
+Home and End move it too. Each day is a stack of **notched cards**: a 358×128 outline
+with a step cut out of its top-left corner, the category pill sitting in the cut and
+the faces on the step, in one of three treatments — plain, clay for a month's big
+expenses, sage for money in.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
 down, a 358×358 viewfinder at 224px — a sage hairline, four corner brackets and a 2px
 line sweeping it from 24px to 332px — and then, at 700px, the small letterspaced label
+(each of those offsets plus the safe top above)
 and the manual row, a 7fr/3fr grid of the field and the clay **Use it** button. The
 frame holds the live camera; see *Scanning a UPI code* below for the one part of the
 artboard that is deliberately not rebuilt.
@@ -65,6 +68,10 @@ content — the eleven sample rows, $24,860.40 of balance, October 2026 — writ
 literals. The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the
 same two models from their rows and the screens change without knowing it. That switch
 is the only place the app decides what it is looking at (`src/App.tsx`).
+
+Every screen starts at the artboards' 24px plus 8px plus whatever the phone reserves
+for itself (`pt-safe`): on an iPhone in a home-screen window the page is drawn edge to
+edge, and the greeting was the first thing to disappear under the notch.
 
 ## The greeting
 
@@ -284,19 +291,20 @@ belongs to the *parked* model route, where what it protects is a key's quota.)
 app/                    the whole product — one Vite app
   index.html            entry point; the pre-paint theme script lives here
   api/greeting.ts       parked: a model behind a server, and the rationing (Vercel)
-  design/               the two exported artboards, as the design of record
+  design/               the artboards and the date container, as the design of record
   src/
     App.tsx             which content, which screen, and the cross-fade between them
     components/
       DashboardScreen   the bento dashboard
-      LedgerScreen      the wheel, the month menu, the notched cards
+      LedgerScreen      the wheel's screen: the month menu and the notched cards
+      DateWheel         the date container: the arc, the drag, the snap and the tick
       ThemeToggle       the 48px circle that hands the sun to the moon
       DataSheet         import / export / start over
       PaySheet          the money screen a scanned code with no amount opens
       ScanScreen        Scan to pay: the camera in its frame, and the manual row
       RowIcon           a card's glyph: a Lucide face, or a category's marker
     features/upi/       the UPI link builder, and what a read code becomes (logScan)
-    hooks/              useTheme, useLedger, useGreeting
+    hooks/              useTheme, useLedger, useGreeting, useTick
     lib/
       index.css         the ten roles, both palettes, the two faces
       theme.ts          reading and writing the theme
@@ -319,7 +327,7 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 
 ## Status
 
-Working: all three screens in both themes, the wheel's drag/keys/springs, the month
+Working: all three screens in both themes, the wheel's drag/snap/haptics/keys, the month
 menu that reaches past the wheel's fifteen-day window, the Wallet import and both
 exports, the scanner (camera and manual entry, the money screen for a code with no amount,
 and one row per code), the greeting in a different language every open, and the Pages

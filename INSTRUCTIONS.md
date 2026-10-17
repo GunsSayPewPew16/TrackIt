@@ -25,7 +25,7 @@ set by the project owner, so follow them without being asked again.
    Two traps this repository has already fallen into, so check for them first:
    - **The desktop Preview panel does not always composite.** When it produces no
      frames, screenshots fail and every animation — the cross-fade, the theme
-     switch, the wheel's springs — freezes at its starting value, so a *passing*
+     switch, the wheel's inertia — freezes at its starting value, so a *passing*
      check there can be a lie and a *failing* one can be an artefact. When that
      happens, drive real Chrome over the DevTools protocol instead: launch it with
      `--headless=new --remote-debugging-port=<port>`, `Emulation.setDeviceMetricsOverride`
@@ -109,7 +109,12 @@ left out and why.
   which the card's 160px then clipped. Neither change moves a type size, a line height or
   a height — keep it that way if either is revisited.
 - **The column is 390px and centred.** It is a phone design; it is centred rather than
-  stretched, and it keeps the artboard's 24/16/32 padding.
+  stretched, and it keeps the artboard's 24/16/32 padding — except at the top, which is
+  `pt-safe`: the 24px, then 8px more, then `env(safe-area-inset-top)`. The page is
+  edge-to-edge (`viewport-fit=cover`), so on a phone with a notch the greeting used to
+  be drawn under it; the extra 8 is the owner's own ask. The ledger's panel stays at the
+  top of the page and the header moves down the panel — the panel is a surface the notch
+  can sit over, the greeting and the header are not.
 - **A screen starts at its own top.** The way back is pressed from the foot of the
   ledger's rows and either screen scrolls on a short window, so `goTo` in `App.tsx`
   resets the scroll — instantly, because the cross-fade is what carries the change.
@@ -131,13 +136,24 @@ left out and why.
   second door to the same room. That circle carries `ArrowDownUp` because it is the
   control the owner pointed at — the glyph is what to change first if it reads as
   "swap".
-- **The wheel's geometry is the artboard's**, not a tuning: radius 800, one fifteenth
-  of the arc per capsule, `rotY(−9°·n)`, scales 1.15/1/0.9/0.78/0.7, opacity
-  1/0.6/0.6/0.3/0, and only ±3 reachable. The gesture is too: 60px per step, up to
-  three, nothing under 24px. **Framer Motion's spring is the spec's** (stiffness 300,
-  damping 30); the theme toggle's curve is the artboard's own
-  `cubic-bezier(.34,1.56,.64,1)` overshoot rather than a spring, because that is what
-  the design drew.
+- **The date container is the owner's newer one, and it is a scroll rather than a
+  step.** `components/DateWheel.tsx` holds it. The geometry is still the artboard's —
+  radius 800, one fifteenth of the arc per capsule, `rotY(−9°·n)`, scales
+  1.15/1/0.9/0.78/0.7, opacity 1/1/0.8/0.4/0, only ±3 reachable — but **the gesture is
+  not the old wheel's**: one virtual scroll offset drives every capsule on every frame
+  (so a finger moves the row one-to-one), a flick keeps its inertia and `modifyTarget`
+  snaps the projected end-point to the nearest multiple of the ~69px capsule pitch, and
+  every capsule that crosses the axis plays a light haptic (`hooks/useTick.ts`:
+  `navigator.vibrate(8)` on Android, a hidden `<input switch>` clicked through its
+  label on iOS, which is a side effect Apple could remove; a silent wheel is the
+  acceptable fallback). The old 60px-per-step / 24px-threshold / three-at-a-time
+  arithmetic is **gone on purpose — do not reintroduce it**: it is what made the row
+  step on release instead of following the thumb. Taps and the keyboard move the row
+  with a spring (stiffness 320, damping 28); the theme toggle's curve is still the
+  artboard's own `cubic-bezier(.34,1.56,.64,1)` overshoot rather than a spring, because
+  that is what the design drew. The container's two idle colours (`--pill`,
+  `--pill-ink`) are its own tokens: the capsule rests on the card in dark and on the
+  canvas in light, so neither can be a fixed utility.
 - **The wheel is a fifteen-day window**, so it can only ever reach the last fortnight
   on its own. The chevron beside the month is the way further back: a Radix menu of
   the months the history touches (`LedgerModel.months`), each anchored on the newest
@@ -238,6 +254,7 @@ left out and why.
   writes either row and returns the sentence the status line shows; keep the id the payee
   plus the amount, so re-reading a code is the same row rather than a second one. The scanner
   itself is the second artboard, so keep it at that geometry: the frame is 358×358 at 224px
+  plus `--safe-top` (the hint is the one absolute one, and carries it in its `top`)
   and the manual row 724px down, and the frame holds the live camera where the artboard
   paints a code.
 - **`backend/` is the Shortcut's endpoint and the greeting's server, and the app calls
@@ -264,7 +281,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
-| The wheel | a real mouse drag (−130px ⇒ +2 days), the ±3 clamp, the 24px threshold, the arrow keys, and the spring settling |
+| The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and every tick is a haptic call (count them by replacing `navigator.vibrate`). With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |

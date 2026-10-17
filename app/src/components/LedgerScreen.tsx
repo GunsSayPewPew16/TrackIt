@@ -1,11 +1,12 @@
-import { motion, type PanInfo } from "framer-motion"
+import { motion } from "framer-motion"
 import { ArrowLeft, Check, ChevronDown, Plus } from "lucide-react"
 import { DropdownMenu } from "radix-ui"
-import { useCallback, useRef, useState } from "react"
+import { useState } from "react"
 
+import { DateWheel } from "@/components/DateWheel"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
-import { dayOfWeek, dayNumber, monthKey, monthLabel } from "@/lib/format"
+import { monthKey, monthLabel } from "@/lib/format"
 import type { Theme } from "@/lib/theme"
 import type { CardStyle } from "@/lib/types"
 import type { LedgerCard, LedgerModel } from "@/lib/view"
@@ -22,19 +23,11 @@ import type { LedgerCard, LedgerModel } from "@/lib/view"
  *   character; the three treatments (plain, clay, sage) are the artboard's own
  *   `std` / `alt` / `inc`, which is why a card's style is a domain value rather
  *   than a class name.
- * - **The wheel.** A capsule is drawn at `translate(x, y) rotateY(-9°×offset)
- *   rotate(4.95°×offset) scale(s)` where `x = 800·sin(0.0863·offset)` and
- *   `y = 800·(1 − cos(0.0863·offset))` — a circle of radius 800 turned on its side,
- *   so the capsules curve away from the middle one the way a physical wheel does.
- *   Only ±3 capsules are reachable; past that they have faded out entirely.
- *
- * The gesture is Framer Motion's. Dragging the wheel pulls the whole row sideways
- * (with a little resistance) and, on release, the capsules spring to their new
- * places — stiffness 300, damping 30 — while a drag of over 24px steps the day,
- * one step per 60px and up to three at a time, which is the artboard's own
- * arithmetic down to its threshold. A drag also fires a click on whatever capsule
- * the finger landed on, so that click is swallowed once per drag; otherwise
- * flicking the wheel would also jump to a neighbouring day.
+ * - **The date container.** The capsules and their geometry live in
+ *   `components/DateWheel.tsx`: a row on a circle of radius 800 that is dragged
+ *   sideways, snapped to whichever capsule is nearest the middle, with a haptic tick
+ *   as each one crosses. It is the owner's newer container, and unlike the wheel it
+ *   replaced, the row travels with the finger rather than stepping on release.
  *
  * The month above the wheel is the one control the artboard drew but could not
  * use: it is a chevron beside a month name, and the wheel is a fifteen-day window,
@@ -47,28 +40,6 @@ import type { LedgerCard, LedgerModel } from "@/lib/view"
  * month above the wheel follows the selected day, so a window that spans a month
  * boundary says which month it is in.
  */
-
-/** The spring every capsule settles on. Stiffness and damping are the spec's. */
-const SPRING = { type: "spring", stiffness: 300, damping: 30 } as const
-
-/** How far a drag has to travel before it counts as a swipe rather than a tap. */
-const DRAG_THRESHOLD = 24
-
-/** How many days a swipe may cross at once, which is what the artboard allows. */
-const MAX_STEPS = 3
-
-/** The wheel's own radius, in pixels, from the artboard's geometry. */
-const RADIUS = 800
-
-/** Radians of turn per capsule — one fifteenth of the visible arc. */
-const ARC = 0.0863
-
-/** A capsule's scale by how far it is from the middle, again from the artboard. */
-const SCALE = [1.15, 1, 0.9, 0.78]
-const SCALE_BEYOND = 0.7
-
-/** And its opacity: the middle one is solid, its neighbours are not. */
-const OPACITY = [1, 0.6, 0.6, 0.3]
 
 /** The three card treatments, and every colour each one uses. */
 const TREATMENTS: Record<
@@ -104,31 +75,6 @@ const FACES = ["bg-sage text-on-sage", "bg-clay text-on-clay", "bg-ink text-canv
 /** The notched card's outline, exactly as the artboard draws it. */
 const CARD_PATH =
   "M0 20Q0 0 20 0H92C112 0 118 8 124 22C130 36 138 40 156 40H338Q358 40 358 60V108Q358 128 338 128H20Q0 128 0 108Z"
-
-/**
- * Where a capsule sits, and how it looks, at `offset` days from the middle.
- *
- * The rotation is composed of the Y-turn that swings it around the wheel's axis
- * and the small Z-turn that keeps it facing outward, which is what the artboard's
- * `rotateY(-o*9deg) rotate(th)` does; it comes back as props because Framer Motion
- * animates those rather than a composed `transform` string.
- */
-function capsule(offset: number) {
-  const distance = Math.abs(offset)
-  const radians = offset * ARC
-  const x = RADIUS * Math.sin(radians)
-  const y = RADIUS * (1 - Math.cos(radians))
-  return {
-    x,
-    y,
-    rotateY: -offset * 9,
-    rotate: radians * (180 / Math.PI),
-    scale: SCALE[distance] ?? SCALE_BEYOND,
-    opacity: OPACITY[distance] ?? 0,
-    zIndex: 10 - distance,
-    reachable: distance <= 3,
-  }
-}
 
 /** One notched card. */
 function Card({ card, index }: { card: LedgerCard; index: number }) {
@@ -220,8 +166,6 @@ export type Props = {
 
 export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth }: Props) {
   const [selected, setSelected] = useState(model.selected)
-  /** Set by a drag, so the click it fires is swallowed instead of selecting. */
-  const swiped = useRef(false)
 
   /**
    * A window the owner has just moved — they picked a month from the menu — opens
@@ -239,41 +183,20 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
 
   const day = model.days[selected]
 
-  /** Step the wheel, clamped to the window — the artboard's `clamp(9, 23)`. */
-  const step = useCallback(
-    (steps: number) =>
-      setSelected((current) => Math.max(0, Math.min(model.days.length - 1, current + steps))),
-    [model.days.length],
-  )
-
-  /**
-   * A released drag: `offset.x` is how far the wheel was pulled, and the day moves
-   * one step per 60px, up to three, with any movement at all counting as one step
-   * in the direction it went.
-   */
-  const onDragEnd = useCallback(
-    (_event: unknown, info: PanInfo) => {
-      // Under the artboard's threshold a drag is not a swipe, and nothing moves.
-      if (Math.abs(info.offset.x) <= DRAG_THRESHOLD) return
-      swiped.current = true
-      const steps = Math.round(-info.offset.x / 60) || (info.offset.x < 0 ? 1 : -1)
-      step(Math.max(-MAX_STEPS, Math.min(MAX_STEPS, steps)))
-    },
-    [step],
-  )
-
   return (
     <div className="relative min-h-dvh w-full bg-canvas text-ink">
       {/*
         The header's own shape: a filled panel whose lower edge bows upwards.
 
-        The 24px the header sits down the panel is the column's own **padding**,
-        not the header's margin, and that is load-bearing: the panel is absolutely
-        positioned against this column's padding box, so a margin here would
-        collapse out of the column and push the whole screen — panel, wheel and
-        rows — 24px down the viewport instead of down the panel.
+        The space the header sits down the panel is the column's own **padding**
+        (`pt-safe` — the artboard's 24px, plus the notch), not the header's margin, and
+        that is load-bearing: the panel is absolutely positioned against this column's
+        padding box, so a margin here would collapse out of the column and push the
+        whole screen — panel, wheel and rows — down the viewport instead of down the
+        panel. The panel itself deliberately stays at the top of the page: it is a
+        surface the notch can sit over, and the header is what has to keep clear of it.
       */}
-      <div className="relative mx-auto w-full max-w-[390px] pt-6">
+      <div className="relative mx-auto w-full max-w-[390px] pt-safe">
         <svg
           width="390"
           height="276"
@@ -350,68 +273,18 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
         </DropdownMenu.Root>
 
         {/*
-         * The wheel. Framer Motion drags the row as a whole (so a flick feels like
-         * pulling a wheel rather than pressing through it) and each capsule then
-         * springs to the seat its offset gives it.
+         * The date container. Its `key` is the window's first day, so picking a month
+         * remounts the row at the new window's end rather than dragging the old one
+         * across months it does not hold. Everything else — the drag, the snap, the
+         * tick — is the container's own (`components/DateWheel.tsx`).
          */}
-        <motion.div
-          role="group"
-          aria-label="Select a date"
-          className="relative mt-2 h-[120px] overflow-hidden touch-pan-y"
-          // A perspective on the container is what gives the Y-turn its depth.
-          style={{ perspective: 900 }}
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.12}
-          dragMomentum={false}
-          onDragEnd={onDragEnd}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight") step(1)
-            else if (event.key === "ArrowLeft") step(-1)
-          }}
-        >
-          {model.days.map((entry, index) => {
-            const seat = capsule(index - selected)
-            const active = index === selected
-            return (
-              <motion.button
-                key={entry.at}
-                type="button"
-                aria-label={`${dayOfWeek(entry.at)} ${dayNumber(entry.at)} ${monthLabel(entry.at)}`}
-                aria-pressed={active}
-                onClick={() => {
-                  // The click a drag leaves behind is not a choice.
-                  if (swiped.current) {
-                    swiped.current = false
-                    return
-                  }
-                  setSelected(index)
-                }}
-                className={`absolute left-[169px] top-4 flex h-20 w-[52px] origin-bottom flex-col items-center justify-center rounded-[26px] ${
-                  active ? "bg-sage text-on-sage" : "bg-canvas text-ink"
-                }`}
-                // Capsules the wheel has turned too far away to reach are inert,
-                // which is also what the artboard does.
-                style={{ zIndex: seat.zIndex, pointerEvents: seat.reachable ? "auto" : "none" }}
-                initial={false}
-                animate={{
-                  x: seat.x,
-                  y: seat.y,
-                  rotateY: seat.rotateY,
-                  rotate: seat.rotate,
-                  scale: seat.scale,
-                  opacity: seat.opacity,
-                }}
-                transition={{ transform: SPRING, opacity: { duration: 0.3 } }}
-              >
-                <span className="font-display text-2xl font-bold leading-7 tracking-[-0.02em]">
-                  {dayNumber(entry.at)}
-                </span>
-                <span>{dayOfWeek(entry.at)}</span>
-              </motion.button>
-            )
-          })}
-        </motion.div>
+        <DateWheel
+          key={model.days[0]?.at ?? 0}
+          days={model.days}
+          initialIndex={model.selected}
+          onActiveChange={setSelected}
+          className="mt-2"
+        />
 
         {/*
           The day's rows, fading up together each time the wheel lands — the

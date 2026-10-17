@@ -1,11 +1,21 @@
 # The design of record
 
-Three exported artboards, and the only files the screens are drawn from:
+Three exported artboards and one component, and the only files the screens are drawn
+from:
 
 - `dashboard.dc.html` — "Main": the bento dashboard, exported as `Main.dc.html`.
-- `ledger.dc.html` — "Daily ledger": the spinning date wheel and the notched cards.
+- `ledger.dc.html` — "Daily ledger": the notched cards, and the wheel the date
+  container replaced.
 - `scanner.dc.html` — "Scan to pay": the camera's viewfinder and the manual-entry row,
   exported as `Scanner.dc.html`.
+- `date-container.jsx` — `DailyLedger.jsx`, the owner's newer **date container**, and
+  the source of the ledger's drag, snap and haptic. It is a React component rather
+  than a design-tool export: it came with its own mock ledger and Tailwind classes,
+  and `src/components/DateWheel.tsx` is the part of it the app kept — the arc, the
+  virtual scroll offset, the inertia snapping to the capsule pitch, the light haptic,
+  the keyboard and the focus behaviour — rebuilt in this app's tokens (`--pill` and
+  `--pill-ink` are its two additions to the palette) and against this app's own model
+  of fifteen days rather than its twelve mock transactions.
 
 They are **reference, not build input**: nothing imports them, Vite never sees
 them, and they are excluded from the deploy (only `app/dist` is published). They

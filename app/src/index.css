@@ -116,6 +116,18 @@
   font-display: swap;
 }
 
+/*
+ * What the phone reserves at the top, plus the 8px the owner asked for on top of the
+ * artboards' own rhythm. Zero on anything that is not a notched phone, so a desktop
+ * keeps the design's coordinates to the pixel. The scanner needs it in a `top` as well
+ * as in a padding (its hint is absolutely positioned so that a long sentence cannot
+ * push the viewfinder down), which is why it is a variable rather than written into
+ * the `pt-safe` rule.
+ */
+:root {
+  --safe-top: calc(8px + env(safe-area-inset-top, 0px));
+}
+
 :root,
 :root[data-theme="dark"] {
   --canvas: #0a0f0d;
@@ -128,6 +140,16 @@
   --sage: #a3b19b;
   --on-clay: #0a0f0d;
   --on-sage: #0a0f0d;
+  /*
+   * A date capsule at rest, from the owner's newer date container. It is not one of
+   * the ten roles: it is the one surface that sits *on* the panel rather than beside
+   * it, so it needs its own pair — and the pair is not the same colour in both
+   * themes. Dark rests on the card itself, outlined by the hairline; light rests on
+   * the canvas, a shade under the white panel it is drawn on. Neither is `--card`
+   * there, which is why this is a token and not a utility.
+   */
+  --pill: #1a221e;
+  --pill-ink: #f4f0ea99;
   color-scheme: dark;
 }
 
@@ -141,6 +163,8 @@
   --sage: #6b7f64;
   --on-clay: #1a221e;
   --on-sage: #ffffff;
+  --pill: #f8f6f2;
+  --pill-ink: #1a221e99;
   color-scheme: light;
 }
 
@@ -159,6 +183,8 @@
   --color-sage: var(--sage);
   --color-on-clay: var(--on-clay);
   --color-on-sage: var(--on-sage);
+  --color-pill: var(--pill);
+  --color-pill-ink: var(--pill-ink);
 
   /* The reading face: paragraphs, labels, fields — everything but a heading. */
   --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
@@ -166,6 +192,25 @@
   --font-display: "Neue Haas Grotesk Display", "Neue Haas Grotesk Display Pro", Helvetica, Arial, sans-serif;
   /* The greeting, and nothing else: one family, two static cuts, Medium each. */
   --font-serif: "Anthropic Serif Display", Didot, "Times New Roman", Georgia, serif;
+}
+
+/*
+ * The top of every screen: the artboards' 24px, then 8px more, then whatever the
+ * phone has reserved for itself.
+ *
+ * The 24 is the design's own padding, and it is right on a desk. On a phone with a
+ * notch — an iPhone 13 added to the home screen, where the page is drawn edge to
+ * edge because `index.html` asks for `viewport-fit=cover` — the page starts under
+ * the status bar, and the greeting is the first thing on it, so its ascenders were
+ * being drawn behind the notch. `env()` is zero everywhere that reserves nothing,
+ * which is why this is one utility rather than a media query: the same rule leaves
+ * a desktop exactly as the artboard drew it, and the 8 is the small extra the owner
+ * asked for on top of the clearance.
+ */
+@layer utilities {
+  .pt-safe {
+    padding-top: calc(1.5rem + var(--safe-top));
+  }
 }
 
 /*
