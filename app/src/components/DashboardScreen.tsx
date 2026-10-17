@@ -1,4 +1,4 @@
-import { ArrowDownUp, Camera } from "lucide-react"
+import { Camera } from "lucide-react"
 
 import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
@@ -15,13 +15,18 @@ import type { DashboardModel } from "@/lib/view"
  * letter spacing and colour below is that artboard's own value; the only things
  * that are this app's are the *data* (everything comes from `DashboardModel`, which
  * the artboard's own figures fill on a first visit and the owner's imported history
- * fills after that) and the **ledger button** in the header — see the note on the
- * header. Nothing about the design is re-tuned here: if a number is not in the
- * artboard it is not in this file.
+ * fills after that) and the **scan square's door** — the one control that leaves this
+ * screen for a room the dock does not open. Nothing about the design is re-tuned
+ * here: if a number is not in the artboard it is not in this file.
+ *
+ * The header used to carry a second circle of its own — the app's way in to the
+ * daily ledger, `ArrowDownUp` beside the theme toggle. The dock opens the ledger
+ * now, so the owner has taken it out and the greeting has the room it was sharing;
+ * the theme toggle, which is the artboard's own control, stays.
  *
  * The layout is the artboard's four bands, in its order:
  *
- * 1. the greeting, with the two header circles;
+ * 1. the greeting, with the artboard's theme toggle;
  * 2. the stack of account cards, which replaced the single balance box — see
  *    `components/BalanceCards.tsx`;
  * 3. a 104px band pairing the scan square with the predictive quick-log tray;
@@ -38,7 +43,6 @@ export function DashboardScreen({
   greeting,
   theme,
   onToggleTheme,
-  onOpenLedger,
   onScan,
 }: {
   model: DashboardModel
@@ -50,7 +54,6 @@ export function DashboardScreen({
   greeting: GreetingLine
   theme: Theme
   onToggleTheme: () => void
-  onOpenLedger: () => void
   onScan: () => void
 }) {
   /** The artboard's small letterspaced label, which every chip and pill wears. */
@@ -66,13 +69,10 @@ export function DashboardScreen({
   return (
     <div className="mx-auto flex w-full max-w-[390px] flex-col gap-2 px-4 pt-safe pb-nav">
       {/*
-        The header is the artboard's greeting and its 48px circle, plus one more
-        circle of the same treatment: the app's way in to the **daily ledger**. The
-        design has no such control — the artboard's row is only the greeting and the
-        theme — so it is added beside the toggle rather than replacing anything, and
-        it wears the same border, radius and ink. It carries `ArrowDownUp` because
-        that is the control the owner asked for; the glyph is the thing that would
-        change first if this ever reads as "swap" rather than "open the ledger".
+        The header is the artboard's own row: the greeting, and its 48px theme
+        toggle. The app's second circle — the ledger's door — is gone, and the
+        greeting is the width of the screen for it; the ledger is one tap away in the
+        dock, which is where the owner asked for it.
       */}
       <div className="mb-2 flex h-12 items-center justify-between">
         {/*
@@ -103,17 +103,7 @@ export function DashboardScreen({
           {greeting.name}
           <span className="sr-only"> (in {greeting.language})</span>
         </h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenLedger}
-            aria-label="Open the daily ledger"
-            className="relative flex size-12 shrink-0 items-center justify-center rounded-3xl border border-line bg-card text-ink"
-          >
-            <ArrowDownUp strokeWidth={1.5} className="size-6" aria-hidden="true" />
-          </button>
-          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-        </div>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
 
       {/* The accounts, as the newer artboard's stack of cards. */}
@@ -261,9 +251,9 @@ export function DashboardScreen({
 
       {/*
         What just happened. The artboard puts a "See all" button in this header and
-        the owner has taken it out: the ledger is opened from the header's circle
-        now, so the control would have been a second door to the same room. The row
-        keeps the artboard's 48px and the card its 280px, so nothing below it moves.
+        the owner has taken it out: the ledger has its own tab in the dock now, so the
+        control would have been a second door to the same room. The row keeps the
+        artboard's 48px and the card its 280px, so nothing below it moves.
       */}
       <section className="h-[280px] rounded-[20px] border border-line bg-card p-4">
         <div className="flex h-12 items-center">

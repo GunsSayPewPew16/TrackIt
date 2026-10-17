@@ -1,40 +1,42 @@
-import { motion } from "framer-motion"
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion"
 import { Home, Plus, TrendingUp, type LucideIcon } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { lightTap, primeHaptics } from "@/lib/haptics"
-import { cn } from "@/lib/utils"
 
 /**
  * The dock: the app's way between screens, and the way to make something new.
  *
- * This is the imported `BottomNav.tsx` — the pill with the shallow hump, the clay
- * Create circle sitting in it, and the slots around it — rebuilt against this app's
- * screens and its own tokens. Everything geometric is the original's: a 72px bar,
- * a 10px rise, fully rounded ends, a 56px hump with 24px handles, the spring on the
- * press, and the 3px sage indicator under the current tab.
+ * This is the imported `BottomNav.tsx` — the pill with the hump, the clay circle
+ * travelling inside it, the sage indicator and the spring on every press — rebuilt
+ * against this app's three screens and its own tokens.
  *
- * **It is modular in one place.** `TABS` is the whole of the navigation: adding a
- * screen is one line there, and `CREATE_AT` says which gap the Create circle is
- * dropped into. The hump is not a fixed shape any more — it is drawn **over the
- * Create slot**, wherever that slot lands (the path below is the original's, with
- * its centre passed in rather than assumed to be `w / 2`), so three tabs and five
- * tabs both put the circle in the middle of the rise instead of under its shoulder.
- * The slots are flex-1, so their centres are just arithmetic on the index.
+ * **The circle marks the page you are on, and the hump travels with it.** The
+ * imported component parks the clay circle in the middle as the Create button and
+ * leaves the hump drawn over it for good. Here there is one circle and one hump:
+ * both are drawn at the slot of whichever page is on screen — Home, Create or
+ * Ledger — and they slide between slots on the dock's own spring. Pressing Create
+ * counts: the circle comes to the middle, the hump rises over it, and the panel
+ * opens above it.
  *
- * **Why three and not the original's five.** This app has a dashboard, a ledger and
- * a scanner. There is no search screen and no profile screen to point the other two
- * at, and a dock that offers a room the house does not have is worse than a shorter
- * dock — so Home, Create and Ledger it is, with the scanner as the Create panel's
- * first action. When a screen is added, `TABS` gains a line and the dock grows
- * around it.
+ * **It is modular in one place.** `TABS` is the whole of the navigation and
+ * `CREATE_AT` says which gap the Create circle sits in, so adding a screen is one
+ * line there. Nothing assumes four tabs or a middle one: the slots are flex-1, the
+ * circle's position is arithmetic on the slot index, and the hump's width gives way
+ * to the pill's rounded ends when a slot sits close to one (with three slots it
+ * never has to).
  *
- * **The Create panel is the one part that is not the original's.** The imported
- * component opens a Radix `Popover`; Radix's popper stack (popper, floating-ui, the
- * dismissable layer, the focus guards, remove-scroll) measured at **~98 kB of the
- * entry chunk** for a menu of quick actions, and the dock cannot be lazily loaded the
- * way the other screens are. The panel is therefore drawn here — see the note at the
- * slot — and the entry chunk stays where it was.
+ * **The class names are joined here, not with `cn`.** `lib/utils.ts` is `clsx` +
+ * `tailwind-merge`, and the dock was the only module in the entry chunk that used
+ * it: importing `cn` cost **27.9 kB minified** of the first load (measured by
+ * inlining a three-line join: 457.69 kB → 429.80 kB) to merge class names that are
+ * already written so that the last one wins. The whole dock now costs ~4.8 kB over
+ * a build with no dock at all.
+ *
+ * **The panel is not the imported one either.** The original opens a Radix
+ * `Popover`, and Radix's popper stack — popper, floating-ui, the dismissable layer,
+ * the focus guards, remove-scroll — measured at **~98 kB** of the entry chunk for a
+ * menu of quick actions, which cannot be lazily loaded the way the screens are.
  *
  * **Haptics.** Every press plays `lightTap()` — a buzz on Android, the system's
  * switch click on iOS — fired synchronously inside the tap, which is the only place
@@ -70,22 +72,33 @@ const CREATE_AT = 1
 
 const SPRING = { type: "spring", stiffness: 300, damping: 25 } as const
 
-// Dock geometry (px). The SVG is RISE px taller than the bar: that headroom is the shallow hump.
+// Dock geometry (px). The SVG is RISE px taller than the bar: that headroom is the hump.
 const BAR_H = 72
 const RISE = 10
 const R = BAR_H / 2 // fully rounded ends
-const HUMP_HALF = 56 // the hump starts and ends this far either side of the Create circle
-const HUMP_HANDLE = 24 // larger = softer shoulders
+const PAD = 8 // the bar's own inset, from the `px-2` the slots sit inside
+const CIRCLE = 40 // the travelling circle's diameter
+const HUMP_HALF = 26 // the hump starts and ends this far either side of the circle
+const HUMP_HANDLE = 12 // larger = softer shoulders
 
-/** Pill with a gentle hump in the middle of the top edge, sitting over the Create circle. */
-function dockPath(w: number, c: number) {
+/**
+ * Pill with a hump in its top edge, drawn over `c` — the circle's centre.
+ *
+ * A travelling hump cannot be as wide as the imported one (112px, over a circle
+ * that never moved): at the outermost slot its shoulder would run into the pill's
+ * own rounding, and the `H` that draws the flat top would travel backwards. So the
+ * shoulders shorten to whatever room the slot has, symmetrically, which keeps the
+ * hump centred on the circle wherever it lands and lets the dock take a fourth tab
+ * later without a second shape.
+ */
+function dockPath(w: number, c: number, half: number, handle: number) {
   const top = RISE
   const bottom = RISE + BAR_H
   return [
     `M${R} ${top}`,
-    `H${c - HUMP_HALF}`,
-    `C${c - HUMP_HALF + HUMP_HANDLE} ${top} ${c - HUMP_HALF + HUMP_HANDLE} 0 ${c} 0`,
-    `C${c + HUMP_HALF - HUMP_HANDLE} 0 ${c + HUMP_HALF - HUMP_HANDLE} ${top} ${c + HUMP_HALF} ${top}`,
+    `H${c - half}`,
+    `C${c - half + handle} ${top} ${c - half + handle} 0 ${c} 0`,
+    `C${c + half - handle} 0 ${c + half - handle} ${top} ${c + half} ${top}`,
     `H${w - R}`,
     `A${R} ${R} 0 0 1 ${w - R} ${bottom}`,
     `H${R}`,
@@ -108,7 +121,20 @@ function useWidth<T extends HTMLElement>() {
   return [ref, width] as const
 }
 
-const labelClass = "font-sans text-[10px] font-bold uppercase leading-4 tracking-[0.03em]"
+/**
+ * The dock's own class-name join. `cn` would be `clsx` + `tailwind-merge`, and the
+ * 28 kB that buys is a merge of conflicts these strings already avoid by hand.
+ */
+const join = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ")
+
+/**
+ * A tab's title. **Anthropic Serif Display** — the greeting's face, the app's one
+ * serif — set in its roman (Medium) cut, which is the only one the family ships.
+ * Sentence case at 11px rather than the imported component's 10px all-caps label:
+ * caps at this size are the micro-label treatment every pill in the app wears, and
+ * this is a title.
+ */
+const labelClass = "font-serif text-[11px] leading-4"
 
 interface BottomNavProps {
   /** The tab whose screen is showing; `null` on a screen no tab owns (the scanner). */
@@ -124,6 +150,7 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
   /** The Create button and its panel: what focus returns to, and what "outside" is not. */
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
     primeHaptics()
@@ -150,13 +177,55 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
   }, [open])
 
   const slots = TABS.length + 1
-  /** The Create slot's centre, which is where the hump is drawn. */
-  const center = (width * (CREATE_AT + 0.5)) / slots
+  /** A slot's centre, in the container's own coordinates — the `PAD` is the ul's `px-2`. */
+  const centreOf = (slot: number) => PAD + ((width - PAD * 2) * (slot + 0.5)) / slots
 
-  const tab = ({ key, label, icon: Icon }: NavItem) => {
-    const isActive = active === key
+  /**
+   * Which slot the circle is in. Create counts while its panel is open, and a
+   * screen no tab owns — the scanner — leaves the circle where it was rather than
+   * inventing a tab for it.
+   */
+  const tabIndex = TABS.findIndex((tab) => tab.key === active)
+  const activeSlot = open
+    ? CREATE_AT
+    : tabIndex < 0
+      ? null
+      : tabIndex < CREATE_AT
+        ? tabIndex
+        : tabIndex + 1
+
+  /** The circle's animated left edge, and the hump drawn over its centre. */
+  const circleX = useMotionValue(centreOf(0) - CIRCLE / 2)
+  const hump = useTransform(circleX, (left) => {
+    const centre = left + CIRCLE / 2
+    // Symmetrical shoulders, shortened only if the slot sits close to a rounded end.
+    const half = Math.max(2, Math.min(HUMP_HALF, centre - R - 2, width - R - 2 - centre))
+    return dockPath(width, centre, half, Math.min(HUMP_HANDLE, half / 2))
+  })
+
+  /** Whether the circle has been placed once: the first slot is a seat, not a slide. */
+  const seated = useRef(false)
+  useEffect(() => {
+    if (activeSlot === null) return
+    const target = centreOf(activeSlot) - CIRCLE / 2
+    if (!seated.current) {
+      seated.current = true
+      circleX.set(target)
+      return
+    }
+    const controls = animate(circleX, target, reduceMotion ? { duration: 0 } : SPRING)
+    return () => controls.stop()
+    // `centreOf` is derived from the width above; naming it here would rebuild the
+    // effect on every render and restart the spring on every frame it runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlot, width, circleX, reduceMotion])
+
+  const slot = (tab: NavItem) => {
+    const key = tab.key
+    const isActive = !open && key === active
+    const Icon = tab.icon
     return (
-      <li key={key} className="flex flex-1 justify-center">
+      <li key={key} className="relative flex-1">
         <motion.button
           type="button"
           whileTap={{ scale: 0.96 }}
@@ -164,22 +233,21 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
           aria-current={isActive ? "page" : undefined}
           onClick={() => {
             lightTap() // must run synchronously inside the tap for iOS
+            setOpen(false)
             onChange(key)
           }}
-          className={cn(
-            "relative flex h-12 w-full min-w-12 flex-col items-center justify-center gap-1 rounded-2xl",
-            isActive ? "text-ink" : "text-ink2",
-          )}
+          className="absolute inset-0 rounded-2xl"
         >
-          <Icon strokeWidth={1.5} className="size-6" aria-hidden="true" />
-          <span className={labelClass}>{label}</span>
-          {isActive && (
-            <motion.span
-              layoutId="dock-active"
-              transition={SPRING}
-              className="absolute -bottom-2 left-1/2 -ml-2 h-[3px] w-4 rounded-full bg-sage"
-            />
-          )}
+          <Icon
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className={join("absolute top-0.5 left-1/2 z-[2] size-6 -translate-x-1/2", isActive ? "text-on-clay" : "text-ink2")}
+          />
+          <span
+            className={join(labelClass, "absolute top-[34px] left-1/2 z-[2] -translate-x-1/2 whitespace-nowrap", isActive ? "text-ink" : "text-ink2")}
+          >
+            {tab.label}
+          </span>
         </motion.button>
       </li>
     )
@@ -200,30 +268,28 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
           aria-hidden="true"
           className="absolute inset-0 overflow-visible"
         >
-          <path
-            d={dockPath(width, center)}
+          <motion.path
+            d={hump}
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
             className="fill-card stroke-line"
           />
         </svg>
 
+        {/* The circle, under the icon of the page on screen, behind every label. */}
+        <motion.span
+          aria-hidden="true"
+          style={{ x: circleX }}
+          className="absolute top-4 left-0 z-[1] size-10 rounded-full bg-clay"
+        />
+
         <ul className="absolute inset-x-0 bottom-0 flex h-[72px] items-stretch px-2 py-3">
-          {TABS.slice(0, CREATE_AT).map(tab)}
+          {TABS.slice(0, CREATE_AT).map(slot)}
 
-          <li className="relative flex flex-1 justify-center">
+          <li className="relative flex-1">
             {/*
-              The whole circle + label column is the 48px+ touch target; the circle
-              sits inside the bar, under the hump.
-
-              This panel is the one place the dock is not the imported component. The
-              original opens a Radix `Popover`, and Radix's popper stack — popper,
-              floating-ui, the dismissable layer, the focus guards, remove-scroll —
-              is about **98 kB of the entry chunk** for a menu of quick actions. The
-              dock has to be in the entry chunk (it is on screen before anything else
-              is), so the panel is drawn here instead: absolutely positioned over the
-              bar, closed by a press outside or Escape, and sound to a screen reader
-              without the machinery.
+              The whole slot is the touch target — 114×48 at the app's own width —
+              and the circle it sits under is the page marker, not this button's.
             */}
             <motion.button
               ref={trigger}
@@ -235,18 +301,25 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
                 lightTap()
                 setOpen((was) => !was)
               }}
-              className="absolute inset-x-0 top-[-10px] flex h-14 flex-col items-center justify-between rounded-2xl"
+              className="absolute inset-0 rounded-2xl"
             >
               <motion.span
                 variants={{ tap: { scale: 0.92 } }}
                 transition={SPRING}
-                className="grid size-10 place-items-center rounded-full bg-clay text-on-clay"
+                className={join(
+                  "absolute top-0.5 left-1/2 z-[2] flex -translate-x-1/2",
+                  open ? "text-on-clay" : "text-ink2",
+                )}
               >
                 <motion.span animate={{ rotate: open ? 45 : 0 }} transition={SPRING} className="flex">
-                  <Plus strokeWidth={1.5} className="size-5" aria-hidden="true" />
+                  <Plus strokeWidth={1.5} className="size-6" aria-hidden="true" />
                 </motion.span>
               </motion.span>
-              <span className={cn(labelClass, open ? "text-ink" : "text-ink2")}>Create</span>
+              <span
+                className={join(labelClass, "absolute top-[34px] left-1/2 z-[2] -translate-x-1/2 whitespace-nowrap", open ? "text-ink" : "text-ink2")}
+              >
+                Create
+              </span>
             </motion.button>
 
             {open && (
@@ -257,8 +330,8 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                // 30px above the trigger's own top edge, which is where the original's
-                // 20px `sideOffset` from that button lands.
+                // 30px above the slot's own top edge, which is where the original's
+                // 20px `sideOffset` from its button lands.
                 className="absolute bottom-full left-1/2 z-50 mb-[30px] w-56 -translate-x-1/2 rounded-2xl border border-line bg-card p-2 text-ink"
               >
                 {actions.map(({ id, label, icon: Icon, onSelect }) => (
@@ -281,7 +354,7 @@ export function BottomNav({ active, onChange, actions }: BottomNavProps) {
             )}
           </li>
 
-          {TABS.slice(CREATE_AT).map(tab)}
+          {TABS.slice(CREATE_AT).map((tab) => slot(tab))}
         </ul>
       </div>
     </nav>

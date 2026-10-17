@@ -50,16 +50,19 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
  * owner asked for, and the cross-fade is what carries the change of screen.
  *
- * **The scanner is a screen too.** The dashboard's scan square opens it the same way
- * the header's circle opens the ledger, and it wears the second artboard's design
+ * **The scanner is a screen too.** The dashboard's scan square opens it — and the
+ * dock's Create panel is the second way in, for a row the owner only realises they
+ * want once the dashboard has scrolled away — and it wears the second artboard's design
  * (`components/ScanScreen.tsx`) rather than the dialog the previous app opened: it
  * has its own header and its own way back, and the cross-fade carries the change like
  * the other two. What a read code becomes — one row, or a refusal — is
  * `features/upi/logScan.ts`, handed in as the screen's `onPayee` so that the screen
  * itself never touches the ledger.
  *
- * **The ledger is opened from the header's circle**, and importing is not reachable
- * from the UI at all at the moment: `components/DataSheet.tsx` is written and unwired,
+ * **The ledger is opened from the dock**, whose Ledger tab is also the way back to it
+ * from the scanner; the dashboard's header circle that used to do this is gone.
+ * Importing is not reachable from the UI at all at the moment:
+ * `components/DataSheet.tsx` is written and unwired,
  * waiting for the owner to place it. The import path behind it (`useLedger`'s
  * `importHistory`) still works the moment something calls it.
  *
@@ -209,7 +212,6 @@ export default function App() {
               greeting={greeting}
               theme={theme}
               onToggleTheme={toggleTheme}
-              onOpenLedger={() => void goTo("ledger")}
               onScan={() => void goTo("scan")}
             />
           ) : view === "ledger" && Ledger ? (
