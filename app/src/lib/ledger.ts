@@ -17,6 +17,7 @@
  * down with it.
  */
 
+import { seedSnapshot } from "./seed"
 import type { Budget, Row } from "./types"
 
 /** What a screen reads: the rows, and the envelopes that came with them. */
@@ -77,19 +78,28 @@ function isBudget(value: unknown): value is Budget {
 
 const newestFirst = (rows: Row[]): Row[] => [...rows].sort((a, b) => b.at - a.at)
 
+/**
+ * The bundled expenses sheet, newest first. It is what a browser with nothing stored shows, and
+ * what one whose store is refused or unreadable shows too: the owner sees their money either way.
+ */
+function bundled(): LedgerSnapshot {
+  const seed = seedSnapshot()
+  return { rows: newestFirst(seed.rows), budgets: seed.budgets }
+}
+
 /** Whatever is stored, read once and validated. */
 function read(): LedgerSnapshot {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return EMPTY_LEDGER
+    if (!raw) return bundled()
     const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== "object" || parsed === null) return EMPTY_LEDGER
+    if (typeof parsed !== "object" || parsed === null) return bundled()
     const store = parsed as Record<string, unknown>
     const rows = Array.isArray(store.rows) ? store.rows.filter(isRow) : []
     const budgets = Array.isArray(store.budgets) ? store.budgets.filter(isBudget) : []
     return { rows: newestFirst(rows), budgets }
   } catch {
-    return EMPTY_LEDGER
+    return bundled()
   }
 }
 
@@ -155,11 +165,16 @@ export function appendToLedger(next: { rows?: Row[]; budgets?: Budget[] }): {
   return { added: fresh.length, skipped }
 }
 
-/** Forget everything, and say how many rows were let go of. */
+/**
+ * Forget everything, and say how many rows were let go of.
+ *
+ * This stores an empty ledger rather than removing the key: a removed key reads as "never stored",
+ * which would bring the bundled sheet back the moment the owner cleared it.
+ */
 export function clearLedger(): number {
   const rows = ledgerSnapshot().rows.length
   try {
-    window.localStorage.removeItem(STORAGE_KEY)
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, rows: [], budgets: [] }))
   } catch {
     // Nothing to do about a refusal; the caller reports the rows either way.
   }

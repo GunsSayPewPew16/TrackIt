@@ -422,6 +422,11 @@ def main() -> int:
     parser.add_argument("export", help="wallet_unlocked_export.json")
     parser.add_argument("--app-out", default="tools/trackit-expenses.json", help="where to write the TrackIt array")
     parser.add_argument("--tz", default="+05:30", help="offset used to turn UTC recordDate into a local date")
+    parser.add_argument(
+        "--expenses-only",
+        action="store_true",
+        help="keep spending and leave income out, so the file is just the expenses sheet",
+    )
     args = parser.parse_args()
 
     offset = datetime.strptime(args.tz, "%z").tzinfo if args.tz else timezone.utc
@@ -448,7 +453,7 @@ def main() -> int:
     accounts = account_table(docs)
 
     kept: list[dict] = []
-    skipped = {"deleted": 0, "transfer": 0}
+    skipped = {"deleted": 0, "transfer": 0, "income": 0}
     unassigned = 0
 
     for record in records:
@@ -459,6 +464,9 @@ def main() -> int:
             skipped["transfer"] += 1
             continue
         kind = "expense" if record.get("type") == 1 else "income"
+        if args.expenses_only and kind != "expense":
+            skipped["income"] += 1
+            continue
 
         held_by = accounts.get(record.get("accountId"))
         if held_by is None:
