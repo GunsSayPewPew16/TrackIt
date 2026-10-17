@@ -12,6 +12,8 @@ import type { Row } from "./types"
 
 /** The heatmap's window: ten weeks, which is what fits beside the gauge. */
 export const HEAT_WEEKS = 10
+/** The expanded daily-spend view: nine weeks, about two months, drawn with wider squares. */
+export const SHEET_WEEKS = 9
 /** The allocation's window: the months it stacks, ending this one. */
 export const ALLOCATION_MONTHS = 12
 /** How many groups get their own colour in the allocation; the rest are one grey band. */
@@ -43,7 +45,7 @@ export interface HeatCell {
 }
 
 export interface HeatmapModel {
-  /** `HEAT_WEEKS` × 7 cells, a week to a column, Monday first. */
+  /** `weeks` × 7 cells, a week to a column, Monday first. */
   cells: HeatCell[]
   /** Midnight of the first cell and of the last day the window shows. */
   start: number
@@ -132,13 +134,13 @@ function mondayOnOrBefore(at: number): number {
   return when.getTime()
 }
 
-export function heatmapModel(rows: Row[], page: number, now: number): HeatmapModel {
+export function heatmapModel(rows: Row[], page: number, now: number, weeks: number = HEAT_WEEKS): HeatmapModel {
   const today = startOfDay(now)
-  const end = addDays(today, -page * HEAT_WEEKS * 7)
-  const start = mondayOnOrBefore(addDays(end, -(HEAT_WEEKS - 1) * 7))
+  const end = addDays(today, -page * weeks * 7)
+  const start = mondayOnOrBefore(addDays(end, -(weeks - 1) * 7))
   const byDay = spendByDay(rows)
 
-  const days = Array.from({ length: HEAT_WEEKS * 7 }, (_, i) => {
+  const days = Array.from({ length: weeks * 7 }, (_, i) => {
     const at = addDays(start, i)
     const future = page === 0 && at > today
     return { at, future, cents: byDay.get(localDayKey(at)) ?? 0 }
