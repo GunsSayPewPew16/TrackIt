@@ -32,7 +32,9 @@ be worked on directly: `cd app && npm run dev`.
 **The dashboard** is the artboard's four bands, in its order: the greeting — which says
 hello in a different language every time the app is opened, see *The greeting* below —
 with its
-two round header controls; the balance card, which owns the month's cash flow; a
+two round header controls; the stack of account cards, one per account, which is what
+the newer artboard drew in place of the single balance box — pull the front card down
+and it goes to the back of the stack, with the "Add card" pill pinned where it was; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
 side, the envelope gauge (twenty segments and a needle at the same percentage as
@@ -327,15 +329,15 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 
 ## Status
 
-Working: all three screens in both themes, the wheel's drag/snap/haptics/keys, the month
-menu that reaches the months past the one the wheel holds, the Wallet import and both
-exports, the scanner (camera and manual entry, the money screen for a code with no amount,
-and one row per code), the greeting in a different language every open, and the Pages
-deploy. The greeting's table is written and driven end to end against local D1 — the route's
+Working: all three screens in both themes, the account cards' stack (the drag, the
+re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
+the month menu that reaches the months past the one the wheel holds, the Wallet import and
+both exports, the scanner (camera and manual entry, the money screen for a code with no
+amount, and one row per code), the greeting in a different language every open, and the
+Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
 exists on the account yet**, so the live site greets from the fifty in its own bundle
 (`data-greeting="pool"`), which is the same fifty the table is seeded with.
-Not built yet: per-account balances on screen (the accounts are known and used, but only
-their sum is drawn), and savings goals. Import and export are implemented but **unwired** — the owner is placing
-that panel themselves, which is why no screen opens it. The app is no longer a
+Not built yet: savings goals. Import and export are implemented but **unwired** — the owner
+is placing that panel themselves, which is why no screen opens it. The app is no longer a
 service-worker PWA — the previous one was retired with its design.

@@ -1,5 +1,6 @@
-import { ArrowDown, ArrowDownUp, ArrowUpRight, Camera } from "lucide-react"
+import { ArrowDownUp, Camera } from "lucide-react"
 
+import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import type { GreetingLine } from "@/lib/greetings"
@@ -21,7 +22,8 @@ import type { DashboardModel } from "@/lib/view"
  * The layout is the artboard's four bands, in its order:
  *
  * 1. the greeting, with the two header circles;
- * 2. the balance card, which owns the month's cash flow;
+ * 2. the stack of account cards, which replaced the single balance box — see
+ *    `components/BalanceCards.tsx`;
  * 3. a 104px band pairing the scan square with the predictive quick-log tray;
  * 4. four cards on the 8px grid: pace and top category side by side, the envelope
  *    gauge, then the recent rows.
@@ -114,40 +116,8 @@ export function DashboardScreen({
         </div>
       </div>
 
-      {/* The balance, and the month the balance is moving through. */}
-      <section className="flex h-[232px] flex-col justify-between rounded-[20px] border border-line bg-card p-4">
-        <div>
-          <div className={`${cardTitle} text-ink2`}>{model.balance.label}</div>
-          <div className="mt-4 font-display text-[44px] leading-[48px] font-bold tracking-[-0.03em] text-ink">
-            {model.balance.value}
-          </div>
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            {/* The one pill that carries the page's ink rather than an accent. */}
-            <span className={`${pill} bg-ink text-canvas`}>{model.cashFlow.chip}</span>
-            <span className="inline-flex items-center gap-1 text-sage">
-              {model.cashFlow.deltaUp ? (
-                <ArrowUpRight strokeWidth={1.5} className="size-4" aria-hidden="true" />
-              ) : (
-                <ArrowDown strokeWidth={1.5} className="size-4" aria-hidden="true" />
-              )}
-              {model.cashFlow.delta}
-              <span className="sr-only">, {model.cashFlow.deltaNote}</span>
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-ink2">{model.cashFlow.income.label}</div>
-              <div className="text-ink">{model.cashFlow.income.value}</div>
-            </div>
-            <div>
-              <div className="text-ink2">{model.cashFlow.spent.label}</div>
-              <div className="text-ink">{model.cashFlow.spent.value}</div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* The accounts, as the newer artboard's stack of cards. */}
+      <BalanceCards cards={model.cards} />
 
       {/* The scan square and the tray of things the owner probably just did. */}
       <div className="grid h-[104px] grid-cols-[104px_1fr] gap-2">

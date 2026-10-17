@@ -14,8 +14,8 @@
 <style>
 body{margin:0}
 *{box-sizing:border-box}
-:root,[data-theme="dark"]{--bg:#0A0F0D;--card:#1A221E;--line:#28332E;--ink:#F4F0EA;--ink2:#F4F0EA99;--clay:#D4A373;--sage:#A3B19B;--on-clay:#0A0F0D;--on-sage:#0A0F0D}
-[data-theme="light"]{--bg:#F8F6F2;--card:#FFFFFF;--line:#E2DDD5;--ink:#1A221E;--ink2:#1A221E99;--clay:#C58B54;--sage:#6B7F64;--on-clay:#1A221E;--on-sage:#FFFFFF}
+:root,[data-theme="dark"]{--bg:#0A0F0D;--card:#1A221E;--line:#28332E;--ink:#F4F0EA;--ink2:#F4F0EA99;--clay:#D4A373;--sage:#A3B19B;--on-clay:#0A0F0D;--on-sage:#0A0F0D;--pill:#000000}
+[data-theme="light"]{--bg:#F8F6F2;--card:#FFFFFF;--line:#E2DDD5;--ink:#1A221E;--ink2:#1A221E99;--clay:#C58B54;--sage:#6B7F64;--on-clay:#1A221E;--on-sage:#FFFFFF;--pill:#F8F6F2}
 *{transition:background-color .35s ease,color .35s ease,border-color .35s ease,stroke .35s ease}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .d{font-family:"Neue Haas Grotesk Display Pro","Helvetica Neue",Helvetica,Arial,sans-serif}
@@ -24,7 +24,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .row::-webkit-scrollbar{display:none}
 </style>
 </helmet>
-<div data-theme="{{theme}}" style="width:390px;height:1104px;padding:24px 16px 32px;background:var(--bg);display:flex;flex-direction:column;gap:8px;font-family:'Neue Haas Grotesk Text Pro','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:16px;color:var(--ink)">
+<div data-theme="{{theme}}" style="width:390px;height:1096px;padding:24px 16px 32px;background:var(--bg);display:flex;flex-direction:column;gap:8px;font-family:'Neue Haas Grotesk Text Pro','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;line-height:16px;color:var(--ink)">
 
 <div style="display:flex;align-items:center;justify-content:space-between;height:48px;margin-bottom:8px">
 <h1 style="margin:0;font-family:'Playfair Display',Georgia,serif;font-weight:400;font-size:28px;line-height:36px;letter-spacing:-0.01em;color:var(--ink)">Good morning, Alex</h1>
@@ -34,22 +34,25 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 </button>
 </div>
 
-<section style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;height:232px;display:flex;flex-direction:column;justify-content:space-between">
-<div>
-<div class="d" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-0.01em;color:var(--ink2)">Total available balance</div>
-<div class="d" style="margin-top:16px;font-size:44px;line-height:48px;font-weight:700;letter-spacing:-0.03em;color:var(--ink)">$24,860.40</div>
+<div style="position:relative;flex:none;height:224px">
+<sc-for list="{{stack}}" as="c" hint-placeholder-count="2">
+<div onPointerDown="{{c.down}}" onPointerMove="{{c.move}}" onPointerUp="{{c.up}}" onPointerCancel="{{c.up}}" style="position:absolute;left:0;top:40px;width:358px;height:184px;touch-action:none;{{c.pos}}">
+<svg width="358" height="184" viewBox="0 0 358 184" aria-hidden="true" style="position:absolute;left:0;top:0;overflow:visible"><path d="{{c.d}}" style="d:{{c.dcss}};{{c.shape}};stroke-width:1;transition:d .6s cubic-bezier(.34,1.3,.5,1),fill .35s ease,stroke .35s ease"></path></svg>
+<div style="position:absolute;left:16px;right:16px;top:16px;height:24px;display:flex;align-items:center;justify-content:space-between;{{c.fg}}">
+<span style="display:flex">
+<sc-if value="{{c.ic.qr}}" hint-placeholder-val="{{ true }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="5" height="5" x="3" y="3" rx="1"></rect><rect width="5" height="5" x="16" y="3" rx="1"></rect><rect width="5" height="5" x="3" y="16" rx="1"></rect><path d="M21 16h-3a2 2 0 0 0-2 2v3"></path><path d="M21 21v.01"></path><path d="M12 7v3a2 2 0 0 1-2 2H7"></path><path d="M3 12h.01"></path><path d="M12 3h.01"></path><path d="M12 16v.01"></path><path d="M16 12h1"></path><path d="M21 12v.01"></path><path d="M12 21v-1"></path></svg></sc-if>
+<sc-if value="{{c.ic.cash}}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="12" x="2" y="6" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg></sc-if>
+</span>
+<span style="font-size:13px;line-height:16px;{{c.fg2}}">{{c.name}}</span>
 </div>
-<div>
-<div style="display:flex;align-items:center;gap:8px">
-<span style="display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:10px;line-height:16px;font-weight:700;letter-spacing:0.03em;white-space:nowrap">MONTHLY CASH FLOW</span>
-<span style="display:inline-flex;align-items:center;gap:4px;color:var(--sage)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>+$1,240</span>
+<div class="d" style="position:absolute;left:16px;top:48px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-0.01em;{{c.fg2}}">Balance</div>
+<div class="d" style="position:absolute;left:16px;top:68px;font-size:40px;line-height:48px;font-weight:500;letter-spacing:-0.03em;{{c.fg}}">{{c.bal}}</div>
+<div style="position:absolute;left:16px;bottom:16px;font-size:13px;line-height:16px;white-space:nowrap;{{c.fg}}">{{c.spent}} <span style="font-family:'Anthropic Serif','Tiempos Text',Georgia,serif;font-style:italic">spent out of</span> {{c.bal}}</div>
+<button aria-label="Add card" style="position:absolute;right:8px;bottom:8px;width:128px;height:48px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:24px;background:var(--pill);color:var(--ink);display:flex;align-items:center;gap:8px;font-size:13px;line-height:16px;font-weight:500;opacity:{{c.pillO}};pointer-events:{{c.pillPE}};transition:opacity .3s ease"><span style="width:32px;height:32px;border-radius:16px;background:var(--sage);color:var(--pill);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></span>Add card</button>
 </div>
-<div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
-<div><div style="color:var(--ink2)">Income</div><div style="color:var(--ink)">$6,420.00</div></div>
-<div><div style="color:var(--ink2)">Spent</div><div style="color:var(--ink)">$5,180.00</div></div>
+</sc-for>
+<button aria-label="Show {{nextName}} card" onClick="{{cycle}}" style="position:absolute;left:0;top:0;width:358px;height:40px;padding:0;border:0;background:transparent;z-index:5"></button>
 </div>
-</div>
-</section>
 
 <div style="display:grid;grid-template-columns:104px 1fr;gap:8px;height:104px">
 <button aria-label="Scan receipt" style="width:104px;height:104px;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;color:var(--sage)">
@@ -141,20 +144,54 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1104}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1096}}'>
 class Component extends DCLogic {
 renderVals() {
 const s = this.state || {};
 const dark = s.isDarkMode !== false;
+const idx = s.idx || 0, phase = s.phase || 0, drag = !!s.drag, dy = s.dy || 0;
+const CARDS = [
+{ name: 'UPI', bal: '₹18,420.50', spent: '₹3,240', ic: { qr: true } },
+{ name: 'Cash', bal: '₹6,440.00', spent: '₹500', ic: { cash: true } }
+];
+const n = CARDS.length;
+const NOTCH = 'M20 0H338Q358 0 358 20V100Q358 120 338 120H234Q214 120 214 140V164Q214 184 194 184H20Q0 184 0 164V20Q0 0 20 0Z';
+const SPR = 'transform .55s cubic-bezier(.34,1.3,.5,1)';
+const cycle = () => {
+  if (n < 2 || phase) return;
+  this.setState({ phase: 1, drag: false, dy: 0 });
+  setTimeout(() => this.setState({ idx: (idx + 1) % n, phase: 0 }), 300);
+};
+const noop = () => {};
+const stack = CARDS.map((c, i) => {
+  const o = (i - idx + n) % n;
+  const eff = phase ? (o === 0 ? 'drop' : o === 1 ? 0 : o) : o;
+  const front = eff === 0 || eff === 'drop';
+  let pos;
+  if (eff === 'drop') pos = 'transform:translateY(160px);z-index:4;transition:transform .3s ease-in';
+  else if (eff === 0) pos = 'transform:translateY(' + (drag ? dy : 0) + 'px);z-index:3;transition:' + (drag ? 'none' : SPR);
+  else pos = 'transform:translateY(-40px);z-index:' + (eff === 1 ? 2 : 1) + ';transition:' + SPR;
+  const d = NOTCH;
+  const live = eff === 0 && !phase;
+  return {
+    name: c.name, bal: c.bal, spent: c.spent, ic: c.ic, pos: pos, d: d, dcss: "path('" + d + "')",
+    shape: front ? 'fill:var(--card);stroke:var(--line)' : 'fill:var(--clay);stroke:var(--clay)',
+    fg: front ? 'color:var(--ink)' : 'color:var(--on-clay)',
+    fg2: front ? 'color:var(--ink2)' : 'color:var(--on-clay)',
+    pillO: front ? 1 : 0, pillPE: front ? 'auto' : 'none',
+    down: live ? (e) => { this._y0 = e.clientY; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} this.setState({ drag: true, dy: 0 }); } : noop,
+    move: live ? (e) => { if (this._y0 == null) return; this.setState({ dy: Math.max(0, Math.min(120, e.clientY - this._y0)) }); } : noop,
+    up: live ? (e) => { if (this._y0 == null) return; const m = e.clientY - this._y0; this._y0 = null; if (m > 40) cycle(); else this.setState({ drag: false, dy: 0 }); } : noop
+  };
+});
 return {
-theme: dark ? 'dark' : 'light',
-toggleLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
-isLight: !dark,
-toggleTheme: () => this.setState({ isDarkMode: !dark }),
-sunO: dark ? 1 : 0,
-sunT: dark ? 'rotate(0deg) scale(1)' : 'rotate(90deg) scale(0.4)',
-moonO: dark ? 0 : 1,
-moonT: dark ? 'rotate(-90deg) scale(0.4)' : 'rotate(0deg) scale(1)'
+  theme: dark ? 'dark' : 'light',
+  toggleLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
+  isLight: !dark,
+  toggleTheme: () => this.setState({ isDarkMode: !dark }),
+  sunO: dark ? 1 : 0, sunT: dark ? 'rotate(0deg) scale(1)' : 'rotate(90deg) scale(0.4)',
+  moonO: dark ? 0 : 1, moonT: dark ? 'rotate(-90deg) scale(0.4)' : 'rotate(0deg) scale(1)',
+  stack: stack, cycle: cycle, nextName: CARDS[(idx + 1) % n].name
 };
 }
 }

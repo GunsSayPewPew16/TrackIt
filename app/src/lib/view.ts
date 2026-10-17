@@ -66,23 +66,13 @@ export type LedgerDay = {
  * own money.
  */
 export type DashboardModel = {
-  balance: {
-    label: string
-    /** The big figure: `₹24,860.40`. */
-    value: string
-  }
-  cashFlow: {
-    /** The pill beside the balance's footer: `MONTHLY CASH FLOW`. */
-    chip: string
-    /** This month's net, signed: `+₹1,240`. */
-    delta: string
-    /** Whether the arrow points up the way money in does. */
-    deltaUp: boolean
-    /** What the arrow means on screen readers and hover, `up`/`down` included. */
-    deltaNote: string
-    income: { label: string; value: string }
-    spent: { label: string; value: string }
-  }
+  /**
+   * One card per account, in `lib/accounts.ts`'s order — the stack the dashboard's
+   * first band draws, front card first. The front card's own figures are what the
+   * header used to call "the balance": the account's opening, plus its income, minus
+   * its expenses, and what has gone out of it this month.
+   */
+  cards: BalanceCard[]
   quickLog: {
     title: string
     /** `Morning` — the tray is a guess about *now*, so it says which now. */
@@ -138,6 +128,26 @@ export type DashboardModel = {
  * is whatever the selected capsule is in, and the screen derives it from the day
  * rather than reading a stale string from a model that cannot see the selection.
  */
+/**
+ * One account as a card in the dashboard's stack.
+ *
+ * The artboard draws each card with its own balance and the amount spent from it this
+ * month — "₹3,240 spent out of ₹18,420.50" — so the stack is where the app finally
+ * shows the accounts separately instead of only their sum.
+ */
+export type BalanceCard = {
+  /** The account id from `lib/accounts.ts`; the stack is keyed by it. */
+  id: string
+  /** The account's name in Wallet, which is also its label on the card: `UPI`. */
+  name: string
+  /** Which glyph the card carries in its top-left: the UPI code, or a banknote. */
+  icon: "qr" | "cash"
+  /** The account's own balance, `₹18,420.50`. */
+  balance: string
+  /** What has gone out of that account this month, `₹3,240`. */
+  spent: string
+}
+
 export type LedgerModel = {
   /**
    * Every capsule, oldest first: the days of one month, from its 1st to today (or

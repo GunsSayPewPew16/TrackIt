@@ -96,7 +96,7 @@ left out and why.
 - **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
   4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
-  scan band, 232/176/160/280 for the dashboard's cards — are the artboard's, so keep
+  scan band, 224/176/160/280 for the dashboard's cards — are the artboard's, so keep
   them together with the comment that says where they came from.
 - **A fixed height is a promise about its content, and the content has to keep it.** Two
   cards were breaking that promise, and both are content-sized rather than re-tuned. The
@@ -136,6 +136,20 @@ left out and why.
   second door to the same room. That circle carries `ArrowDownUp` because it is the
   control the owner pointed at — the glyph is what to change first if it reads as
   "swap".
+- **The dashboard's first band is the account stack, not the balance box.** The newer
+  Main artboard replaced the single "total available balance" panel with two cards, one
+  per account (`components/BalanceCards.tsx`), so the screen finally draws the accounts
+  `lib/accounts.ts` has always carried instead of only their sum. Three things are the
+  owner's rather than the artboard's: **the pill is pinned** (the export draws one inside
+  each card, so it would travel with the drag) at the export's own 8px inset; **the
+  release re-stacks** — the export drops the front card 160px and re-indexes 300ms later,
+  which drew a card below the band over the quick-log row, so the pulled card instead
+  travels up to the back seat while the card behind takes the front, with no drop and no
+  timer (the start is in the release handler and a layout effect, so no frame paints the
+  new front before it moves); and **the 40px detent ticks** through `hooks/useTick.ts`,
+  fired from the pointer handlers because that is the only place iOS will play its
+  switch click. The cards are a stack, not a carousel of pages: the seats are `0` and
+  `REST` (−40), never anything below, and a pull is clamped to 120.
 - **The date container is the owner's newer one, and it is a scroll rather than a
   step.** `components/DateWheel.tsx` holds it. The geometry is still the artboard's —
   radius 800, one fifteenth of the arc per capsule, `rotY(−9°·n)`, scales

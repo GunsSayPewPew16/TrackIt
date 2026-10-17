@@ -149,15 +149,12 @@ const DEMO_RECENT = [
 
 /** Every figure the dashboard draws before the owner has imported anything. */
 export const DEMO_DASHBOARD: DashboardModel = {
-  balance: { label: "Total available balance", value: money(paise(24860.4)) },
-  cashFlow: {
-    chip: "MONTHLY CASH FLOW",
-    delta: `+${wholeMoney(paise(1240))}`,
-    deltaUp: true,
-    deltaNote: "up on last month",
-    income: { label: "Income", value: money(paise(6420)) },
-    spent: { label: "Spent", value: money(paise(5180)) },
-  },
+  // The artboard's two cards, with its own figures: UPI and Cash, what each holds and
+  // what has gone out of it. The stack is where the accounts are drawn apart.
+  cards: [
+    { id: "upi", name: "UPI", icon: "qr", balance: money(paise(18420.5)), spent: wholeMoney(paise(3240)) },
+    { id: "cash", name: "Cash", icon: "cash", balance: money(paise(6440)), spent: wholeMoney(paise(500)) },
+  ],
   quickLog: {
     title: "Quick log",
     context: timeOfDayWord(),

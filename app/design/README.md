@@ -4,6 +4,11 @@ Three exported artboards and one component, and the only files the screens are d
 from:
 
 - `dashboard.dc.html` — "Main": the bento dashboard, exported as `Main.dc.html`.
+  The export here is the **newer** Main: the single "Total available balance" box is
+  gone and its 224px band is a stack of account cards you pull down (`--pill` is its
+  one addition to the palette). The stack's cycle in this file drops the front card
+  160px and re-indexes 300ms later; the app re-stacks it instead — see
+  `components/BalanceCards.tsx`.
 - `ledger.dc.html` — "Daily ledger": the notched cards, and the wheel the date
   container replaced.
 - `scanner.dc.html` — "Scan to pay": the camera's viewfinder and the manual-entry row,
@@ -47,6 +52,11 @@ Three things to know before comparing them to the app:
   across a desktop window. A screen places its bands at the artboard's own
   coordinates rather than at whatever follows in flow — which is why the scanner's
   frame sits at a fixed 224px, and why the hint above it is absolutely positioned.
+- **Two things in the newer dashboard are the owner's, not the artboard's.** The
+  stack's "Add card" pill is drawn inside each card, so it travels with the card; in
+  the app it is one pinned element in the card's notch, because the owner asked for the
+  cards to move and the pill to stay. The header's second circle (the way to the
+  ledger) is likewise the app's, not the export's.
 - **The scanner's code is the one drawing the app replaces.** The artboard paints a
   stylised QR code and its three finder squares inside the viewfinder, because an
   exported mockup cannot hold a camera; `src/components/ScanScreen.tsx` puts the live

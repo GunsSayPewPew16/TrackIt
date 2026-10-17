@@ -23,7 +23,7 @@
  *   biggest category against `MONTHLY_BUDGET_CENTS` and says so.
  */
 
-import { OPENING_BALANCE_CENTS } from "./accounts"
+import { ACCOUNTS, accountFor } from "./accounts"
 import { categoryFor } from "./categories"
 import {
   addDays,
@@ -309,25 +309,10 @@ function envelope(rows: Row[], budgets: Budget[], monthSpend: number, now: numbe
  */
 export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number = Date.now()): DashboardModel {
   const expenses = rows.filter(isExpense)
-  const income = rows.filter((row) => row.kind === "income")
-
-  const balance = OPENING_BALANCE_CENTS + sum(income) - sum(expenses)
 
   const monthStart = startOfMonth(now)
   const monthEnd = startOfNextMonth(now)
-  const monthIncome = sum(inWindow(income, monthStart, monthEnd))
   const monthSpent = spentBetween(rows, monthStart, monthEnd)
-
-  const lastMonthStart = startOfMonth(addDays(monthStart, -1))
-  const lastMonthNet =
-    sum(inWindow(income, lastMonthStart, monthStart)) - spentBetween(rows, lastMonthStart, monthStart)
-
-  const net = monthIncome - monthSpent
-  // The arrow follows the money — a month that ends up is an up arrow — while the
-  // sentence under it is a real comparison against last month, which is why the
-  // two are decided separately rather than assumed to agree.
-  const deltaUp = net >= 0
-  const rose = net > lastMonthNet
 
   // The last week's daily pace against the last thirty days': the design's own
   // comparison, and the reason its badge has words in it as well as a number.
@@ -350,18 +335,27 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
   // only shows once there is real history to show — the demo's three rows hid it.
   const recent = newestFirst(rows).slice(0, 3)
 
+  // One card per account, in Wallet's own order: what that account holds (its opening,
+  // plus its income, minus its expenses) and what has gone out of it this month. A row
+  // with no account — a hand-written file, a Shortcut — is the primary account's, which
+  // is the same rule the import follows.
+  const cards = ACCOUNTS.map((account) => {
+    const own = rows.filter((row) => accountFor(row.account).id === account.id)
+    const balance =
+      account.openingCents +
+      sum(own.filter((row) => row.kind === "income")) -
+      sum(own.filter(isExpense))
+    return {
+      id: account.id,
+      name: account.name,
+      icon: account.id === "upi" ? ("qr" as const) : ("cash" as const),
+      balance: money(Math.max(balance, 0)),
+      spent: wholeMoney(spentBetween(own, monthStart, monthEnd)),
+    }
+  })
+
   return {
-    balance: { label: "Total available balance", value: money(Math.max(balance, 0)) },
-    cashFlow: {
-      chip: "MONTHLY CASH FLOW",
-      // Signed by hand rather than through `netMoney`, because this one is a
-      // headline too: `+₹1,240`, not `+₹1,240.00`.
-      delta: `${net < 0 ? "−" : "+"}${wholeMoney(Math.abs(net))}`,
-      deltaUp,
-      deltaNote: rose ? "up on last month" : "down on last month",
-      income: { label: "Income", value: money(monthIncome) },
-      spent: { label: "Spent", value: money(monthSpent) },
-    },
+    cards,
     quickLog: {
       title: "Quick log",
       context: timeOfDayWord(now),
