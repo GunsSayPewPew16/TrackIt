@@ -70,8 +70,9 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * `AnimatePresence` rather than inside it, so it neither fades with a screen nor
  * leaves the page when the screen does: the tabs are a level above the views and
  * stay put while the content cross-fades over them. Its `active` is the view itself
- * — the tab keys are view names — and `null` on the scanner, which no tab owns
- * because the camera is reached from Create.
+ * — the tab keys are view names, so a tab is a screen — and the scanner is the one
+ * name it knows that is not a tab: it is Create's destination, so the circle waits
+ * on Create while the camera is up and the way back slides from there.
  *
  * **Only the dashboard is in the file that must arrive before the first pixel.** Nothing
  * renders until this module runs, so everything it imports is a cost the owner pays before
@@ -242,7 +243,7 @@ export default function App() {
         inside, not a fourth screen. `null` on the scanner leaves no tab marked.
       */}
       <BottomNav
-        active={view === "scan" ? null : view}
+        active={view}
         onChange={(tab) => void goTo(tab)}
         actions={actions}
       />
