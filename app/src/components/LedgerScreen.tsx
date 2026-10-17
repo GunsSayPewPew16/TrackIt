@@ -195,14 +195,31 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
         whole screen — panel, wheel and rows — down the viewport instead of down the
         panel. The panel itself deliberately stays at the top of the page: it is a
         surface the notch can sit over, and the header is what has to keep clear of it.
+
+        **The arc travels with the notch.** The panel is a fixed 276px drawing measured
+        from the top of the page, but everything the design aligned it *with* — the
+        header, the month and the wheel — starts one safe-area inset lower on a phone.
+        On a desk the inset is zero and the capsules sit above the curve, as the
+        artboard draws them; on the owner's iPhone the wheel dropped ~47px while the
+        curve stayed put, so the capsules fell below it. The panel therefore keeps its
+        geometry and is moved down by `safe-area-inset-top` itself: a strip of the card
+        colour still covers the notch at the top of the page, and the drawing below it
+        is the artboard's, unchanged in size and curvature.
       */}
       <div className="relative mx-auto w-full max-w-[390px] pt-safe">
+        {/* The part of the panel that sits under the status bar and the notch. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 bg-card"
+          style={{ height: "env(safe-area-inset-top, 0px)" }}
+        />
         <svg
           width="390"
           height="276"
           viewBox="0 0 390 276"
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-[276px] w-full"
+          className="absolute inset-x-0 h-[276px] w-full"
+          style={{ top: "env(safe-area-inset-top, 0px)" }}
           preserveAspectRatio="none"
         >
           <path d="M0 0H390V273Q195 231 0 273Z" className="fill-card" />
