@@ -159,7 +159,8 @@ export function PaySheet({ payee, onPay, onClose }: Props) {
 
   return (
     <section className="fixed inset-0 z-50 overflow-y-auto bg-canvas text-ink" aria-label="Pay and log">
-      <div className="mx-auto w-full max-w-[390px] px-4 pt-6 pb-8">
+      {/* Full screen, so it needs the notch's clearance for its own header too. */}
+      <div className="mx-auto w-full max-w-[390px] px-4 pt-safe pb-8">
         <header className="flex h-12 items-center gap-3">
           <button
             type="button"
