@@ -4,7 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0A0F0D" />
+    <meta
+      name="description"
+      content="A private expense tracker: a bento dashboard and a daily ledger, kept on the device."
+    />
+
+    <!--
+      Installing the app, rather than merely visiting it.
+
+      The manifest is what makes the site installable off Safari's Share sheet (and
+      Chrome's install prompt) — it carries the name, the standalone display, the
+      theme and the icons. Its `start_url`, `scope` and every `src` are relative,
+      which is deliberate: the same file has to work at the repository's Pages
+      sub-path and at a domain's root, and a leading slash would pin it to one of
+      them. iOS does not read the manifest for an icon, so the 180px PNG is named
+      again here.
+
+      `black-translucent` is the old app's choice and the right one for this design:
+      the screens paint under the status bar themselves and already reserve the
+      notch's inset (see `index.css`), so the bar may sit on top of the canvas. The
+      `apple-mobile-web-app-capable` pair is stated twice because iOS still reads
+      the apple spelling while the web at large has moved to the standard one.
+    -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TrackIt" />
+
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
     <title>TrackIt</title>
     <script>
       // Dark is the theme the app ships; a stored choice is put on <html> here,
