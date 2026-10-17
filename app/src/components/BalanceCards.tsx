@@ -14,12 +14,20 @@ import type { BalanceCard } from "@/lib/view"
  * never said.
  *
  * **The stack.** A 224px band holds the cards at its own 40px offset, each 358×184
- * with a step cut out of its bottom-right corner. The front card is the card, in ink;
- * the one behind it is clay, lifted 40px so it peeks above the front — the artboard's
- * two treatments, not a shadow. Pulling the front card down shows the next one; pull
- * it past 40px and it **goes to the back of the stack**, while the card behind rises
- * into the front seat. Under 40px it springs back. The band's first 40px — the strip
- * where the card behind is visible — is the artboard's own tap target for the same move.
+ * with a step cut out of its bottom-right corner. The card behind is lifted 40px so it
+ * peeks above the front one — the artboard's two treatments, not a shadow. Pulling the
+ * front card down shows the next one; pull it past 40px and it **goes to the back of
+ * the stack**, while the card behind rises into the front seat. Under 40px it springs
+ * back. The band's first 40px — the strip where the card behind is visible — is the
+ * artboard's own tap target for the same move.
+ *
+ * **A card's colour belongs to the account, not to the seat.** The artboard paints
+ * whichever card is in front in ink and whichever is behind in clay, so cycling the
+ * stack made UPI and Cash swap colours — the owner read that as the cards changing
+ * under them. Now UPI is always the ink card and Cash always the clay one, whichever
+ * seat they are in: `SKIN_OF` is the whole of that decision, the text and the shape
+ * travel with it, and the only thing a seat still decides is depth — `y`, the z-order,
+ * and which card the thumb can grab.
  *
  * **The Add card pill stays put.** In the artboard each card draws its own pill in the
  * notch at its bottom-right, so the pill travels with the card. The owner asked for the
@@ -47,6 +55,46 @@ import type { BalanceCard } from "@/lib/view"
  * iOS), and the tap strip plays it too. It is fired from the pointer handler itself,
  * which is the only place iOS will tick for its hidden switch.
  */
+
+/** The two card treatments, as the colours each one's parts wear. */
+type Skin = {
+  /** The card's fill and hairline. */
+  shape: string
+  /** The glyph and the account's name in the top corner. */
+  title: string
+  /** The word "Balance". */
+  label: string
+  /** The money. */
+  figure: string
+  /** The "spent out of" line. */
+  foot: string
+}
+
+const SKINS: Record<"ink" | "clay", Skin> = {
+  ink: {
+    shape: "fill-card stroke-line",
+    title: "text-ink2",
+    label: "text-ink2",
+    figure: "text-ink",
+    foot: "text-ink",
+  },
+  clay: {
+    shape: "fill-clay stroke-clay",
+    title: "text-on-clay",
+    label: "text-on-clay",
+    figure: "text-on-clay",
+    foot: "text-on-clay",
+  },
+}
+
+/**
+ * Which account wears which treatment. The two accounts the owner keeps are named
+ * here rather than inferred from their seat, and an account this table has never
+ * heard of wears the ink one — the card a new balance would look right on.
+ */
+const SKIN_OF: Record<string, keyof typeof SKINS> = { upi: "ink", cash: "clay" }
+
+const skinOf = (id: string) => SKINS[SKIN_OF[id] ?? "ink"]
 
 /** The artboard's card outline: a 358×184 card with the notch for the pill. */
 const CARD_PATH =
@@ -189,6 +237,8 @@ export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
         const isFront = position === front
         const seat = seatOf(card.id, position === 0 ? 0 : REST)
         const Glyph = card.icon === "qr" ? QrCode : Banknote
+        // Fixed to the account, never to `isFront`: the colour is the card's identity.
+        const skin = skinOf(card.id)
         return (
           <motion.div
             key={card.id}
@@ -213,18 +263,10 @@ export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
               className="absolute inset-0 h-full w-full overflow-visible"
               preserveAspectRatio="none"
             >
-              <path
-                d={CARD_PATH}
-                strokeWidth={1}
-                className={isFront ? "fill-card stroke-line" : "fill-clay stroke-clay"}
-              />
+              <path d={CARD_PATH} strokeWidth={1} className={skin.shape} />
             </svg>
 
-            <div
-              className={`absolute inset-x-4 top-4 flex h-6 items-center justify-between ${
-                isFront ? "text-ink2" : "text-on-clay"
-              }`}
-            >
+            <div className={`absolute inset-x-4 top-4 flex h-6 items-center justify-between ${skin.title}`}>
               <span className="flex">
                 <Glyph className="size-6" strokeWidth={1.5} aria-hidden="true" />
               </span>
@@ -232,26 +274,18 @@ export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
             </div>
 
             <div
-              className={`absolute top-12 left-4 font-display text-sm leading-5 font-medium tracking-[-0.01em] ${
-                isFront ? "text-ink2" : "text-on-clay"
-              }`}
+              className={`absolute top-12 left-4 font-display text-sm leading-5 font-medium tracking-[-0.01em] ${skin.label}`}
             >
               Balance
             </div>
 
             <div
-              className={`absolute top-[68px] left-4 font-display text-[40px] leading-[48px] font-medium tracking-[-0.03em] whitespace-nowrap ${
-                isFront ? "text-ink" : "text-on-clay"
-              }`}
+              className={`absolute top-[68px] left-4 font-display text-[40px] leading-[48px] font-medium tracking-[-0.03em] whitespace-nowrap ${skin.figure}`}
             >
               {card.balance}
             </div>
 
-            <div
-              className={`absolute bottom-4 left-4 text-[13px] leading-4 whitespace-nowrap ${
-                isFront ? "text-ink" : "text-on-clay"
-              }`}
-            >
+            <div className={`absolute bottom-4 left-4 text-[13px] leading-4 whitespace-nowrap ${skin.foot}`}>
               {card.spent}{" "}
               <span className="font-serif italic">spent out of</span> {card.balance}
             </div>

@@ -195,7 +195,7 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
 
   return (
     <div className="relative min-h-dvh w-full bg-canvas text-ink">
-      <div className="relative mx-auto w-full max-w-[390px] px-4 pt-safe pb-8">
+      <div className="relative mx-auto w-full max-w-[390px] px-4 pt-safe pb-nav">
         <header className="flex h-12 items-center justify-between">
           <button
             type="button"

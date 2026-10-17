@@ -319,7 +319,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onBack, onPickMonth 
           none — a `mode="wait"` swap would leave the sheet empty for as long as a
           fade lasts, which is the one thing the artboard never does.
         */}
-        <div className="relative mt-11 flex flex-col gap-2 px-4 pb-8">
+        <div className="relative mt-11 flex flex-col gap-2 px-4 pb-nav">
           <motion.div
             key={day.at}
             className="flex flex-col gap-2"

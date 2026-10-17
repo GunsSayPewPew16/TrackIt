@@ -211,6 +211,21 @@
   .pt-safe {
     padding-top: calc(1.5rem + var(--safe-top));
   }
+
+  /*
+   * The room the dock needs under a screen.
+   *
+   * The dock is `fixed`, so it lies over whatever the page has at its foot — the
+   * dashboard's last card, the ledger's last row, the scanner's manual field — unless
+   * the page reserves its height first. The sum is the dock's own: the 82px column,
+   * its `max(1.5rem, safe-area - 0.5rem)` inset from the bottom edge, and 16px of air
+   * so a card can still be read where the pill's hump rises. The `max()` is the same
+   * expression the dock uses, which is what keeps the two from drifting apart on a
+   * phone with a home indicator and a desk without one.
+   */
+  .pb-nav {
+    padding-bottom: calc(82px + max(1.5rem, calc(env(safe-area-inset-bottom, 0px) - 0.5rem)) + 1rem);
+  }
 }
 
 /*

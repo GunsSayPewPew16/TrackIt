@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion"
+import { Camera } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 
+import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
 // Types only, and that is what keeps the two screens below out of the entry chunk: an
 // `import type` is erased, so nothing here fetches them until a tap does.
@@ -60,6 +62,13 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
  * from the UI at all at the moment: `components/DataSheet.tsx` is written and unwired,
  * waiting for the owner to place it. The import path behind it (`useLedger`'s
  * `importHistory`) still works the moment something calls it.
+ *
+ * **The dock is the one thing every screen shares.** It is rendered beside the
+ * `AnimatePresence` rather than inside it, so it neither fades with a screen nor
+ * leaves the page when the screen does: the tabs are a level above the views and
+ * stay put while the content cross-fades over them. Its `active` is the view itself
+ * — the tab keys are view names — and `null` on the scanner, which no tab owns
+ * because the camera is reached from Create.
  *
  * **Only the dashboard is in the file that must arrive before the first pixel.** Nothing
  * renders until this module runs, so everything it imports is a cost the owner pays before
@@ -155,6 +164,18 @@ export default function App() {
   }, [])
 
   /**
+   * What Create offers. The scanner is the app's only way to make a row from the
+   * dock at the moment, so it is the whole list — and a second entry is a second
+   * object here, which is the point of the dock taking them as data.
+   */
+  const actions = useMemo(
+    () => [
+      { id: "scan", label: "Scan a receipt", icon: Camera, onSelect: () => void goTo("scan") },
+    ],
+    [goTo],
+  )
+
+  /**
    * Both models are rebuilt when the ledger changes and not on every render: the
    * derivation walks every row, and a screen that re-renders for a hover must not
    * make it do that.
@@ -173,44 +194,56 @@ export default function App() {
   const Scan = arrived.scan
 
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      <motion.div
-        key={view}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.35, ease: "easeInOut" }}
-      >
-        {view === "dashboard" ? (
-          <DashboardScreen
-            model={dashboard}
-            greeting={greeting}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onOpenLedger={() => void goTo("ledger")}
-            onScan={() => void goTo("scan")}
-          />
-        ) : view === "ledger" && Ledger ? (
-          <Ledger
-            model={ledger}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onBack={() => void goTo("dashboard")}
-            onPickMonth={setAnchor}
-          />
-        ) : view === "scan" && Scan ? (
-          <Scan
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onBack={() => void goTo("dashboard")}
-            // Two ways a scanned code becomes a row, and both are handed in here so the
-            // screen itself never touches the ledger: a code that carried its amount, and
-            // what the money screen collected for one that did not.
-            onPayee={logScannedPayee}
-            onPaid={logPaidPayee}
-          />
-        ) : null}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.div
+          key={view}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+        >
+          {view === "dashboard" ? (
+            <DashboardScreen
+              model={dashboard}
+              greeting={greeting}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onOpenLedger={() => void goTo("ledger")}
+              onScan={() => void goTo("scan")}
+            />
+          ) : view === "ledger" && Ledger ? (
+            <Ledger
+              model={ledger}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onBack={() => void goTo("dashboard")}
+              onPickMonth={setAnchor}
+            />
+          ) : view === "scan" && Scan ? (
+            <Scan
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onBack={() => void goTo("dashboard")}
+              // Two ways a scanned code becomes a row, and both are handed in here so the
+              // screen itself never touches the ledger: a code that carried its amount, and
+              // what the money screen collected for one that did not.
+              onPayee={logScannedPayee}
+              onPaid={logPaidPayee}
+            />
+          ) : null}
+        </motion.div>
+      </AnimatePresence>
+
+      {/*
+        The dock lives outside the cross-fade: it is the frame the screens change
+        inside, not a fourth screen. `null` on the scanner leaves no tab marked.
+      */}
+      <BottomNav
+        active={view === "scan" ? null : view}
+        onChange={(tab) => void goTo(tab)}
+        actions={actions}
+      />
+    </>
   )
 }

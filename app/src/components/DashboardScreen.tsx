@@ -64,7 +64,7 @@ export function DashboardScreen({
   const filled = Math.round(model.envelope.pct / 5)
 
   return (
-    <div className="mx-auto flex w-full max-w-[390px] flex-col gap-2 px-4 pt-safe pb-8">
+    <div className="mx-auto flex w-full max-w-[390px] flex-col gap-2 px-4 pt-safe pb-nav">
       {/*
         The header is the artboard's greeting and its 48px circle, plus one more
         circle of the same treatment: the app's way in to the **daily ledger**. The
