@@ -18,11 +18,11 @@ import type { LedgerCard, LedgerModel } from "@/lib/view"
  * rather than styling:
  *
  * - **The notched card.** A card is a 358×128 SVG with a step cut out of its
- *   top-left corner — the tag sits in the cut, the faces sit on the step, and the
- *   rest of the card carries the row. The path is the artboard's, character for
- *   character; the three treatments (plain, clay, sage) are the artboard's own
- *   `std` / `alt` / `inc`, which is why a card's style is a domain value rather
- *   than a class name.
+ *   top-left corner — the faces sit on the step and the rest of the card carries
+ *   the row. The cut stays empty: the artboard's category tag in it was removed at
+ *   the owner's request. The path is the artboard's, character for character; the
+ *   three treatments (plain, clay, sage) are the artboard's own `std` / `alt` /
+ *   `inc`, which is why a card's style is a domain value rather than a class name.
  * - **The date container.** The capsules and their geometry live in
  *   `components/DateWheel.tsx`: a row on a circle of radius 800 that is dragged
  *   sideways, snapped to whichever capsule is nearest the middle, with a haptic tick
@@ -92,12 +92,8 @@ function Card({ card, index }: { card: LedgerCard; index: number }) {
         <path d={CARD_PATH} strokeWidth={1} className={skin.shape} />
       </svg>
 
-      {/* The pill in the notch, and the faces on its step. */}
-      <div
-        className={`absolute left-4 top-3 whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-[0.03em] ${skin.fg}`}
-      >
-        {card.tag}
-      </div>
+      {/* The faces on the notch's step. The category's own label is not drawn: the
+          owner asked for the top of the card to carry nothing. */}
       <div className="absolute left-[148px] top-0 flex items-center">
         {card.people.map((initials, position) => (
           <span
