@@ -504,6 +504,20 @@
     "updatedAt": "2026-09-10T10:00:25.421Z"
   },
   {
+    "id": "ab85c1d1-b390-406f-b9f8-48cac4508c27",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 20100,
+    "kind": "income",
+    "at": 1788956176141,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-09-09",
+    "createdAt": "2026-09-09T12:16:23.528Z",
+    "updatedAt": "2026-09-09T12:16:23.533Z"
+  },
+  {
     "id": "af8b23a0-23d3-42ad-9b34-601e5b87c2a8",
     "title": "Friends",
     "category": "friends",
@@ -572,6 +586,20 @@
     "spentAt": "2026-09-07",
     "createdAt": "2026-09-07T06:51:02.011Z",
     "updatedAt": "2026-09-07T06:51:02.027Z"
+  },
+  {
+    "id": "dbc4f9b2-bf87-5b98-9217-ecad13727fd2",
+    "title": "Allowance",
+    "category": "allowance",
+    "account": "upi",
+    "amountCents": 500000,
+    "kind": "income",
+    "at": 1788713047051,
+    "note": "",
+    "source": "shortcut",
+    "spentAt": "2026-09-06",
+    "createdAt": "2026-09-06T16:44:08.942Z",
+    "updatedAt": "2026-09-06T16:44:08.947Z"
   },
   {
     "id": "b9d68eb6-92f9-4f6b-b458-a9cee6b887a7",
@@ -656,6 +684,20 @@
     "spentAt": "2026-09-01",
     "createdAt": "2026-09-01T09:10:06.966Z",
     "updatedAt": "2026-09-01T09:10:06.983Z"
+  },
+  {
+    "id": "7ed5e85a-d1d3-4724-a345-515d879b08ab",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 16000,
+    "kind": "income",
+    "at": 1788201459007,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-09-01",
+    "createdAt": "2026-08-31T18:37:48.327Z",
+    "updatedAt": "2026-08-31T18:37:48.331Z"
   },
   {
     "id": "a93b309f-9eb7-4d0b-b9f4-f6c4194a2840",
@@ -952,6 +994,20 @@
     "updatedAt": "2026-08-28T06:32:00.018Z"
   },
   {
+    "id": "142a272e-6269-427c-8e44-25de81ba138a",
+    "title": "Allowance",
+    "category": "allowance",
+    "account": "upi",
+    "amountCents": 750000,
+    "kind": "income",
+    "at": 1787144890663,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-08-19",
+    "createdAt": "2026-08-19T13:09:45.290Z",
+    "updatedAt": "2026-08-19T13:09:55.813Z"
+  },
+  {
     "id": "fc8e1f2c-abdd-4998-8669-ef58baae12c8",
     "title": "Long distance",
     "category": "long-distance",
@@ -1064,6 +1120,34 @@
     "updatedAt": "2026-08-16T07:35:27.984Z"
   },
   {
+    "id": "31dd5697-59f2-4490-a566-0e646a27e1e9",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 7500,
+    "kind": "income",
+    "at": 1786708023462,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-08-14",
+    "createdAt": "2026-08-14T11:47:13.084Z",
+    "updatedAt": "2026-08-14T11:47:13.092Z"
+  },
+  {
+    "id": "60d91dea-911b-4af0-8858-454a38a45ef9",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 24500,
+    "kind": "income",
+    "at": 1786707994436,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-08-14",
+    "createdAt": "2026-08-14T11:47:02.446Z",
+    "updatedAt": "2026-08-14T11:47:02.454Z"
+  },
+  {
     "id": "3e50bd1c-21e2-4b9d-857d-0099db16f84e",
     "title": "Health and beauty",
     "category": "health-beauty",
@@ -1118,6 +1202,20 @@
     "spentAt": "2026-08-10",
     "createdAt": "2026-08-10T18:22:29.157Z",
     "updatedAt": "2026-08-10T18:22:29.172Z"
+  },
+  {
+    "id": "225d2500-78ae-5f32-ab1e-2b1a81ea7b48",
+    "title": "Allowance",
+    "category": "allowance",
+    "account": "upi",
+    "amountCents": 500000,
+    "kind": "income",
+    "at": 1786265635881,
+    "note": "",
+    "source": "shortcut",
+    "spentAt": "2026-08-09",
+    "createdAt": "2026-08-09T08:53:58.269Z",
+    "updatedAt": "2026-08-09T08:53:58.271Z"
   },
   {
     "id": "4f6ba6e2-a518-4167-8b8d-701bfb268265",
@@ -1372,6 +1470,20 @@
     "updatedAt": "2026-07-25T17:55:44.773Z"
   },
   {
+    "id": "bee08802-9d02-454c-82c2-f8fd373aca8e",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 16300,
+    "kind": "income",
+    "at": 1784963121743,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-07-25",
+    "createdAt": "2026-07-25T07:05:32.330Z",
+    "updatedAt": "2026-07-25T07:05:32.337Z"
+  },
+  {
     "id": "7057887b-0c90-4c47-8b8c-f004595b5e31",
     "title": "Friends",
     "category": "friends",
@@ -1426,6 +1538,20 @@
     "spentAt": "2026-07-23",
     "createdAt": "2026-07-23T10:31:19.614Z",
     "updatedAt": "2026-07-23T10:32:41.163Z"
+  },
+  {
+    "id": "6cde39d4-d4c2-43fb-9228-230a750339a2",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 16100,
+    "kind": "income",
+    "at": 1784802614212,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-07-23",
+    "createdAt": "2026-07-23T10:30:35.364Z",
+    "updatedAt": "2026-07-23T10:30:35.380Z"
   },
   {
     "id": "b3142bb5-a986-491b-a958-7ade9e1c0192",
@@ -1496,6 +1622,20 @@
     "spentAt": "2026-07-21",
     "createdAt": "2026-07-21T12:57:47.226Z",
     "updatedAt": "2026-07-21T12:57:47.242Z"
+  },
+  {
+    "id": "2eeca5f6-50b5-4726-96f9-ba549c0b181d",
+    "title": "Friends",
+    "category": "friends",
+    "account": "upi",
+    "amountCents": 3000,
+    "kind": "income",
+    "at": 1784400810934,
+    "note": "",
+    "source": "manual",
+    "spentAt": "2026-07-19",
+    "createdAt": "2026-07-18T18:53:48.751Z",
+    "updatedAt": "2026-07-18T19:16:51.412Z"
   },
   {
     "id": "7dbd3273-4c37-4099-8a61-dae563eb5a3e",

@@ -77,9 +77,7 @@ export function AllocationCard({ rows, now }: { rows: Row[]; now: number }) {
                   onClick={(e) => press(i, e.currentTarget)}
                   whileTap={{ scaleX: 0.8 }}
                   className="flex w-4 cursor-pointer origin-bottom flex-col-reverse gap-0.5 overflow-hidden rounded-[3px] border-0 bg-transparent p-0"
-                  initial={{ scaleY: 0 }}
-                  animate={{ scaleY: 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30, delay: i * 0.03 }}
+                  initial={false}
                 >
                   {/* The first child sits at the bottom of a column-reversed stack: the biggest spend. */}
                   {month.order.map((k) => (

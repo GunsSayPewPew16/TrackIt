@@ -3,7 +3,7 @@
  *
  * The dashboard's masthead says hello in a different language every time the app is
  * opened. **`GREETINGS` is that list** — the world's fifty most spoken languages, one
- * greeting each, every one of them romanized into latin letters (Mandarin's `Nǐ hǎo`,
+ * greeting each, every one of them romanized into plain latin letters (Mandarin's `Ni hao`,
  * Burmese's `Mingalaba`, Cantonese's `Nei hou`) so that a single face can draw all of
  * them. Each word is *checked against both cuts of Anthropic Serif Display*, character by
  * character, by `tools/vendor-anthropic-serif.py`, which fails its run if a word here
@@ -67,13 +67,13 @@ export type GreetingLine = Greeting & {
  */
 export const GREETINGS: Greeting[] = [
   { word: "Hello,", language: "English", lang: "en" },
-  { word: "Nǐ hǎo,", language: "Mandarin Chinese", lang: "zh-Latn" },
+  { word: "Ni hao,", language: "Mandarin Chinese", lang: "zh-Latn" },
   { word: "Namaste,", language: "Hindi", lang: "hi-Latn" },
   { word: "Hola,", language: "Spanish", lang: "es" },
   { word: "Bonjour,", language: "French", lang: "fr" },
   { word: "Marhaba,", language: "Modern Standard Arabic", lang: "ar-Latn" },
   { word: "Nomoshkar,", language: "Bengali", lang: "bn-Latn" },
-  { word: "Olá,", language: "Portuguese", lang: "pt" },
+  { word: "Ola,", language: "Portuguese", lang: "pt" },
   { word: "Privet,", language: "Russian", lang: "ru-Latn" },
   { word: "Salaam,", language: "Urdu", lang: "ur-Latn" },
   { word: "Selamat,", language: "Indonesian", lang: "id" },
@@ -86,7 +86,7 @@ export const GREETINGS: Greeting[] = [
   { word: "Merhaba,", language: "Turkish", lang: "tr" },
   { word: "Vanakkam,", language: "Tamil", lang: "ta-Latn" },
   { word: "Nei hou,", language: "Cantonese", lang: "yue-Latn" },
-  { word: "Xin chào,", language: "Vietnamese", lang: "vi" },
+  { word: "Xin chao,", language: "Vietnamese", lang: "vi" },
   { word: "Kumusta,", language: "Filipino", lang: "fil" },
   { word: "Nong hao,", language: "Shanghainese", lang: "wuu-Latn" },
   { word: "Salaam,", language: "Persian", lang: "fa-Latn" },
@@ -99,7 +99,7 @@ export const GREETINGS: Greeting[] = [
   { word: "Marhaba,", language: "Levantine Arabic", lang: "apc-Latn" },
   { word: "Li ho,", language: "Hokkien", lang: "nan-Latn" },
   { word: "Ciao,", language: "Italian", lang: "it" },
-  { word: "Cześć,", language: "Polish", lang: "pl" },
+  { word: "Czesc,", language: "Polish", lang: "pl" },
   { word: "Namaskara,", language: "Kannada", lang: "kn-Latn" },
   { word: "Halo,", language: "Javanese", lang: "jv" },
   { word: "Salam,", language: "Malay", lang: "ms" },
@@ -107,7 +107,7 @@ export const GREETINGS: Greeting[] = [
   { word: "Bawo,", language: "Yoruba", lang: "yo" },
   { word: "Mingalaba,", language: "Burmese", lang: "my-Latn" },
   { word: "Sat sri akal,", language: "Punjabi", lang: "pa-Latn" },
-  { word: "Bună,", language: "Romanian", lang: "ro" },
+  { word: "Buna,", language: "Romanian", lang: "ro" },
   { word: "Hallo,", language: "Dutch", lang: "nl" },
   { word: "Namaste,", language: "Nepali", lang: "ne-Latn" },
   { word: "Salam,", language: "Uyghur", lang: "ug-Latn" },
@@ -168,6 +168,14 @@ export function cleanAvoid(input: unknown): string[] {
 }
 
 /**
+ * The word with its accents taken off, so `Nǐ hǎo` is answered as `Ni hao`. The masthead
+ * sets plain letters only: a tone mark is the one thing the owner asked to see gone.
+ */
+function plainLetters(word: string): string {
+  return word.normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFC")
+}
+
+/**
  * A greeting, if what arrived really is one — `null` otherwise.
  *
  * It takes an unknown because its caller is a JSON parse of an answer that crossed the
@@ -182,7 +190,7 @@ export function validateGreeting(input: unknown): Greeting | null {
   if (typeof input !== "object" || input === null) return null
   const candidate = input as Record<string, unknown>
 
-  const spoken = typeof candidate.word === "string" ? candidate.word.trim() : ""
+  const spoken = typeof candidate.word === "string" ? plainLetters(candidate.word.trim()) : ""
   // The comma belongs to the design, not to the answer: any punctuation the server put
   // at the end is dropped and the italic comma is added once, here.
   const word = `${spoken.replace(/[\s.,!?;:…]+$/u, "")},`
