@@ -268,12 +268,19 @@ async function reachable(url) {
  *
  * A check nobody can run is a check nobody runs, so this starts Vite itself and stops it
  * again at the end. A server that was already up is left exactly as it was found — the
- * owner may be watching it in the Preview panel.
+ * owner may be watching it in the Preview panel — which is why the one it starts is a
+ * **device-only** build (`VITE_CLOUD=off`): `lib/supabase-config.ts` gives every other build
+ * the project, and a gated app would stop at the portal unless a test account is provided.
  */
 async function ensureApp() {
   const deadline = Date.now() + 40000
   if (await reachable(APP_URL)) return null
-  const server = spawn("npm", ["run", "dev"], { cwd: ROOT, detached: true, stdio: "ignore" })
+  const server = spawn("npm", ["run", "dev"], {
+    cwd: ROOT,
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, VITE_CLOUD: "off" },
+  })
   while (Date.now() < deadline) {
     await sleep(500)
     if (await reachable(APP_URL)) return server

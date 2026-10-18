@@ -29,7 +29,9 @@ too. `check:flows` is the one that catches a regression the type checker cannot:
 starts its own browser on a throwaway profile and presses through the add-record
 screen (both kinds, and a scanned payment), the Friends pill and the date card with
 real input, so a screen that still builds but no longer works fails a command
-(`tools/flows.mjs`; Chrome, and a dev server it will start itself if none is up). Every script at the root is a thin wrapper around `app/`, so the app can also
+(`tools/flows.mjs`; Chrome, and a dev server it will start itself if none is up — that one is
+built device-only with `VITE_CLOUD=off`, since a build of this source now carries the project
+and would otherwise stop at the vault's portal). Every script at the root is a thin wrapper around `app/`, so the app can also
 be worked on directly: `cd app && npm run dev`.
 
 ## The screens
