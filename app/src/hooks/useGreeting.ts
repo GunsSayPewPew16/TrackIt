@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 
+import { useAuth } from "@/hooks/useAuth"
 import type { Greeting, GreetingLine, GreetingSource } from "@/lib/greetings"
 import { greetingFromServer, hasGreetingServer } from "@/lib/hello"
 import { OWNER_NAME } from "@/lib/owner"
@@ -19,8 +20,9 @@ import { openGreeting, rememberLanguage } from "@/lib/rotation"
  *   (`lib/hello.ts`). It is asked *once per open*, not per render, and it is never the only
  *   thing standing between the reader and a greeting: every way it can fail leaves the first
  *   word in place.
- * - **The name is always the owner's**, from `lib/owner.ts`, in the roman cut while the word
- *   wears the italic.
+ * - **The name belongs to the account**, in the roman cut while the word wears the italic. It
+ *   is the signed-in account's own (`lib/profile.ts`), and `OWNER_NAME` only stands in for a
+ *   device-only build, which has no account to ask.
  *
  * `source` is which of the two the word on screen came from. Nothing draws it — the heading
  * carries it as a `data-` attribute, which is how the difference can be checked in a browser
@@ -35,6 +37,8 @@ import { openGreeting, rememberLanguage } from "@/lib/rotation"
 let asked: Promise<Greeting | null> | null = null
 
 export function useGreeting(): GreetingLine {
+  // The account's name, or the app's one hard-coded name on a build with no account at all.
+  const { name } = useAuth()
   const [opened] = useState(openGreeting)
   const [line, setLine] = useState<{ greeting: Greeting; source: GreetingSource }>({
     greeting: opened.greeting,
@@ -56,5 +60,5 @@ export function useGreeting(): GreetingLine {
     }
   }, [opened])
 
-  return { ...line.greeting, name: OWNER_NAME, source: line.source }
+  return { ...line.greeting, name: name ?? OWNER_NAME, source: line.source }
 }

@@ -333,6 +333,21 @@ left out and why.
   in a lift and still be the owner's ledger. A signed-out device keeps its own ledger at
   `trackit-ledger` and gets it back on sign-out; a signed-in account with an empty cache is
   **empty**, never the bundled demo sheet.
+- **The portal is two steps, and the code is the session.** `signIn` checks the password by
+  actually signing in, then **throws that session away** (`signOut({ scope: "local" })`) before
+  Supabase mails six digits; `verifyCode` establishes the only session the app keeps. The
+  provider is `holding` in between, so no screen is behind the portal and no ledger is attached to
+  the disposable session. A session that never passed the step is dropped at boot too —
+  `lib/portal.ts` marks the account on this device when the code lands, `App` trusts the marker —
+  which is what stops a tab closed at the code screen from having signed in. Sign-ups are
+  **closed**: `SIGNUPS_OPEN` (`VITE_SIGNUP=on` to reopen) hides the form and `signUp` refuses, and
+  Supabase's *Allow new users to sign up* switch is the fence behind both.
+- **The vault's history is claimed once, by its owner.** The bundled Wallet sheet lives in
+  `localStorage` on the device, so the first time the account **whose name the app greets**
+  (`OWNER_NAME`) signs in to an **empty cloud shelf**, `claimDeviceLedger` moves those rows up
+  (`client_id` keeps every id, so it is an ordinary upsert). Every other account starts empty and
+  stays empty, a second device cannot re-seed a ledger the owner has since edited, and
+  `trackit-claim:<uuid>` means clearing the vault is not undone by the next sign-in.
 - **The public key is not the protection — the policies are.** The Supabase URL and the
   publishable/anon key ship in the bundle, which is correct and safe only because
   `supabase/schema.sql` enables row-level security and names `auth.uid()` on both sides of every
@@ -597,12 +612,14 @@ exits 1 on a failed assertion and 2 when it cannot run at all (no Chrome, or the
 answered), so a green run is never a missing browser. Keep it green: a new flow belongs there
 rather than in a one-off probe.
 
-**A gated build needs a test account.** The script signs in with `TRACKIT_TEST_EMAIL` and
-`TRACKIT_TEST_PASSWORD` when the build has a portal; with neither set it checks the portal itself
-(its two fields, its refused submit, the create-account switch) and exits **2** saying the
-signed-in flows did not run — never 0. To run the signed-in flows without touching the project,
-build the device app instead: `VITE_CLOUD=off npm run check:flows` (or point `APP_URL` at a server
-started that way).
+**A gated build needs a test account, and now a code.** The script signs in with
+`TRACKIT_TEST_EMAIL` and `TRACKIT_TEST_PASSWORD` when the build has a portal; with neither set it
+checks the portal itself (its two fields, its refused submit, the closed sign-ups sentence) and
+exits **2** saying the signed-in flows did not run — never 0. A right password lands on the
+**six-digit step**, which a script cannot read an inbox for, so that is exit 2 as well unless
+`TRACKIT_TEST_CODE` carries a code that is still valid (five minutes; run it by hand). To run the
+signed-in flows without touching the project, build the device app instead: `VITE_CLOUD=off npm
+run check:flows` (or point `APP_URL` at a server started that way).
 
 Then drive the app. What is worth exercising for a change in these areas:
 
@@ -610,7 +627,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
 | The account stack's pill | at 390 wide: the band is **224px** — the front card's own height (a 40px seat plus 184), its bottom edge 224 from the band's top — the pill's bottom is that same edge (**`bottom-0`**, so no gap and nothing hanging below the stack), its right edge 8px inside the card's (`right: 374` against the pill's `366`, the alignment the owner asked to keep), and the quick-log band starts 8px below the band; pulling a card past 40px still re-stacks it without moving the pill |
-| Accounts and the cloud | run `supabase/schema.sql` first, then with the anon key alone: `select` on `ledgers` must return `[]` (200, **not** 401 — RLS filters) and an `insert` must be refused with `42501`. Signed in: a new account's dashboard is **empty** (no bundled sheet), a manual row appears in Postgres with the app's id in `client_id` and `amount` in rupees, two accounts never see each other's rows (sign out, sign in as the second, reload), a row typed with the network throttled to offline survives a reload and lands after reconnecting, and signing out returns the device's own ledger. The portal: submit is refused until both fields are filled, a wrong password says *That email and password don't match.*, and with email confirmation on a new account says to check its inbox instead of pretending to sign in |
+| Accounts and the cloud | run `supabase/schema.sql` first, then with the anon key alone: `select` on `ledgers` must return `[]` (200, **not** 401 — RLS filters) and an `insert` must be refused with `42501`. Signed in: the **owner's** first sign-in moves the device's bundled sheet into an empty cloud shelf and a second account's stays **empty** (no bundled sheet, nothing claimed), a manual row appears in Postgres with the app's id in `client_id` and `amount` in rupees, two accounts never see each other's rows (sign out, sign in as the second, reload), a row typed with the network throttled to offline survives a reload and lands after reconnecting, and signing out returns the device's own ledger. The portal: submit is refused until both fields are filled, a wrong password says *That email and password don't match.*, a right one lands on the **six-digit step** with no session behind it (reload there and the vault is still shut), a wrong code says *That code didn't match…*, the page says **sign-ups are closed** and offers no way to create an account, and the greeting's name says the account's own |
 | The icon set | `python3 tools/make-icons.py` writes four files and every one is the master's own drawing: read the PNG header, don't eyeball it — 192×192 and 512×512 `any`, a 512 `maskable`, and the 180px iOS tile; the mark's ink bbox is centred, occupies 57 / 57 / 50 / 55% of its square, and the maskable one's diagonal is inside a 512px circle's 80% (the crop every launcher may apply); the field behind it is `canvas` and opaque, not transparent (a cream mark on a launcher's white is the one pairing this palette cannot do); and `favicon.png` at the root is still the master the tab uses. Every path in `manifest.webmanifest` and `index.html` is relative and resolves |
 | The palettes | every palette in `PALETTES` has a stylesheet block and the boot table, and its `canvas` matches both; each block states **all twenty-one tokens** (a missing one silently inherits the block above it) and `color-scheme` agrees with the register's theme. For each one: canvas, card, hairline and ink by computed style (read *after* the 120ms repaint — a read in the same task catches the previous palette, because the tokens transition); the toggle's `aria-pressed`, its label, and the stored choice after a reload; a browser holding only the legacy `trackit-theme` lands on that theme's default palette; and **the dark palette picked before the toggle is still the one it comes back to** (`trackit-palette-<theme>`). Contrast, per palette: ink-on-canvas, ink-on-card, ink2-on-card, on-clay-on-clay and on-sage-on-sage — the artboards' own paper sits at 15.06 / 16.26 / 4.34 / 5.57 / 4.33, and a new sample should not be worse than the paper it is a variation of. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame *from inside the change* (start the sampler, then perform the change in the same task, so the zero point is the click rather than the round trip), compare each element against its own final value, and repeat across a toggle, a same-theme pick and a cross-theme pick. `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |

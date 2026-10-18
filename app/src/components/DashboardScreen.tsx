@@ -49,6 +49,7 @@ export function DashboardScreen({
   onAddRecord,
   onQuickLog,
   onSetBudget,
+  onOpenAccount,
 }: {
   model: DashboardModel
   /**
@@ -75,6 +76,12 @@ export function DashboardScreen({
    * card drawing it is the only place it can be changed.
    */
   onSetBudget: () => void
+  /**
+   * Tapping the name in the greeting opens the account panel (`components/AccountSheet.tsx`),
+   * which is where the sign-out lives. The name *is* the account, so it is the door — no
+   * extra circle in a header that has 28px of greeting and a 48px theme toggle in it.
+   */
+  onOpenAccount: () => void
 }) {
   // The hold that edits the F&B limit. Both the whole card and its chips answer to it; a
   // scroll cancels it (`hooks/useLongPress.ts`), which is what keeps the page draggable.
@@ -119,12 +126,33 @@ export function DashboardScreen({
         <h1
           title={`hello in ${greeting.language}`}
           data-greeting={greeting.source}
-          className="m-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink"
+          className="m-0 min-w-0 font-serif text-[28px] leading-9 font-medium tracking-[-0.01em] text-ink"
         >
           <em lang={greeting.lang} className="italic">
             {greeting.word}
           </em>{" "}
-          {greeting.name}
+          {/*
+            **The name is the account's door.** It wears the greeting's own roman cut and
+            nothing else draws a control around it — no second circle in a 48px header, no
+            chevron, no underline — because the line already says whose vault this is and a
+            thumb on a name is the oldest affordance there is. The padding is negative on the
+            left and right so the tap target is 8px wider than the word without moving it,
+            and `aria-label` says what the tap does for a screen reader, which cannot infer
+            it from a name.
+          */}
+          <button
+            type="button"
+            data-account-trigger=""
+            onClick={() => {
+              lightTap() // must run synchronously inside the tap for iOS
+              onOpenAccount()
+            }}
+            title="Your account"
+            aria-label={`${greeting.name} — account and sign out`}
+            className="-mx-1 inline rounded-lg px-1 text-left align-baseline"
+          >
+            {greeting.name}
+          </button>
           <span className="sr-only"> (in {greeting.language})</span>
         </h1>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />

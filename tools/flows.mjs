@@ -529,6 +529,10 @@ async function addedRows(screen, before) {
  *   flows' own `open(APP_URL)` calls land on the dashboard rather than the portal again.
  * - `"portal"` — the app gates and no test account was given. The portal's own checks still run,
  *   and the script exits 2 ("cannot run") rather than pretending the signed-in app passed.
+ * - `"code"` — the password was accepted and the portal is waiting for the six digits it just
+ *   emailed. A script cannot read an inbox, so this is also a "cannot run" (exit 2) unless
+ *   `TRACKIT_TEST_CODE` carries a code that is still valid — a check a person runs by hand,
+ *   within the code's five minutes.
  */
 async function enterApp(screen) {
   await screen.open(APP_URL)
@@ -545,9 +549,25 @@ async function enterApp(screen) {
   await screen.press('[aria-label="Password"]')
   await screen.cdp.send("Input.insertText", { text: password })
   await screen.press('button[type="submit"]')
+
+  /** Whichever of the two things a right password leads to. */
+  const afterPassword = () =>
+    `(() => {
+      if (document.querySelector('[aria-label="Six-digit code"]')) return "code";
+      if (document.querySelector('[aria-label="Add Record"]')) return "dashboard";
+      return null;
+    })()`
+  const reached = await screen.until(afterPassword(), "the code step or the dashboard", 25000)
+  if (reached === "dashboard") return "signed-in"
+
+  const code = process.env.TRACKIT_TEST_CODE
+  if (!code) return "code"
+  await screen.press('[aria-label="Six-digit code"]')
+  await screen.cdp.send("Input.insertText", { text: code })
+  await screen.press('button[type="submit"]')
   await screen.until(
     `document.querySelector('[aria-label="Add Record"]') !== null`,
-    "the dashboard after signing in",
+    "the dashboard after the code",
     25000,
   )
   return "signed-in"
@@ -557,8 +577,10 @@ async function enterApp(screen) {
  * The portal, checked on its own terms.
  *
  * What is assertable without an account: both fields exist by the names the screen gives them,
- * the submit is refuse-to-press until both are filled, and switching to *Create an account*
- * reveals the name field. Those are the three ways this form can silently rot.
+ * the submit is refuse-to-press until both are filled, and **there is no way to create an
+ * account** — the vault holds the accounts its owner made, so the portal says sign-ups are
+ * closed rather than offering a form that would be refused. Those are the three ways this
+ * screen can silently rot.
  */
 async function flowPortal(screen) {
   await check("portal: a signed-out build asks for an email and a password", async () => {
@@ -576,17 +598,26 @@ async function flowPortal(screen) {
     assertEqual(fields.disabled, true, "the submit button before anything is typed")
   })
 
-  await check("portal: creating an account reveals the name, and the button stays refused", async () => {
-    await screen.pressText("form", "Create an account")
-    const revealed = await screen.until(
-      `document.querySelector('[aria-label="Your name"]') !== null`,
-      "the name field on the create-account form",
+  await check("portal: sign-ups are closed, and the screen says so", async () => {
+    const state = await screen.cdp.evaluate(`(() => {
+      const buttons = [...document.querySelectorAll("form button[type=button]")].map((node) =>
+        node.textContent.trim(),
+      );
+      return {
+        buttons,
+        nameField: document.querySelector('[aria-label="Your name"]') !== null,
+        body: document.body.innerText,
+      };
+    })()`)
+    assert(
+      !state.buttons.some((label) => /create an account/i.test(label)),
+      `the portal still offers a way to create an account: ${state.buttons.join(", ")}`,
     )
-    const disabled = await screen.cdp.evaluate(
-      `document.querySelector('button[type="submit"]')?.disabled`,
+    assertEqual(state.nameField, false, "a name field on a portal with no sign-up")
+    assert(
+      /sign-ups are closed/i.test(state.body),
+      "the portal does not say that sign-ups are closed",
     )
-    assert(revealed, "the name field did not appear")
-    assertEqual(disabled, true, "the submit button before anything is typed")
   })
 }
 
@@ -917,7 +948,7 @@ async function main() {
     const entry = await enterApp(screen)
     // A gated build with no test account cannot run the signed-in flows. That is a "cannot
     // run", not a pass: the summary says so and the exit code is 2.
-    const blocked = entry === "portal"
+    const blocked = entry === "portal" || entry === "code"
     if (entry === "portal") await flowPortal(screen)
     else {
       await flowAddRecordSwitch(screen)
@@ -935,11 +966,19 @@ async function main() {
 
     const failed = results.filter((result) => !result.ok)
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
-    if (blocked) {
+    if (entry === "portal") {
       console.log(
         "\nThe signed-in flows did not run: this build gates the app and no test account was\n" +
           "given. Set TRACKIT_TEST_EMAIL and TRACKIT_TEST_PASSWORD to an account in the project\n" +
           "(with email confirmation off), or build the device-only app with VITE_CLOUD=off.",
+      )
+    }
+    if (entry === "code") {
+      console.log(
+        "\nThe signed-in flows did not run: the password was accepted and the portal is waiting\n" +
+          "for the six digits Supabase emails. A script cannot read an inbox — run it again with\n" +
+          "TRACKIT_TEST_CODE holding the code from that email (they expire in minutes), or build\n" +
+          "the device-only app with VITE_CLOUD=off.",
       )
     }
     for (const note of notes) console.log(`note: ${note}`)

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useTheme } from "@/hooks/useTheme"
 import { join } from "@/lib/classes"
 import { lightTap, mediumClick } from "@/lib/haptics"
+import { SIGNUPS_OPEN } from "@/lib/portal"
 
 /**
  * The portal, for a build with a Supabase project and no session.
@@ -23,15 +24,21 @@ import { lightTap, mediumClick } from "@/lib/haptics"
  * (`Sage & Sandstone`, `Forest Void`), and it is the same pairing the greeting and the ledger's
  * titles use.
  *
- * **States are words, never spinners.** A refusal is a sentence under the fields ("That email and
- * password don't match."), a sign-up that needs confirming says so, and the button only carries a
- * turning mark while the request is in flight — a login screen that leaves the button looking
- * unchanged is the one thing that makes people press it twice.
+ * **Two steps, one screen.** The password is followed by the **six digits Supabase mails**, and
+ * the screen does not move between them: the header, the canvas and the confirm's place stay
+ * exactly where they were, and only the lines below the paragraph change. That is deliberate —
+ * a second page would read as a second product, and the step is a continuation of the same
+ * sentence. The code line is set as a code (tabular figures, wide tracking, the numbers centred
+ * in the line) because it is not prose.
  *
- * **A third factor has a place here when it is wanted.** The owner asked for "email, password and
- * a secret code", and the code is still undecided; when it is, it is one more `JournalLine`
- * between the password and the button, and one more check in `signIn` — nothing about this layout
- * has to move for it.
+ * **States are words, never spinners.** A refusal is a sentence under the fields ("That email and
+ * password don't match.", "That code didn't match…"), the button only carries a turning mark
+ * while the request is in flight — a login screen that leaves the button looking unchanged is the
+ * one thing that makes people press it twice.
+ *
+ * **Sign-ups are closed** (`lib/portal.ts`): the vault holds the accounts its owner made, so
+ * there is no *Create account* line at all, and the sentence under the fields says so. The
+ * `VITE_SIGNUP=on` build puts the line back.
  */
 
 const REVEAL: Variants = {
@@ -60,7 +67,10 @@ function Line({
   type = "text",
   autoComplete,
   hint,
-  adorned,
+  inputMode,
+  maxLength,
+  autoFocus,
+  code,
 }: {
   label: string
   value: string
@@ -69,14 +79,19 @@ function Line({
   type?: string
   autoComplete?: string
   hint?: ReactNode
-  adorned?: boolean
+  inputMode?: "text" | "numeric"
+  maxLength?: number
+  autoFocus?: boolean
+  /** Draw the value as a code rather than as a word: tabular figures, wide tracking. */
+  code?: boolean
 }) {
   const typed = value.length > 0
+  const id = `portal-${label.replace(/\s+/g, "-").toLowerCase()}`
   return (
     <div className="border-b border-line transition-colors focus-within:border-sage">
       <div className="flex items-center justify-between">
         <label
-          htmlFor={`portal-${label.replace(/\s+/g, "-").toLowerCase()}`}
+          htmlFor={id}
           className="text-[10px] leading-4 font-bold tracking-[0.03em] text-ink2 uppercase"
         >
           {label}
@@ -85,7 +100,7 @@ function Line({
       </div>
       <div className="flex items-center">
         <input
-          id={`portal-${label.replace(/\s+/g, "-").toLowerCase()}`}
+          id={id}
           aria-label={label}
           type={type}
           value={value}
@@ -93,14 +108,19 @@ function Line({
           onFocus={lightTap}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the code step is the only place
+          // this is used, and the keyboard belongs in the field the email just asked for.
+          autoFocus={autoFocus}
           autoCapitalize="none"
           spellCheck={false}
           className={join(
             "h-12 w-full bg-transparent text-[15px] leading-6 text-ink outline-none",
-            adorned && "pr-2",
             typed
               ? "font-sans font-normal not-italic"
               : "font-editorial italic placeholder:text-ink2 placeholder:opacity-60",
+            code && typed && "text-[20px] tracking-[0.3em] tabular-nums",
           )}
         />
       </div>
@@ -109,7 +129,18 @@ function Line({
 }
 
 export function LoginScreen() {
-  const { signIn, signUp, resetPassword, error, notice } = useAuth()
+  const {
+    signIn,
+    signUp,
+    verifyCode,
+    resendCode,
+    cancelChallenge,
+    resetPassword,
+    stage,
+    challengeEmail,
+    error,
+    notice,
+  } = useAuth()
   // The palette switch is on this screen too: the vault is entered in whichever canvas the
   // owner last chose, and a signed-out screen with no way back to it would be a different app.
   const { theme, toggleTheme } = useTheme()
@@ -117,13 +148,20 @@ export function LoginScreen() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [code, setCode] = useState("")
   const [busy, setBusy] = useState(false)
 
-  /** Both halves, before the button will do anything: an empty press cannot explain itself. */
-  const ready = useMemo(
-    () => email.trim().includes("@") && password.length >= 8 && (!creating || fullName.trim().length > 0),
-    [email, password, creating, fullName],
-  )
+  const askingForCode = stage === "code"
+
+  /** Every half, before the button will do anything: an empty press cannot explain itself. */
+  const ready = useMemo(() => {
+    if (askingForCode) return code.length === 6
+    return (
+      email.trim().includes("@") &&
+      password.length >= 8 &&
+      (!creating || fullName.trim().length > 0)
+    )
+  }, [askingForCode, code, email, password, creating, fullName])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -131,7 +169,8 @@ export function LoginScreen() {
     mediumClick()
     setBusy(true)
     try {
-      if (creating) await signUp(email, password, fullName.trim())
+      if (askingForCode) await verifyCode(code)
+      else if (creating) await signUp(email, password, fullName.trim())
       else await signIn(email, password)
     } finally {
       setBusy(false)
@@ -155,48 +194,70 @@ export function LoginScreen() {
           display face at full ink. They sit on one paragraph so the line can break where the
           phone decides, rather than at a `<br>` that only looks right at 390px.
         */}
-        <motion.h1
-          variants={ROW}
-          className="text-[34px] leading-[44px] text-ink2"
-        >
+        <motion.h1 variants={ROW} className="text-[34px] leading-[44px] text-ink2">
           <span className="font-editorial italic">Access your financial </span>
           <span className="font-display font-bold tracking-tight-title text-ink">Vault</span>
         </motion.h1>
 
         <motion.p variants={ROW} className="mt-3 max-w-[32ch] text-[13px] leading-5 text-ink2">
-          Your ledger follows you between devices, and stays on this one when the network doesn&apos;t.
+          {askingForCode ? (
+            <>
+              Six digits are on their way to{" "}
+              <span className="font-sans text-ink">{challengeEmail}</span>. Type them here to open
+              the vault.
+            </>
+          ) : (
+            <>Your ledger follows you between devices, and stays on this one when the network doesn&apos;t.</>
+          )}
         </motion.p>
 
         <form onSubmit={submit} className="mt-10">
-          {creating && (
+          {askingForCode ? (
             <Line
-              label="Your name"
-              value={fullName}
-              onChange={setFullName}
-              placeholder="Who is this ledger for?..."
-              autoComplete="name"
+              label="Six-digit code"
+              value={code}
+              onChange={(next) => setCode(next.replace(/\D/g, "").slice(0, 6))}
+              placeholder="From the email we just sent..."
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              autoFocus
+              code
             />
+          ) : (
+            <>
+              {creating && SIGNUPS_OPEN && (
+                <Line
+                  label="Your name"
+                  value={fullName}
+                  onChange={setFullName}
+                  placeholder="Who is this ledger for?..."
+                  autoComplete="name"
+                />
+              )}
+
+              <Line
+                label="Email"
+                value={email}
+                onChange={setEmail}
+                placeholder="you@bank, or anywhere you read..."
+                type="email"
+                autoComplete="email"
+              />
+
+              <div className="mt-4">
+                <Line
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="At least eight characters..."
+                  type="password"
+                  autoComplete={creating ? "new-password" : "current-password"}
+                />
+              </div>
+            </>
           )}
-
-          <Line
-            label="Email"
-            value={email}
-            onChange={setEmail}
-            placeholder="you@bank, or anywhere you read..."
-            type="email"
-            autoComplete="email"
-          />
-
-          <div className="mt-4">
-            <Line
-              label="Password"
-              value={password}
-              onChange={setPassword}
-              placeholder="At least eight characters..."
-              type="password"
-              autoComplete={creating ? "new-password" : "current-password"}
-            />
-          </div>
 
           {/*
             The two lines under the fields are one slot rather than two: a refusal replaces the
@@ -209,6 +270,11 @@ export function LoginScreen() {
               </p>
             )}
             {!error && notice && <p className="text-[13px] leading-5 text-ink2">{notice}</p>}
+            {!error && !notice && askingForCode && (
+              <p className="font-editorial text-[13px] leading-5 italic text-ink2">
+                It expires in five minutes.
+              </p>
+            )}
           </div>
 
           <button
@@ -220,37 +286,82 @@ export function LoginScreen() {
               <Loader2 className="size-4 animate-spin" strokeWidth={1.5} aria-hidden="true" />
             ) : (
               <>
-                {creating ? "Create account" : "Sign in"}
+                {askingForCode ? "Open the vault" : creating ? "Create account" : "Sign in"}
                 <ArrowRight className="size-4" strokeWidth={1.5} aria-hidden="true" />
               </>
             )}
           </button>
 
-          <div className="mt-5 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                lightTap()
-                setCreating((was) => !was)
-              }}
-              className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4"
-            >
-              {creating ? "I already have an account" : "Create an account"}
-            </button>
-            {!creating && (
+          {askingForCode ? (
+            <div className="mt-5 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => {
                   lightTap()
-                  if (email.trim().includes("@")) void resetPassword(email)
+                  void resendCode()
                 }}
-                disabled={!email.trim().includes("@")}
+                disabled={busy}
                 className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4 disabled:opacity-40"
               >
-                Forgot password?
+                Send another code
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  lightTap()
+                  setCode("")
+                  void cancelChallenge()
+                }}
+                className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4"
+              >
+                Use a different account
+              </button>
+            </div>
+          ) : (
+            <>
+              {/*
+                The closed door, as its own line rather than half of the row below it: a
+                sentence about how the vault is opened should not have to share 350px with a
+                link, and at 360 it would have wrapped mid-address.
+              */}
+              {!SIGNUPS_OPEN && (
+                <p className="mt-5 text-[12px] leading-4 text-ink2">
+                  Sign-ups are closed — accounts are made by the owner.
+                </p>
+              )}
+              <div
+                className={join(
+                  SIGNUPS_OPEN ? "mt-5 flex items-center justify-between gap-3" : "mt-2 flex items-center justify-end",
+                )}
+              >
+                {SIGNUPS_OPEN && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      lightTap()
+                      setCreating((was) => !was)
+                    }}
+                    className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4"
+                  >
+                    {creating ? "I already have an account" : "Create an account"}
+                  </button>
+                )}
+                {!creating && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      lightTap()
+                      if (email.trim().includes("@")) void resetPassword(email)
+                    }}
+                    disabled={!email.trim().includes("@")}
+                    className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4 disabled:opacity-40"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </form>
       </motion.div>
     </div>

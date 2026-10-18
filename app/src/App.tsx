@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 
+import { AccountSheet } from "@/components/AccountSheet"
 import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
 import { LoginScreen } from "@/components/LoginScreen"
@@ -167,6 +168,12 @@ function TrackIt() {
   const [budgetOpen, setBudgetOpen] = useState(false)
   /** Which of the two budgets the editor is about. Read while the panel closes, too. */
   const [budgetScope, setBudgetScope] = useState<BudgetScope>("food")
+  /**
+   * The account panel: who is signed in, what is still waiting to sync, and the sign-out.
+   * It is opened by the name in the dashboard's greeting — see `components/AccountSheet.tsx`
+   * for why the door is the name rather than another circle in the header.
+   */
+  const [accountOpen, setAccountOpen] = useState(false)
   /**
    * The category the sheet opens on, when it was opened from a quick-log chip rather than
    * from the add-record pill: `null` for a blank entry, which is what the pill means.
@@ -380,6 +387,7 @@ function TrackIt() {
               onAddRecord={() => void openEntry()}
               onQuickLog={(category) => void openEntry(category)}
               onSetBudget={() => void editBudget("food")}
+              onOpenAccount={() => setAccountOpen(true)}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger
@@ -450,6 +458,9 @@ function TrackIt() {
           }}
         />
       )}
+
+      {/** The account panel, and with it the only sign-out in the app. */}
+      <AccountSheet isOpen={accountOpen} onClose={() => setAccountOpen(false)} />
     </>
   )
 }

@@ -33,6 +33,7 @@
 import { ACCOUNTS, DEFAULT_ACCOUNT, accountFor } from "./accounts"
 import { CATEGORY_GROUPS, DEFAULT_CATEGORY, categoryFor, categoryIdForLabel } from "./categories"
 import { ledgerSnapshot, replaceLedger, setLedgerSink, setLedgerOwner } from "./ledger"
+import { OWNER_NAME } from "./owner"
 import { getSupabase } from "./supabase"
 import type { Budget, Kind, Row } from "./types"
 
@@ -75,6 +76,7 @@ type Operation =
   | { op: "clear" }
 
 const QUEUE_PREFIX = "trackit-cloud-queue"
+const CLAIM_PREFIX = "trackit-claim"
 const SNAPSHOT_LIMIT = 5000
 
 /** The account this device is currently mirroring, or `null` for the device's own ledger. */
@@ -83,6 +85,19 @@ let owner: string | null = null
 let flushing = false
 /** Set by a failed pull (offline, a 500): the next attach or `online` retries it. */
 let stale = true
+/**
+ * The ledger this device had the moment it was pointed at an account, captured before
+ * `lib/ledger.ts` switches to the account's own key.
+ *
+ * It is kept for one thing: an account whose cloud shelf is empty can be handed it
+ * (`claimDeviceLedger`). After that the account's own cache is the only ledger read, and
+ * signing out does not take the copy away from the device.
+ */
+let deviceLedger: { rows: Row[]; budgets: Budget[] } | null = null
+/** Resolves once the account has been pulled and its queue pushed. */
+let attached: Promise<void> = Promise.resolve()
+/** Whoever is drawing the sync state — the sign-out panel asks what is still waiting. */
+const syncListeners = new Set<() => void>()
 
 const queueKey = (userId: string) => `${QUEUE_PREFIX}:${userId}`
 
@@ -268,6 +283,7 @@ export async function flush(): Promise<void> {
     }
   } finally {
     flushing = false
+    announce()
   }
 }
 
@@ -318,6 +334,7 @@ export async function hydrate(): Promise<void> {
     rows: merged,
     budgets: [...pendingBudgets.values(), ...budgets],
   })
+  announce()
 }
 
 /**
@@ -329,6 +346,10 @@ export async function hydrate(): Promise<void> {
  */
 export function attach(userId: string): void {
   if (owner === userId) return
+  // **Before** the switch: this is the last moment the device's own ledger is the one
+  // `ledgerSnapshot()` reads, and it is what `claimDeviceLedger` can hand to an empty
+  // account.
+  if (owner === null) deviceLedger = ledgerSnapshot()
   owner = userId
   setLedgerOwner(userId)
   setLedgerSink({
@@ -346,19 +367,105 @@ export function attach(userId: string): void {
     },
   })
   window.addEventListener("online", onOnline)
-  void (async () => {
+  attached = (async () => {
     await hydrate()
     await flush()
   })()
+  announce()
 }
 
 /** Signed out: stop mirroring, and hand the device its own ledger back. */
 export function detach(): void {
   if (owner === null) return
   owner = null
+  deviceLedger = null
   setLedgerSink(null)
   setLedgerOwner(null)
   window.removeEventListener("online", onOnline)
+  announce()
+}
+
+/**
+ * Hand this device's ledger to an account that has none.
+ *
+ * The vault's history predates the vault: it is the Wallet sheet this app has always
+ * bundled, stored in `localStorage` as the device's own ledger. The first time the account
+ * **that ledger belongs to** signs in — the name the app greets (`OWNER_NAME`) — and its
+ * cloud shelf turns out to be empty, the rows are moved up rather than left behind, so the
+ * owner opens the app on any other device and finds their money already there.
+ *
+ * Four gates, and every one of them is the difference between a seeded vault and somebody
+ * else's ledger appearing under a new login:
+ *
+ * - the **name** is the owner's, so a second account never inherits a sheet it does not own;
+ * - the **cloud shelf is empty**, so a second device (or a reinstall) cannot push the
+ *   bundled sheet over a ledger the owner has since edited;
+ * - the **device ledger is not empty** — a device with nothing on it has nothing to give;
+ * - and it happens **once per account**, remembered in `trackit-claim:<uuid>`, so clearing
+ *   the vault on purpose is not undone by the next sign-in.
+ *
+ * The rows keep their own ids (`client_id`), so this is an upsert like any other: a claim
+ * that races a queue push lands on the same rows instead of beside them.
+ */
+export async function claimDeviceLedger(userId: string, name: string | null): Promise<boolean> {
+  if (owner !== userId || name !== OWNER_NAME) return false
+  if (claimed(userId)) return false
+  const device = deviceLedger
+  if (!device || device.rows.length === 0) return false
+
+  const client = getSupabase()
+  if (!client) return false
+  await attached
+
+  const { count, error } = await client
+    .from("ledgers")
+    .select("client_id", { count: "exact", head: true })
+    .eq("user_id", userId)
+  if (error || (count ?? 0) > 0) return false
+
+  markClaimed(userId)
+  enqueue(userId, { op: "upsert", rows: device.rows, budgets: device.budgets })
+
+  // What is on screen already is the queue's, so the two are merged by id rather than
+  // concatenated: a row typed while the claim was in flight must not appear twice.
+  const current = ledgerSnapshot()
+  const rows = new Map(device.rows.map((row) => [row.id, row]))
+  for (const row of current.rows) rows.set(row.id, row)
+  const budgets = new Map(device.budgets.map((budget) => [budget.id, budget]))
+  for (const budget of current.budgets) budgets.set(budget.id, budget)
+  replaceLedger({ rows: [...rows.values()], budgets: [...budgets.values()] })
+
+  await flush()
+  return true
+}
+
+function claimed(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`${CLAIM_PREFIX}:${userId}`) !== null
+  } catch {
+    return true
+  }
+}
+
+function markClaimed(userId: string): void {
+  try {
+    window.localStorage.setItem(`${CLAIM_PREFIX}:${userId}`, new Date().toISOString())
+  } catch {
+    /* A refused write costs a second offer, not the rows. */
+  }
+}
+
+/** Tell whoever is drawing the sync state that it has changed. */
+function announce(): void {
+  for (const listener of syncListeners) listener()
+}
+
+/** Watch the pending-write count. The returned function stops watching. */
+export function subscribeSync(listener: () => void): () => void {
+  syncListeners.add(listener)
+  return () => {
+    syncListeners.delete(listener)
+  }
 }
 
 /**
