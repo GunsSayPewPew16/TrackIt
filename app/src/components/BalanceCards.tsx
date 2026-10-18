@@ -297,9 +297,34 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
               <CountUp cents={card.cents} format={money} />
             </div>
 
-            <div className={`absolute bottom-4 left-4 text-[13px] leading-4 whitespace-nowrap ${skin.foot}`}>
-              {card.spent}{" "}
-              <span className="font-serif italic">spent out of</span> {card.balance}
+            {/*
+              The card's bottom row: the money that has gone out of this account on the left,
+              and the Add Record capsule's own slot on the right.
+
+              It is a flex row rather than a text block because the two belong to one line — the
+              metrics and the pill share the band at the card's bottom (both are centred at the
+              card's 160th pixel), and the row is what makes that structural instead of
+              coincidental. The metrics take the room that is left (`flex-1 min-w-0`, so a long
+              pair of figures truncates rather than running under the capsule) and the slot is
+              `shrink-0`, so nothing here can ever squeeze the pill.
+
+              The slot is *reserved*, not drawn: the capsule is pinned to the band instead of to
+              this card (the owner's rule — a drag must not carry it), and a row that ignored it
+              would let the figures grow underneath it. Its 136px is the pill's 128 minimum plus
+              the 8px inset the pill keeps from the card's right edge, and it carries the pill's
+              own 48px so the row is the pill's height: that is what puts `items-center` — and so
+              the metrics — on the capsule's centre line rather than on the card's last pixel.
+            */}
+            <div
+              className={`absolute inset-x-4 bottom-0 flex items-center justify-between gap-3 ${skin.foot}`}
+            >
+              <span className="min-w-0 flex-1 truncate text-[13px] leading-4">
+                {card.spent}{" "}
+                {/* The connector is the editorial serif at 60%: the figures are the content and
+                    the words between them are the sentence. */}
+                <span className="font-serif italic opacity-60">spent out of</span> {card.balance}
+              </span>
+              <span aria-hidden="true" className="h-12 w-[8.5rem] shrink-0" />
             </div>
           </motion.div>
         )
@@ -322,7 +347,7 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
           tick()
           onAddRecord?.()
         }}
-        className="absolute right-2 bottom-0 z-[6] flex h-12 min-w-32 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-3 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
+        className="absolute right-2 bottom-0 z-[6] flex h-12 min-w-32 shrink-0 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-3 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
       >
         <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
           <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />

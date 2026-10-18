@@ -49,6 +49,23 @@ const collapse = {
   exit: { height: 0, opacity: 0 },
 } as const
 
+/**
+ * The smallest room the mosaic may be given, and the amount canvas's own floor.
+ *
+ * Both are floors rather than sizes: the panel's room is *measured* from the boxes around it (see
+ * the layout effect below), and the canvas is its floor plus whatever it takes to draw itself.
+ * The floor is the figure and the moment pill at opposite corners with 20px between them, and it
+ * is deliberately small: at the artboard's 390×844 the band's rows then come to 462px inside a
+ * 471px band, so the screen fits without a scroll, and on a viewport short enough that they no
+ * longer do, the middle band scrolls — which is the whole point of splitting the screen into a
+ * scrolling middle and an anchored keypad instead of reserving a fixed number of pixels.
+ */
+const MIN_PANEL_ROOM = 240
+const MIN_CANVAS = 112
+
+/** What the middle band keeps under its last row: its own `pb-4`. */
+const BLOCK_PAD_BOTTOM = 16
+
 /** What the kind rail offers, in the order it offers them. */
 const KINDS: readonly { id: Kind; name: string }[] = [
   { id: "expense", name: "Expense" },
@@ -89,7 +106,7 @@ function SegmentRow<T extends string>({
   value: T
   options: readonly { id: T; name: string }[]
   onSelect: (id: T) => void
-  /** The column measures its rails to size the mosaic's room, so one may hand back its box. */
+  /** The mosaic measures its room from the boxes around it, so a rail may hand back its own. */
   innerRef?: Ref<HTMLDivElement>
 }) {
   return (
@@ -193,13 +210,29 @@ function JournalLine({
  * The manual entry view: the amount canvas, the two selector rails, the journal lines, the
  * category mosaic, and the keypad card.
  *
+ * **Three bands, and only the middle one moves.** The root is a `h-dvh` column:
+ *
+ * 1. the **header** — the drag handle, the title and the close button, `shrink-0`, so the handle
+ *    a thumb grabbed is in the same place on every frame;
+ * 2. the **middle**, `flex-1 overflow-y-auto` — the amount canvas, both rails, the journal lines
+ *    and the mosaic, in `px-5` with `space-y-6` between them. Nothing in it has a fixed height,
+ *    so a row added here (or a phone 200px shorter) makes this band *scroll* rather than pushing
+ *    the keypad off the screen;
+ * 3. the **keypad**, `mt-auto w-full shrink-0 z-30` — the 3×4 card and the confirm button, locked
+ *    to the bottom edge of the viewport at every aspect ratio.
+ *
+ * That split is what replaced a reserved pixel budget: the old screen computed
+ * `min(35%, 100% - 555px)` for the canvas because the column's rows were a fixed 555px, and every
+ * new row had to be added to that number by hand. Now the middle band is the flexible one, the
+ * keypad is rigid, and the only numbers left are floors — `MIN_CANVAS` for the hero's air and
+ * `MIN_PANEL_ROOM` for the mosaic's.
+ *
  * **It records both directions.** An `EXPENSE | INCOME` rail sits between the account rail and
  * the merchant line — the order an entry is actually thought through — and the rail is the whole
  * difference: the same canvas, rails, journal lines and keypad write `kind: "income"` with an
  * income envelope instead of `kind: "expense"`. It is only here when the sheet is the
  * *add-record* screen: a scanned code is a payment and is always money out (`payee !== null`),
- * so it has no kind rail and keeps the plain `New expense` title. The header stays a title,
- * because it is also the sheet's drag handle.
+ * so it has no kind rail and keeps the plain `New expense` title.
  *
  * **The amount is the one hero.** 56px of Neue Haas Grotesk Display Bold at
  * `tracking-tight-hero` (−0.04em), with the rupee mark lifted into a superscript of its own —
@@ -209,22 +242,17 @@ function JournalLine({
  * display face's own 700 with nothing else stacked on it: no flashing caret, no thin weight,
  * no underline.
  *
- * **The column is one rhythm.** Two rails, two journal lines, the category row and the keypad
- * card, 8px apart, all inside the column's `px-4`: every row is a full-width 1px-bordered
- * surface or a full-width hairline, so the eye reads four questions and one keypad rather than
- * a stack of boxes. Nothing in the column is a floated or centred control.
+ * **The keypad and the mosaic share the room.** Opening the category matrix folds the journal
+ * lines and slides the keypad out of view; picking a category or closing the mosaic brings them
+ * back, and the mosaic grows into the space they gave up — measured from the live boxes (see the
+ * layout effect), never from a constant. The amount stays on screen throughout, because it is
+ * the thing being edited and the sheet is not a wizard.
  *
- * **The keypad and the mosaic share the room.** Opening the category matrix collapses
- * the journal lines and slides the keypad out of view; picking a category or closing the
- * mosaic brings them back. The amount stays on screen throughout, because it is the
- * thing being edited and the sheet is not a wizard.
- *
- * **The moment lives on the amount canvas.** A small pill under the header says *Today,
- * 2:14 PM* (or the day, once it has been changed) and opens `DateDialog`, so a forgotten
- * expense can be filed on the day — and at the hour — it happened. It is deliberately not a
- * row in the column: the closed column is exactly full on a 390×844 phone, and a date field
- * that pushed the keypad off the bottom would be a worse trade than the one this screen
- * already makes.
+ * **The moment lives on the amount canvas.** A small pill at the canvas's top-right says *Today,
+ * 2:14 PM* (or the day, once it has been changed) and opens `DateDialog`, so a forgotten expense
+ * can be filed on the day — and at the hour — it happened. It is deliberately not a row of the
+ * middle band: a date field is a fact about the whole entry rather than one of its questions, and
+ * the canvas's top-right is the corner nothing else owns.
  *
  * **A scanned payment carries it too.** The pill used to be hidden when the sheet was opened
  * from a QR code, because the money was leaving *now*. It is not hidden any more: a receipt
@@ -269,35 +297,60 @@ export function ManualEntryScreen({
   const [at, setAt] = useState(() => momentOn(startOfDay(now), minutesOfDay(now)))
   const [dateOpen, setDateOpen] = useState(false)
   /**
-   * How tall the category panel is allowed to be: the sheet's column, less every row that
-   * stays above it and the one gap between them. Measured rather than guessed, because the
-   * mosaic's height is what the whole expansion animates to and a hard-coded number would
-   * drift with the safe-area inset, the height of the phone, and the rows themselves — the
-   * account rail is 58px, and the kind rail under it is 58 more.
+   * How tall the category panel may be: the middle band, less every row that stays above the
+   * panel — the amount canvas, the two rails and the gaps between them — and less the band's own
+   * bottom padding. The journal lines are *not* subtracted: they fold to zero as the mosaic
+   * opens, which is exactly the room the panel grows into.
    */
   const [panelRoom, setPanelRoom] = useState(0)
-  const column = useRef<HTMLDivElement>(null)
-  /** The rail that opens the column: the account tray, or the payee's box when this is a payment. */
-  const topCard = useRef<HTMLDivElement>(null)
-  /** The kind rail under it, which is only on the add-record screen. */
-  const kindRow = useRef<HTMLDivElement>(null)
+  /** The middle band: the scroller, and the offset parent every measurement below is taken in. */
+  const middle = useRef<HTMLDivElement>(null)
+  /** The mosaic's own row, whose top edge is where the panel begins. */
+  const panelRow = useRef<HTMLDivElement>(null)
+  /** The journal lines, whose height is what the panel gains when they fold away. */
+  const journalRow = useRef<HTMLDivElement>(null)
+  /** The keypad band, which is only in the flow while the mosaic is closed. */
+  const keypadRow = useRef<HTMLDivElement>(null)
+  /**
+   * What the keypad band frees when it leaves: its own height plus whatever `mt-auto` gave it.
+   *
+   * It is remembered rather than read, because the thing worth knowing about it is the space it
+   * occupied *before* it left — once `expanded` is true the node is on its way out and a
+   * measurement taken then is a measurement of nothing.
+   */
+  const keypadRoom = useRef(0)
 
   useLayoutEffect(() => {
-    const el = column.current
-    if (!el) return
+    const band = middle.current
+    if (!band) return
     const measure = () => {
-      // Every row that stays above the mosaic, each with the column's own 8px gap: the
-      // account card, and the kind rail when there is one. The journal lines are not
-      // counted — they fold away as the mosaic opens, which is the room it grows into.
-      const kindHeight = kindRow.current?.offsetHeight ?? 0
-      const above = (topCard.current?.offsetHeight ?? 0) + kindHeight + (kindHeight > 0 ? 16 : 8)
-      setPanelRoom(Math.max(0, el.clientHeight - above))
+      const row = panelRow.current
+      if (!row) return
+      const keypad = keypadRow.current
+      if (keypad && !expanded) {
+        const margin = Number.parseFloat(getComputedStyle(keypad).marginTop) || 0
+        keypadRoom.current = keypad.offsetHeight + margin
+      }
+      /*
+        `offsetTop` is measured from the band's padding edge, so the rows above the panel are
+        whatever sits between that edge and the panel's top — with the journal lines' height
+        taken back out of it, since they are gone by the time the panel is open.
+
+        The keypad's own room is added **only while it is in the flow**. Once the mosaic has
+        opened it has left, the band has already grown by that much, and counting it again would
+        size the panel to a screen-and-a-keypad — which is exactly what the first version of this
+        did (685px in a 772px band).
+      */
+      const freed = expanded ? 0 : keypadRoom.current
+      const folded = journalRow.current?.offsetHeight ?? 0
+      const room = band.clientHeight + freed - (row.offsetTop - folded) - BLOCK_PAD_BOTTOM
+      setPanelRoom(Math.max(MIN_PANEL_ROOM, room))
     }
     measure()
     const observer = new ResizeObserver(measure)
-    observer.observe(el)
+    observer.observe(band)
     return () => observer.disconnect()
-  }, [])
+  }, [expanded])
 
   const text = formatRaw(raw)
   const digitSize = text.length <= 8 ? 56 : text.length <= 11 ? 44 : 36
@@ -338,136 +391,122 @@ export function ManualEntryScreen({
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-canvas pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] text-ink">
+    <div className="flex h-dvh w-full flex-col justify-between overflow-hidden bg-canvas pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] text-ink">
       {/*
-        The amount canvas: open space, and the header strip is the sheet's drag handle.
-
-        Its height is the column's, not the artboard's: the column has a fixed set of rows —
-        two rails, two journal lines, the category row and the keypad card — and those        rows are 555px whatever the window is. So the canvas takes 35% **or whatever the column can
-        spare**, whichever is smaller, and never less than its 192px floor: on the artboard's
-        390×844 that is 273 of the 295 it used to take, invisible, and on a 761px laptop window
-        it gives up 74px so the whole column still fits. The percentage resolves against the
-        sheet's padded box, so a notched phone's `env()` inset — which is part of that padding —
-        is accounted for without naming it twice.
+        The header, outside the scrolling band: the drag handle, the sheet's title and the close
+        button. It is the one strip that must not move — a finger mid-drag is holding it — so it
+        is `shrink-0` and the middle band scrolls underneath instead.
       */}
-      <section className="relative h-[min(35%,calc(100%-34.6875rem))] min-h-48">
-        <header
-          onPointerDown={onHeaderPointerDown}
-          className="absolute inset-x-0 top-0 flex h-14 cursor-grab touch-none items-center justify-between px-4"
-        >
-          <span aria-hidden="true" className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-line" />
-          {/*
-            The sheet's title — the editorial serif's reading size, 18px, one step up the
-            ladder from the 15px captions the same face sets elsewhere.
-
-            It is a title rather than a control: the kind rail lives in the column below, where
-            an entry is actually thought through. In the header it would have had to fight the
-            drag handle for every press, and the top of the screen is the last place that should
-            change shape under a thumb.
-          */}
-          <span className="font-editorial text-[18px] leading-7 italic text-ink2">
-            {payee === null && kind === "income" ? "New income" : "New expense"}
-          </span>
-          <button
-            type="button"
-            aria-label="Close"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => {
-              lightTap()
-              onClose()
-            }}
-            className="grid size-12 place-items-center rounded-full border-0 bg-transparent p-0 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
-          >
-            <X strokeWidth={1.5} className="size-6" aria-hidden="true" />
-          </button>
-        </header>
-
-        <p
-          role="status"
-          aria-label={`${kind === "income" ? "Income" : "Amount"} ${text} rupees`}
-          className="absolute bottom-6 left-4 flex items-start font-display font-bold"
-        >
-          {/* The mark wears the direction: clay for money out, sage for money in, the same
-              two accents a ledger card uses for the two kinds. It is lifted out of the
-              figure's baseline into a 24px superscript of its own, which is what stops a
-              five-figure amount from reading as six characters of one size. */}
-          <span
-            aria-hidden="true"
-            className={join(
-              "mr-1 font-sans text-2xl leading-none font-medium tracking-normal",
-              kind === "income" ? "text-sage" : "text-clay",
-            )}
-            style={{ marginTop: digitSize * 0.12 }}
-          >
-            ₹
-          </span>
-          <motion.span
-            aria-hidden="true"
-            key={text.length /* a quick settle each time a digit arrives */}
-            initial={{ opacity: 0.6, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={SPRING}
-            className={join("leading-none tracking-tight-hero", raw ? "text-ink" : "text-ink2/50")}
-            // The tracking is on the figure itself, not the row: an `em` resolved on a
-            // 13px parent would compute to −0.5px and the 56px digits would inherit the
-            // number rather than the ratio.
-            style={{ fontSize: digitSize }}
-          >
-            {text}
-          </motion.span>
-        </p>
-
+      <header
+        onPointerDown={onHeaderPointerDown}
+        className="relative flex h-14 shrink-0 cursor-grab touch-none items-center justify-between px-5"
+      >
+        <span aria-hidden="true" className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-line" />
         {/*
-          When this row belongs, on the amount canvas's free top-right: the header is its own
-          strip and the amount owns the bottom-left, so this is the one corner that costs the
-          column nothing. A scanned payment wears it too, now that a receipt can be typed up
-          after the fact.
+          The sheet's title — the editorial serif's reading size, 18px, one step up the ladder
+          from the 15px captions the same face sets elsewhere. It is a title rather than a
+          control: the kind rail lives in the band below, where an entry is actually thought
+          through, and it follows the kind (`New income` / `New expense`).
         */}
+        <span className="font-editorial text-[18px] leading-7 italic text-ink2">
+          {payee === null && kind === "income" ? "New income" : "New expense"}
+        </span>
         <button
           type="button"
-          aria-label={`Date and time: ${dayLabel(at, now)} at ${clock(at)}. Change`}
+          aria-label="Close"
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={() => {
             lightTap()
-            setDateOpen(true)
+            onClose()
           }}
-          className="absolute right-4 top-16 inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-card px-3 font-sans text-[12px] leading-4 tabular-nums text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          className="grid size-12 place-items-center rounded-full border-0 bg-transparent p-0 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
         >
-          <CalendarDays strokeWidth={1.5} className="size-4 text-ink2" aria-hidden="true" />
-          {/* The dot is a separator, not a caption: it keeps the day and the clock one
-              phrase without a second label taking room on a 36px pill. */}
-          {dayLabel(at, now)}{" "}
-          <span aria-hidden="true" className="text-ink2">
-            ·
-          </span>{" "}
-          {clock(at)}
+          <X strokeWidth={1.5} className="size-6" aria-hidden="true" />
         </button>
-      </section>
+      </header>
 
       <motion.div
-        ref={column}
+        ref={middle}
         initial="hidden"
         animate="show"
         variants={REVEAL}
-        className="relative flex min-h-0 flex-1 flex-col gap-2 px-4"
+        className="relative flex w-full min-h-0 flex-1 flex-col space-y-6 overflow-y-auto px-5 pb-4 pt-6"
       >
+        {/*
+          The amount canvas: the figure at its bottom-left, the moment at its top-right, and the
+          space between them doing the work. It is `MIN_CANVAS` tall — the floor that keeps the
+          two apart — and no taller: a taller canvas is air the keypad does not get back on a
+          short phone, and the band's own scroll is the better place for that slack.
+        */}
+        <motion.div variants={REVEAL_ROW} className="relative w-full shrink-0" style={{ minHeight: MIN_CANVAS }}>
+          <p
+            role="status"
+            aria-label={`${kind === "income" ? "Income" : "Amount"} ${text} rupees`}
+            className="absolute bottom-0 left-0 flex items-start font-display font-bold"
+          >
+            {/* The mark wears the direction: clay for money out, sage for money in, the same
+                two accents a ledger card uses for the two kinds. It is lifted out of the
+                figure's baseline into a 24px superscript of its own, which is what stops a
+                five-figure amount from reading as six characters of one size. */}
+            <span
+              aria-hidden="true"
+              className={join(
+                "mr-1 font-sans text-2xl leading-none font-medium tracking-normal",
+                kind === "income" ? "text-sage" : "text-clay",
+              )}
+              style={{ marginTop: digitSize * 0.12 }}
+            >
+              ₹
+            </span>
+            <motion.span
+              aria-hidden="true"
+              key={text.length /* a quick settle each time a digit arrives */}
+              initial={{ opacity: 0.6, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={SPRING}
+              className={join("leading-none tracking-tight-hero", raw ? "text-ink" : "text-ink2/50")}
+              // The tracking is on the figure itself, not the row: an `em` resolved on a
+              // 13px parent would compute to −0.5px and the 56px digits would inherit the
+              // number rather than the ratio.
+              style={{ fontSize: digitSize }}
+            >
+              {text}
+            </motion.span>
+          </p>
+
+          <button
+            type="button"
+            aria-label={`Date and time: ${dayLabel(at, now)} at ${clock(at)}. Change`}
+            onClick={() => {
+              lightTap()
+              setDateOpen(true)
+            }}
+            className="absolute right-0 top-0 inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-card px-3 font-sans text-[12px] leading-4 tabular-nums text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          >
+            <CalendarDays strokeWidth={1.5} className="size-4 text-ink2" aria-hidden="true" />
+            {/* The dot is a separator, not a caption: it keeps the day and the clock one
+                phrase without a second label taking room on a 36px pill. */}
+            {dayLabel(at, now)}{" "}
+            <span aria-hidden="true" className="text-ink2">
+              ·
+            </span>{" "}
+            {clock(at)}
+          </button>
+        </motion.div>
+
         {/*
           The two rails, as one block: which account the money moved through, and which
           direction it moved. The journal lines below them are who and what — the four
           questions in the order an entry is thought through.
 
           The payee's box, when a scanned code sent us here, is 58px — the account rail's own
-          height, border and padding included — rather than being added above it: the column is
-          exactly full when the sheet is closed,
-          so a box of its own would push the keypad off the bottom. It is also the honest swap —
-          a payment to a UPI address is from the UPI account, and `logScan.rowFor` writes exactly
-          that, so an account control here could only be a lie.
+          height, border and padding included — rather than being added above it: it replaces the
+          account question (a payment to a UPI address is from the UPI account, and
+          `logScan.rowFor` writes exactly that, so an account control here could only be a lie).
         */}
-        <motion.div variants={REVEAL_ROW} className="flex shrink-0 flex-col gap-2">
+        <motion.div variants={REVEAL_ROW} className="flex w-full shrink-0 flex-col gap-2">
           {payee !== null ? (
-            <div
-              ref={topCard}
-              className="flex h-[58px] shrink-0 items-center gap-3 rounded-[20px] border border-line bg-card px-4"
-            >
+            <div className="flex h-[58px] shrink-0 items-center gap-3 rounded-[20px] border border-line bg-card px-4">
               <span className="grid size-8 shrink-0 place-items-center rounded-2xl bg-sage text-on-sage">
                 <Wallet className="size-4" strokeWidth={1.5} aria-hidden="true" />
               </span>
@@ -488,7 +527,6 @@ export function ManualEntryScreen({
                 lightTap()
                 setAccount(id)
               }}
-              innerRef={topCard}
             />
           )}
 
@@ -506,7 +544,6 @@ export function ManualEntryScreen({
                 // mean anything in the other.
                 setCategory(null)
               }}
-              innerRef={kindRow}
             />
           )}
         </motion.div>
@@ -514,15 +551,12 @@ export function ManualEntryScreen({
         {/*
           The journal lines, hidden while the mosaic needs their room.
 
-          They stay in the flow on purpose. The two lines are the 92px the panel travels
-          upward on its way open: the panel is the column's last item, so as the lines
-          collapse the panel's top edge rises with them while its own height animation
-          pushes the bottom edge down. That is the whole expansion in two layout
-          numbers, with no shared-layout projection — a morph of that kind scales the
-          mosaic's type non-uniformly for half a second, which is what made the tiles look
-          smeared on the way in.
+          They stay in the flow on purpose, and the wrapper around them is what the mosaic's
+          measurement subtracts: the lines fold to zero as the panel opens, and their 98px is
+          part of the room it grows into. `popLayout` elsewhere keeps the collapse and the
+          panel's growth on the same clock.
         */}
-        <motion.div variants={REVEAL_ROW}>
+        <motion.div ref={journalRow} variants={REVEAL_ROW} className="w-full shrink-0">
           <AnimatePresence initial={false}>
             {!expanded && (
               <motion.div key="journal" {...collapse} transition={SPRING} className="overflow-hidden">
@@ -543,7 +577,7 @@ export function ManualEntryScreen({
           </AnimatePresence>
         </motion.div>
 
-        <motion.div variants={REVEAL_ROW}>
+        <motion.div ref={panelRow} variants={REVEAL_ROW} className="w-full shrink-0">
           <CategoryMatrix
             // Remount per kind so the open tray and the pressed pill cannot survive a
             // switch into a tree that does not contain them.
@@ -557,47 +591,48 @@ export function ManualEntryScreen({
             onSelect={setCategory}
           />
         </motion.div>
-
-        {/*
-          The keypad card and the confirm leave the room while the mosaic is open.
-
-          `popLayout` is what makes the panel's opening one motion instead of two. An
-          exiting child normally stays in the flow for the whole of its exit, so the
-          keypad would keep its 203px for 400ms while the mosaic was trying to grow into
-          them: the panel grew part of the way, stalled, then jumped the last 265px in a
-          single frame when the exit finished. `popLayout` measures the leaving child and
-          places it absolutely at once, so the column's free space is the full room from
-          the first frame and the panel animates into it in one movement. The panel is
-          given a stacking context above it, so the keypad sliding away is never drawn
-          over the mosaic that is replacing it.
-        */}
-        <AnimatePresence initial={false} mode="popLayout">
-          {!expanded && (
-            <motion.div
-              key="pad"
-              initial={{ opacity: 0, y: 48 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 48 }}
-              transition={SPRING}
-              className="mt-auto flex shrink-0 flex-col gap-2"
-            >
-              <Keypad onKey={press} />
-              {/*
-                `transition-opacity` for the disabled state only: the button's ink is a
-                token like the rest of the page's (`index.css`), so it switches with it.
-              */}
-              <button
-                type="button"
-                onClick={confirm}
-                disabled={value <= 0}
-                className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
-              >
-                {payee !== null ? "Pay and Log Transaction" : kind === "income" ? "Add Income" : "Add Record"}
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.div>
+
+      {/*
+        The keypad band, anchored: `mt-auto w-full shrink-0 z-30` in the box that owns the
+        bottom edge, so it can neither be pushed down by the rows above nor compressed by a short
+        window — the middle band takes that hit by scrolling instead. Its room is what the mosaic
+        grows into when it leaves, which is why `keypadRow` is measured before it goes.
+
+        `popLayout` is what makes the hand-over one motion: an exiting child normally keeps its
+        place in the flow for the whole of its exit, so the middle band would only be handed the
+        freed space 400ms after the panel had started growing into it. `popLayout` measures the
+        leaving child and places it absolutely at once, so the panel's room is the real one from
+        the first frame. The band carries `z-30` so the keypad sliding away is never drawn over
+        the mosaic replacing it.
+      */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {!expanded && (
+          <motion.div
+            ref={keypadRow}
+            key="keypad"
+            initial={{ opacity: 0, y: 48 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 48 }}
+            transition={SPRING}
+            className="z-30 mt-auto flex w-full shrink-0 flex-col gap-2 px-5 pb-2"
+          >
+            <Keypad onKey={press} />
+            {/*
+              `transition-opacity` for the disabled state only: the button's ink is a
+              token like the rest of the page's (`index.css`), so it switches with it.
+            */}
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={value <= 0}
+              className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
+            >
+              {payee !== null ? "Pay and Log Transaction" : kind === "income" ? "Add Income" : "Add Record"}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <DateDialog
         isOpen={dateOpen}

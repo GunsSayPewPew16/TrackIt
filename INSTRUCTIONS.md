@@ -310,6 +310,18 @@ left out and why.
   The `tracking-tight-hero` / `tight-title` / `wide-tag` ladder lives in `index.css`'s
   `@theme`, which is this project's tailwind config — there is no `tailwind.config.js` under
   Tailwind v4, and Helvetica Neue stays out of the sans stack for the reason below.
+- **The tab's mark is the owner's, and every icon is a landing of it.** The browser tab shows
+  the interlocking T the owner drew (`app/public/favicon.png` — 512px, the mark on its own black
+  field, the master of the set). It is the only place in the product the mark appears: no screen
+  draws a logo. The install icons are generated, never hand-exported — `tools/make-icons.py`
+  takes the master's luminance as an alpha matte, recolours it to the `ink` token, and lands it
+  on the `canvas` token at each size the manifest asks for: `icon-192x192.png` and
+  `icon-512x512.png` (`purpose: any`, mark at 57% of the square), `icon-maskable-512x512.png`
+  (`purpose: maskable`, 50%, so its diagonal stays inside the central 80% safe circle) and
+  `icons/apple-touch-icon-180.png` (55%, which iOS reads from `index.html` because it ignores
+  the manifest). One run regenerates the whole set, so the geometry cannot drift between them;
+  `index.html` and `manifest.webmanifest` hold the paths, and both are relative so the same
+  files serve at a Pages sub-path and at a domain root.
 - **The add-record pill is the manual entry's door.** The dashboard's pinned pill (over the
   account stack, where the artboard drew "Add card") reads **Add Record** and opens
   `features/manual-entry` — a full-screen spring sheet (400/34/0.8) that slides up, drags
@@ -375,10 +387,19 @@ left out and why.
   eleven dividers, and a single hairline at the outer edge), each cell 48×48, the digits in the
   **display** face at 20px, `whileHover` 0.98, `whileTap` 0.94 on a stiff 600/15 spring, and the
   pressed state a 6% mix of the page's own ink so it is a shade of whichever palette is on.
-  **The amount canvas yields to the column.** Its height is `min(35%, 100% - 555px)`, never below
-  its 192px floor: the column's rows (two rails, two journal lines, the category row, the keypad
-  card and the confirm) are 555px whatever the window is, and on a 390×844 artboard the canvas
-  gives up 20 of its 295 so the whole column fits — on a 761px laptop window it gives up 74.
+  **The column is three bands, and only the middle one moves.** The screen is a `h-dvh` column
+  with no reserved pixel budget in it: the **header** (drag handle, title, close) is `shrink-0`,
+  the **middle** — the amount canvas, both rails, the journal lines and the mosaic, in `px-5`
+  with `space-y-6` — is `min-h-0 flex-1 overflow-y-auto`, and the **keypad** (the 3×4 card and
+  the confirm) is `mt-auto w-full shrink-0` so it stays welded to the bottom edge at every
+  aspect ratio. A row added to the middle, or a window 200px shorter, therefore makes the band
+  *scroll* rather than pushing the keypad off the screen. On the artboard's 390×844 the four
+  rows come to 462px inside the 471px band, so nothing scrolls there and the screen reads
+  exactly as drawn; at 390×700 the band is 367px and it scrolls, with the keypad still ending
+  on the viewport edge. The canvas's own height is the `MIN_CANVAS` floor (112px) rather than a
+  percentage, and `MIN_PANEL_ROOM` (240px) is the mosaic's — the only two numbers left, and
+  both floors rather than budgets. (This replaced `min(35%, 100% - 555px)`, which had to be
+  re-added to by hand whenever a row was.)
   **The same sheet is the scanner's payment
   screen** (see the UPI bullet below): the tray gives its 56px to a box naming the payee, the
   keypad may arrive prefilled with the code's own amount, and the confirm reads **Pay and Log
@@ -389,9 +410,9 @@ left out and why.
   `Oct 12, 2026 · 9:40 PM` and opens `DateDialog`
   (`features/manual-entry/DateDialog.tsx`), a Monday-first month grid of 36px days with a
   native `time` field, a `now` button and a `done` button under it. It is on the **canvas**
-  deliberately: the closed column is exactly full on a 390×844 phone, so a date row in it
-  would push the keypad off the bottom; the canvas's top-right is the one corner nothing else
-  owns. Both halves are the owner's: a day tap moves the selection and leaves the card open
+  deliberately: a date is a fact about the whole entry rather than one of its questions, so it
+  does not take a row of the middle band (which on the artboard is full to within 9px) — the
+  canvas's top-right is the one corner nothing else owns. Both halves are the owner's: a day tap moves the selection and leaves the card open
   (the time is usually the next thing wanted), the field sets the time on that day, `now`
   resets both, and **`done` is the only way out** — the owner's ask, after the card kept
   closing while they were adjusting the time. There is no ✕ and the scrim is a dim, not a door:
@@ -549,6 +570,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
 | The account stack's pill | at 390 wide: the band is **224px** — the front card's own height (a 40px seat plus 184), its bottom edge 224 from the band's top — the pill's bottom is that same edge (**`bottom-0`**, so no gap and nothing hanging below the stack), its right edge 8px inside the card's (`right: 374` against the pill's `366`, the alignment the owner asked to keep), and the quick-log band starts 8px below the band; pulling a card past 40px still re-stacks it without moving the pill |
+| The icon set | `python3 tools/make-icons.py` writes four files and every one is the master's own drawing: read the PNG header, don't eyeball it — 192×192 and 512×512 `any`, a 512 `maskable`, and the 180px iOS tile; the mark's ink bbox is centred, occupies 57 / 57 / 50 / 55% of its square, and the maskable one's diagonal is inside a 512px circle's 80% (the crop every launcher may apply); the field behind it is `canvas` and opaque, not transparent (a cream mark on a launcher's white is the one pairing this palette cannot do); and `favicon.png` at the root is still the master the tab uses. Every path in `manifest.webmanifest` and `index.html` is relative and resolves |
 | The palettes | every palette in `PALETTES` has a stylesheet block and the boot table, and its `canvas` matches both; each block states **all twenty-one tokens** (a missing one silently inherits the block above it) and `color-scheme` agrees with the register's theme. For each one: canvas, card, hairline and ink by computed style (read *after* the 120ms repaint — a read in the same task catches the previous palette, because the tokens transition); the toggle's `aria-pressed`, its label, and the stored choice after a reload; a browser holding only the legacy `trackit-theme` lands on that theme's default palette; and **the dark palette picked before the toggle is still the one it comes back to** (`trackit-palette-<theme>`). Contrast, per palette: ink-on-canvas, ink-on-card, ink2-on-card, on-clay-on-clay and on-sage-on-sage — the artboards' own paper sits at 15.06 / 16.26 / 4.34 / 5.57 / 4.33, and a new sample should not be worse than the paper it is a variation of. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame *from inside the change* (start the sampler, then perform the change in the same task, so the zero point is the click rather than the round trip), compare each element against its own final value, and repeat across a toggle, a same-theme pick and a cross-theme pick. `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |

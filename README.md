@@ -84,15 +84,18 @@ day travelling with the month — and **`done` is the only way out**: there is n
 dim behind the card is not a door, because on a phone the tap that dismisses the platform's
 own time wheel used to land on it and throw the draft away. Nothing is written at midnight
 because nothing defaults to midnight. The pill is on
-the canvas rather than in the column because the closed column is exactly full on a 390×844
-phone, and the **scanned payment screen** wears the same pill: a receipt is often typed up
+the canvas rather than in the column because a date is a fact about the whole entry rather
+than one of its questions, and the **scanned payment screen** wears the same pill: a receipt
+is often typed up
 after the fact, so it too starts on the current moment and can be moved back — it is a
 payment, so it never shows the Expense/Income rail.
 
 **The tab carries the owner's own mark.** The logo in the browser tab is the
 interlocking T the owner drew (`app/public/favicon.png`, 512px on its own black field). It
 is the only place the mark appears: no screen draws it, and the install icons under
-`app/public/icons/` are the previous tile.
+`app/public/icons/` are generated from that same file by `tools/make-icons.py` — the mark as
+an alpha matte, recoloured to the `ink` token over the `canvas` token, at 192, 512, a
+maskable 512 with its safe zone and the 180px tile iOS reads from `index.html`.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
@@ -382,7 +385,7 @@ app/                    the whole product — one Vite app
       category-icons.tsx, accounts.ts, owner.ts (whose name the greeting says)
   design/               see above
 backend/                Worker + D1: the Shortcut's endpoint, and POST /api/greeting
-tools/                  wallet-import.py, lucide-icons.py, the two font converters
+tools/                  wallet-import.py, lucide-icons.py, make-icons.py, the two font converters
 ```
 
 ## Status
