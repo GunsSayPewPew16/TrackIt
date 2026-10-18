@@ -9,8 +9,10 @@ import type { SheetProps } from "./types"
  * The manual entry view as a full-screen sheet over the app.
  *
  * It arrives from the bottom boundary (`y: "100%"` → `0`) on one spring —
- * stiffness 380, damping 32, mass 0.8 — which is quick enough to feel attached to
- * the tap and heavy enough not to snap. The header is the only drag handle: pulling
+ * stiffness 400, damping 34, mass 0.8 — which is quick enough to feel attached to
+ * the tap and heavy enough not to snap. It is the one spring the screen behind it
+ * shares (`ManualEntryScreen`'s `SPRING`): the sheet and the rows that settle into it
+ * move on the same clock, so the arrival reads as one movement rather than two. The header is the only drag handle: pulling
  * it down moves the whole sheet with the finger, and past **150px** the sheet is
  * animated off screen and `onClose` fires. Under that it springs back, because a
  * thumb that brushed the header did not mean to throw away a half-typed amount.
@@ -20,7 +22,7 @@ import type { SheetProps } from "./types"
  * the page behind it is locked, which is what keeps iOS from scrolling the dashboard
  * under a finger that is aiming at the keypad.
  */
-const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const
+const SPRING = { type: "spring", stiffness: 400, damping: 34, mass: 0.8 } as const
 const DISMISS_DISTANCE = 150
 
 export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }: SheetProps) {

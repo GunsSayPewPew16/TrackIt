@@ -1,6 +1,6 @@
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion, type Variants } from "framer-motion"
 import { CalendarDays, Wallet, X } from "lucide-react"
-import { useLayoutEffect, useRef, useState, type PointerEventHandler } from "react"
+import { useLayoutEffect, useRef, useState, type PointerEventHandler, type Ref } from "react"
 
 import { handOffToUpiApp, type UpiPayee } from "@/features/upi/upi"
 import { ACCOUNTS } from "@/lib/accounts"
@@ -14,13 +14,119 @@ import { Keypad } from "./Keypad"
 import type { ManualEntry } from "./types"
 import { formatRaw, rawFromCents, useAmountInput } from "./useAmountInput"
 
-const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const
+/** The sheet's own spring: heavy enough to feel attached to the tap, quick enough not to lag. */
+const SPRING = { type: "spring", stiffness: 400, damping: 34, mass: 0.8 } as const
+
+/**
+ * The rail's capsule, and its own spring.
+ *
+ * It is snappier than the sheet (450/28 against 400/34): the capsule is 40px of travel that has
+ * to read as *instant* — a sluggish thumb is the difference between a segmented control and a
+ * slider — while the sheet is a whole screen moving and wants its weight.
+ */
+const SEGMENT = { type: "spring", stiffness: 450, damping: 28 } as const
+
+/**
+ * The column arriving after the sheet: each row 12px low and transparent, then in place, top to
+ * bottom, 50ms apart, 350ms each, once the sheet's own spring has mostly landed.
+ *
+ * This is the one orchestrated moment on the screen. Everything else that moves here answers a
+ * thumb — a key, a rail, the mosaic — and a second entrance animation somewhere else would
+ * turn "premium" into "restless".
+ */
+const REVEAL: Variants = {
+  hidden: {},
+  show: { transition: { delayChildren: 0.12, staggerChildren: 0.05 } },
+}
+const REVEAL_ROW: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+}
 
 const collapse = {
   initial: { height: 0, opacity: 0 },
   animate: { height: "auto", opacity: 1 },
   exit: { height: 0, opacity: 0 },
 } as const
+
+/** What the kind rail offers, in the order it offers them. */
+const KINDS: readonly { id: Kind; name: string }[] = [
+  { id: "expense", name: "Expense" },
+  { id: "income", name: "Income" },
+]
+
+/**
+ * One segmented rail: the account tray and the kind switch are this component twice.
+ *
+ * They are the same control — a 48px row split in two, a hairline box, one capsule that glides
+ * — so they are the same code: the account rail is `UPI | CASH` and the kind rail is
+ * `EXPENSE | INCOME`, and neither can drift from the other's geometry, type or physics.
+ *
+ * **The clothes.** Full width, `rounded-[20px]`, a 1px `border-line`, `bg-card` — the app's own
+ * card, not a dropdown. Labels are the reading face at 11px, **bold, uppercase, tracked 0.04em**:
+ * a segment is a label on a surface that is already the size of a button, and the case and the
+ * tracking are what keep two short words from reading as loose text inside a box. The unselected
+ * label is `text-ink2`, which is the ink token at 60% — the same 60% the rest of the app's
+ * secondary text uses, so "quieter" is one decision in one place.
+ *
+ * **`layoutId` is per rail, on purpose.** One capsule that could glide *between* rails would be
+ * a shared-layout animation across two unrelated questions — pressing Income would appear to
+ * throw the account selection sideways. The id is `activeSegmentIndicator-<rail>` so the glide
+ * happens where the choice did.
+ */
+function SegmentRow<T extends string>({
+  rail,
+  label,
+  value,
+  options,
+  onSelect,
+  innerRef,
+}: {
+  /** Names the capsule's `layoutId`; one per rail. */
+  rail: string
+  /** What the rail is asking, announced to a reader. */
+  label: string
+  value: T
+  options: readonly { id: T; name: string }[]
+  onSelect: (id: T) => void
+  /** The column measures its rails to size the mosaic's room, so one may hand back its box. */
+  innerRef?: Ref<HTMLDivElement>
+}) {
+  return (
+    <div
+      ref={innerRef}
+      role="radiogroup"
+      aria-label={label}
+      className="grid shrink-0 grid-cols-2 rounded-[20px] border border-line bg-card p-1"
+    >
+      {options.map((option) => {
+        const active = option.id === value
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onSelect(option.id)}
+            className={join(
+              "relative h-12 rounded-2xl border-0 bg-transparent px-3 font-sans text-[11px] leading-4 font-bold tracking-[0.04em] uppercase outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink",
+              active ? "text-ink" : "text-ink2",
+            )}
+          >
+            {active && (
+              <motion.span
+                layoutId={`activeSegmentIndicator-${rail}`}
+                transition={SEGMENT}
+                className="absolute inset-0 rounded-2xl bg-canvas"
+              />
+            )}
+            <span className="relative z-10">{option.name}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 interface ManualEntryScreenProps {
   /**
@@ -44,12 +150,13 @@ interface ManualEntryScreenProps {
 /**
  * One hairline-ruled journal line.
  *
- * The placeholder is the **editorial** serif in italic at 40% — it is a prompt, not
- * content — and the moment a character arrives the input switches to the upright
- * structural sans at full ink. That switch is a state decision (`value !== ""`), not a
- * CSS `:placeholder-shown` trick, because it is the *typed* line that has to change
- * face while it is still focused, and a browser only re-evaluates the pseudo-element
- * when the field empties.
+ * The line is the field: there is no box, no fill and no radius, only a 1px rule under 48px
+ * of type, which is what keeps two fields from reading as two more cards in a column that
+ * already has three. The placeholder is the **editorial** serif in italic at 40%-ish — it is a
+ * prompt, not content — and the moment a character arrives the input switches to the upright
+ * structural sans at full ink. That switch is a state decision (`value !== ""`), not a CSS
+ * `:placeholder-shown` trick, because it is the *typed* line that has to change face while it
+ * is still focused, and a browser only re-evaluates the pseudo-element when the field empties.
  */
 function JournalLine({
   label,
@@ -83,20 +190,29 @@ function JournalLine({
 }
 
 /**
- * The manual entry view: the amount canvas, the account tray, the two journal lines,
- * the category mosaic, and the keypad.
+ * The manual entry view: the amount canvas, the two selector rails, the journal lines, the
+ * category mosaic, and the keypad card.
  *
- * **It records both directions.** The header carries an Expense / Income switch, and the
- * switch is the whole difference: the same canvas, tray, journal lines and keypad write
- * `kind: "income"` with an income envelope instead of `kind: "expense"`. The switch is
- * only here when the sheet is the *add-record* screen — a scanned code is a payment and is
- * always money out (`payee !== null`), so it keeps the plain `New expense` title.
+ * **It records both directions.** An `EXPENSE | INCOME` rail sits between the account rail and
+ * the merchant line — the order an entry is actually thought through — and the rail is the whole
+ * difference: the same canvas, rails, journal lines and keypad write `kind: "income"` with an
+ * income envelope instead of `kind: "expense"`. It is only here when the sheet is the
+ * *add-record* screen: a scanned code is a payment and is always money out (`payee !== null`),
+ * so it has no kind rail and keeps the plain `New expense` title. The header stays a title,
+ * because it is also the sheet's drag handle.
  *
  * **The amount is the one hero.** 56px of Neue Haas Grotesk Display Bold at
- * `tracking-tight-hero`, with the rupee mark lifted into a superscript of its own —
- * 24px, high-desert clay, sitting on the top-left of the figure rather than in its
- * baseline. Long amounts step down in size (56 → 44 → 36) instead of wrapping or
- * clipping, which is the only thing on this screen that is arithmetic rather than design.
+ * `tracking-tight-hero` (−0.04em), with the rupee mark lifted into a superscript of its own —
+ * 24px, high-desert clay, sitting on the top-left of the figure rather than in its baseline.
+ * Long amounts step down in size (56 → 44 → 36) instead of wrapping or clipping, which is the
+ * only thing on this screen that is arithmetic rather than design. The figure itself is the
+ * display face's own 700 with nothing else stacked on it: no flashing caret, no thin weight,
+ * no underline.
+ *
+ * **The column is one rhythm.** Two rails, two journal lines, the category row and the keypad
+ * card, 8px apart, all inside the column's `px-4`: every row is a full-width 1px-bordered
+ * surface or a full-width hairline, so the eye reads four questions and one keypad rather than
+ * a stack of boxes. Nothing in the column is a floated or centred control.
  *
  * **The keypad and the mosaic share the room.** Opening the category matrix collapses
  * the journal lines and slides the keypad out of view; picking a category or closing the
@@ -132,10 +248,9 @@ export function ManualEntryScreen({
    *  moment a new row is filed at. Taking it once keeps the pill and that row in one frame. */
   const [now] = useState(() => Date.now())
   /**
-   * Money out is what this sheet was built for and stays the default; the switch in the
-   * header is the one control that changes it. Switching clears the category with it,
-   * because an income cannot be filed under a spending dimension — `CategoryMatrix` draws
-   * a different tree for each kind.
+   * Money out is what this sheet was built for and stays the default; the kind rail is the one
+   * control that changes it. Switching clears the category with it, because an income cannot be
+   * filed under a spending dimension — `CategoryMatrix` draws a different tree for each kind.
    */
   const [kind, setKind] = useState<Kind>("expense")
   const [account, setAccount] = useState(ACCOUNTS[0].id)
@@ -154,26 +269,29 @@ export function ManualEntryScreen({
   const [at, setAt] = useState(() => momentOn(startOfDay(now), minutesOfDay(now)))
   const [dateOpen, setDateOpen] = useState(false)
   /**
-   * How tall the category panel is allowed to be: the sheet's column, less the account
-   * tray and the one gap above the panel. Measured rather than guessed, because the
-   * mosaic's height is what the whole expansion animates to and a hard-coded number
-   * would drift with the safe-area inset and the height of the phone.
+   * How tall the category panel is allowed to be: the sheet's column, less every row that
+   * stays above it and the one gap between them. Measured rather than guessed, because the
+   * mosaic's height is what the whole expansion animates to and a hard-coded number would
+   * drift with the safe-area inset, the height of the phone, and the rows themselves — the
+   * account rail is 58px, and the kind rail under it is 58 more.
    */
   const [panelRoom, setPanelRoom] = useState(0)
   const column = useRef<HTMLDivElement>(null)
-  /**
-   * The 56px card that opens the column — the account tray, or the payee's box when this
-   * is a payment. One ref for both, because it is the same measurement: whatever sits
-   * there is the room the mosaic must not be given.
-   */
+  /** The rail that opens the column: the account tray, or the payee's box when this is a payment. */
   const topCard = useRef<HTMLDivElement>(null)
+  /** The kind rail under it, which is only on the add-record screen. */
+  const kindRow = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const el = column.current
     if (!el) return
     const measure = () => {
-      const topHeight = topCard.current?.offsetHeight ?? 0
-      setPanelRoom(Math.max(0, el.clientHeight - topHeight - 8))
+      // Every row that stays above the mosaic, each with the column's own 8px gap: the
+      // account card, and the kind rail when there is one. The journal lines are not
+      // counted — they fold away as the mosaic opens, which is the room it grows into.
+      const kindHeight = kindRow.current?.offsetHeight ?? 0
+      const above = (topCard.current?.offsetHeight ?? 0) + kindHeight + (kindHeight > 0 ? 16 : 8)
+      setPanelRoom(Math.max(0, el.clientHeight - above))
     }
     measure()
     const observer = new ResizeObserver(measure)
@@ -221,67 +339,35 @@ export function ManualEntryScreen({
 
   return (
     <div className="flex h-dvh flex-col bg-canvas pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] text-ink">
-      {/* The amount canvas: open space, and the header strip is the sheet's drag handle. */}
-      <section className="relative h-[35%] min-h-48 shrink-0">
+      {/*
+        The amount canvas: open space, and the header strip is the sheet's drag handle.
+
+        Its height is the column's, not the artboard's: the column has a fixed set of rows —
+        two rails, two journal lines, the category row and the keypad card — and those        rows are 555px whatever the window is. So the canvas takes 35% **or whatever the column can
+        spare**, whichever is smaller, and never less than its 192px floor: on the artboard's
+        390×844 that is 273 of the 295 it used to take, invisible, and on a 761px laptop window
+        it gives up 74px so the whole column still fits. The percentage resolves against the
+        sheet's padded box, so a notched phone's `env()` inset — which is part of that padding —
+        is accounted for without naming it twice.
+      */}
+      <section className="relative h-[min(35%,calc(100%-34.6875rem))] min-h-48">
         <header
           onPointerDown={onHeaderPointerDown}
           className="absolute inset-x-0 top-0 flex h-14 cursor-grab touch-none items-center justify-between px-4"
         >
           <span aria-hidden="true" className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-line" />
           {/*
-            The sheet's title, at the editorial serif's reading size — 18px, one step up
-            the ladder from the 15px captions the same face sets elsewhere.
+            The sheet's title — the editorial serif's reading size, 18px, one step up the
+            ladder from the 15px captions the same face sets elsewhere.
 
-            On the add-record screen the title *is* the Expense/Income switch: the sheet
-            records both, so a fixed "New expense" would be a lie half the time, and two
-            segments in the header read faster than a title plus a control would fit. A
-            payment screen keeps the plain title — a scanned code is always money out.
+            It is a title rather than a control: the kind rail lives in the column below, where
+            an entry is actually thought through. In the header it would have had to fight the
+            drag handle for every press, and the top of the screen is the last place that should
+            change shape under a thumb.
           */}
-          {payee === null ? (
-            <div
-              role="radiogroup"
-              aria-label="Record type"
-              // The header is the sheet's drag handle, so the control has to keep its own
-              // presses away from the drag before it can be a control at all.
-              onPointerDown={(event) => event.stopPropagation()}
-              className="flex items-center rounded-2xl border border-line bg-card p-0.5"
-            >
-              {(["expense", "income"] as const).map((option) => {
-                const active = kind === option
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => {
-                      lightTap()
-                      if (active) return
-                      setKind(option)
-                      // The two kinds have different trees, so a category picked in one
-                      // cannot mean anything in the other.
-                      setCategory(null)
-                    }}
-                    className={join(
-                      "relative h-9 rounded-[14px] border-0 bg-transparent px-3 font-sans text-[12px] leading-4 font-medium tracking-wide-tag outline-none focus-visible:ring-2 focus-visible:ring-ink",
-                      active ? "text-ink" : "text-ink2",
-                    )}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="entryKind"
-                        transition={SPRING}
-                        className="absolute inset-0 rounded-[14px] bg-canvas"
-                      />
-                    )}
-                    <span className="relative z-10">{option === "expense" ? "Expense" : "Income"}</span>
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <span className="font-editorial text-[18px] leading-7 italic text-ink2">New expense</span>
-          )}
+          <span className="font-editorial text-[18px] leading-7 italic text-ink2">
+            {payee === null && kind === "income" ? "New income" : "New expense"}
+          </span>
           <button
             type="button"
             aria-label="Close"
@@ -302,7 +388,9 @@ export function ManualEntryScreen({
           className="absolute bottom-6 left-4 flex items-start font-display font-bold"
         >
           {/* The mark wears the direction: clay for money out, sage for money in, the same
-              two accents a ledger card uses for the two kinds. */}
+              two accents a ledger card uses for the two kinds. It is lifted out of the
+              figure's baseline into a 24px superscript of its own, which is what stops a
+              five-figure amount from reading as six characters of one size. */}
           <span
             aria-hidden="true"
             className={join(
@@ -355,70 +443,73 @@ export function ManualEntryScreen({
         </button>
       </section>
 
-      <div ref={column} className="relative flex min-h-0 flex-1 flex-col gap-2 px-4">
+      <motion.div
+        ref={column}
+        initial="hidden"
+        animate="show"
+        variants={REVEAL}
+        className="relative flex min-h-0 flex-1 flex-col gap-2 px-4"
+      >
         {/*
-          The payee's box, when a scanned code sent us here.
+          The two rails, as one block: which account the money moved through, and which
+          direction it moved. The journal lines below them are who and what — the four
+          questions in the order an entry is thought through.
 
-          It takes the account tray's own 56px rather than being added above it: the column
-          is exactly full when the sheet is closed (tray, two journal lines, the category
-          row and the keypad are 536px of 536 on a 390×844 phone), so a box of its own would
-          push the keypad off the bottom. It is also the honest swap — a payment to a UPI
-          address is from the UPI account, and `logScan.rowFor` writes exactly that, so an
-          account control here could only be a lie.
+          The payee's box, when a scanned code sent us here, is 58px — the account rail's own
+          height, border and padding included — rather than being added above it: the column is
+          exactly full when the sheet is closed,
+          so a box of its own would push the keypad off the bottom. It is also the honest swap —
+          a payment to a UPI address is from the UPI account, and `logScan.rowFor` writes exactly
+          that, so an account control here could only be a lie.
         */}
-        {payee !== null ? (
-          <div
-            ref={topCard}
-            className="flex h-14 shrink-0 items-center gap-3 rounded-[20px] border border-line bg-card px-4"
-          >
-            <span className="grid size-8 shrink-0 place-items-center rounded-2xl bg-sage text-on-sage">
-              <Wallet className="size-4" strokeWidth={1.5} aria-hidden="true" />
-            </span>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate font-display text-[13px] leading-4 font-medium tracking-[-0.01em]">
-                {payee.pn}
+        <motion.div variants={REVEAL_ROW} className="flex shrink-0 flex-col gap-2">
+          {payee !== null ? (
+            <div
+              ref={topCard}
+              className="flex h-[58px] shrink-0 items-center gap-3 rounded-[20px] border border-line bg-card px-4"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-2xl bg-sage text-on-sage">
+                <Wallet className="size-4" strokeWidth={1.5} aria-hidden="true" />
               </span>
-              <span className="truncate text-[11px] leading-4 text-ink2">{payee.pa}</span>
-            </span>
-          </div>
-        ) : (
-        /* The account tray: one segmented control, the same 48px row on every phone. */
-        <div
-          ref={topCard}
-          role="radiogroup"
-          aria-label="Account"
-          className="grid shrink-0 grid-cols-2 gap-0 rounded-[20px] border border-line bg-card p-1"
-        >
-          {ACCOUNTS.map((entry) => {
-            const active = entry.id === account
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => {
-                  lightTap()
-                  setAccount(entry.id)
-                }}
-                className={join(
-                  "relative h-12 rounded-2xl border-0 bg-transparent px-1 font-sans text-[12px] leading-4 font-medium tracking-wide-tag outline-none focus-visible:ring-2 focus-visible:ring-ink",
-                  active ? "text-ink" : "text-ink2",
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="accountSelector"
-                    transition={SPRING}
-                    className="absolute inset-0 rounded-2xl bg-canvas"
-                  />
-                )}
-                <span className="relative z-10">{entry.name}</span>
-              </button>
-            )
-          })}
-        </div>
-        )}
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate font-display text-[13px] leading-4 font-medium tracking-[-0.01em]">
+                  {payee.pn}
+                </span>
+                <span className="truncate text-[11px] leading-4 text-ink2">{payee.pa}</span>
+              </span>
+            </div>
+          ) : (
+            <SegmentRow
+              rail="account"
+              label="Account"
+              value={account}
+              options={ACCOUNTS}
+              onSelect={(id) => {
+                lightTap()
+                setAccount(id)
+              }}
+              innerRef={topCard}
+            />
+          )}
+
+          {payee === null && (
+            <SegmentRow
+              rail="kind"
+              label="Record type"
+              value={kind}
+              options={KINDS}
+              onSelect={(next) => {
+                lightTap()
+                if (next === kind) return
+                setKind(next)
+                // The two kinds have different trees, so a category picked in one cannot
+                // mean anything in the other.
+                setCategory(null)
+              }}
+              innerRef={kindRow}
+            />
+          )}
+        </motion.div>
 
         {/*
           The journal lines, hidden while the mosaic needs their room.
@@ -431,44 +522,48 @@ export function ManualEntryScreen({
           mosaic's type non-uniformly for half a second, which is what made the tiles look
           smeared on the way in.
         */}
-        <AnimatePresence initial={false}>
-          {!expanded && (
-            <motion.div key="journal" {...collapse} transition={SPRING} className="overflow-hidden">
-              <JournalLine
-                label={kind === "income" ? "From" : "Merchant"}
-                value={merchant}
-                onChange={setMerchant}
-                placeholder={kind === "income" ? "Who paid you?..." : "Who did you pay?..."}
-              />
-              <JournalLine
-                label="Notes"
-                value={note}
-                onChange={setNote}
-                placeholder={kind === "income" ? "What was it for?..." : "What did you purchase?..."}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <motion.div variants={REVEAL_ROW}>
+          <AnimatePresence initial={false}>
+            {!expanded && (
+              <motion.div key="journal" {...collapse} transition={SPRING} className="overflow-hidden">
+                <JournalLine
+                  label={kind === "income" ? "From" : "Merchant"}
+                  value={merchant}
+                  onChange={setMerchant}
+                  placeholder={kind === "income" ? "Who paid you?..." : "Who did you pay?..."}
+                />
+                <JournalLine
+                  label="Notes"
+                  value={note}
+                  onChange={setNote}
+                  placeholder={kind === "income" ? "What was it for?..." : "What did you purchase?..."}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
-        <CategoryMatrix
-          // Remount per kind so the open tray and the pressed pill cannot survive a
-          // switch into a tree that does not contain them.
-          key={kind}
-          kind={kind}
-          value={category}
-          expanded={expanded}
-          room={panelRoom}
-          onExpand={() => setExpanded(true)}
-          onCollapse={() => setExpanded(false)}
-          onSelect={setCategory}
-        />
+        <motion.div variants={REVEAL_ROW}>
+          <CategoryMatrix
+            // Remount per kind so the open tray and the pressed pill cannot survive a
+            // switch into a tree that does not contain them.
+            key={kind}
+            kind={kind}
+            value={category}
+            expanded={expanded}
+            room={panelRoom}
+            onExpand={() => setExpanded(true)}
+            onCollapse={() => setExpanded(false)}
+            onSelect={setCategory}
+          />
+        </motion.div>
 
         {/*
-          The keypad and the confirm leave the room while the mosaic is open.
+          The keypad card and the confirm leave the room while the mosaic is open.
 
           `popLayout` is what makes the panel's opening one motion instead of two. An
           exiting child normally stays in the flow for the whole of its exit, so the
-          keypad would keep its 248px for 400ms while the mosaic was trying to grow into
+          keypad would keep its 203px for 400ms while the mosaic was trying to grow into
           them: the panel grew part of the way, stalled, then jumped the last 265px in a
           single frame when the exit finished. `popLayout` measures the leaving child and
           places it absolutely at once, so the column's free space is the full room from
@@ -502,7 +597,7 @@ export function ManualEntryScreen({
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       <DateDialog
         isOpen={dateOpen}

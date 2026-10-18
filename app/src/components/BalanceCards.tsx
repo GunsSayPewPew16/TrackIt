@@ -37,14 +37,12 @@ import type { BalanceCard } from "@/lib/view"
  * pinned to the band, above the cards. It reads **Add Record** and opens the manual-entry
  * sheet, which is the first action the design's pill has ever had.
  *
- * **It sits under the card now, not inside it.** The artboard's inset puts the pill 8px
- * up from the card's own bottom edge, so it read as part of the card rather than as a
- * control the card sits above; the owner asked for air between them. The pill keeps the
- * artboard's **8px right inset** — that is what keeps its right edge lined up with the
- * card's — and drops below the card's bottom with a **16px gap**, which is the app's own
- * card padding (`p-4`) and the smallest step that reads as a gap rather than a seam. The
- * band grows by exactly that 64px (16px of gap plus the 48px pill), so nothing is drawn
- * over the quick-log row and the pill is never a free-floating overlay.
+ * **Its bottom edge is the cards' bottom edge.** The pill sits in the step the card cuts
+ * out of its bottom-right corner, 8px in from the card's right edge — the artboard's own
+ * inset — so the band is exactly as tall as the card (224px: 40px of card behind, then
+ * 184 of card) and the pill ends on that edge rather than below it. The notch is there to
+ * hold it: a pill that hung under the stack left a gap the artboard never drew, and made
+ * the band 64px taller than its own card.
  *
  * **Nothing is ever drawn below the band.** The artboard's own cycle drops the front
  * card 160px over the quick-log row and only re-indexes 300ms later, which reads as the
@@ -243,10 +241,10 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
   const next = count > 1 ? cards[(front + 1) % count] : undefined
 
   return (
-    // The band is 288px: the artboard's 224 (40px of card behind, then 184 of card), the
-    // 16px gap, and the 48px pill. The pill lives inside it, so nothing spills onto the
-    // quick-log row below and the column's own 8px gap still separates the two bands.
-    <div role="group" aria-label="Accounts" className="relative h-[288px]">
+    // The band is the card's own 224px (40px of card behind, then 184 of card). The pill
+    // lives inside that footprint, in the notch, so it neither spills onto the quick-log
+    // row below nor adds a gap of its own between the two bands.
+    <div role="group" aria-label="Accounts" className="relative h-[224px]">
       {cards.map((card, position) => {
         const isFront = position === front
         const seat = seatOf(card.id, position === 0 ? 0 : REST)
@@ -309,13 +307,13 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
 
       {/*
         The add-record pill, pinned: 128×48 as the artboard draws it, outside every card so
-        a drag cannot carry it, and **below** the card's bottom edge with a 16px gap rather
-        than at the artboard's 8px inset inside the card. That edge is at 224 (the card's
-        40px seat plus its 184), so the pill starts 240 down and ends at the band's own 288;
-        its 8px right inset is unchanged and is what keeps it lined up with the card. It was
-        the design's control with no action behind it; it now opens the manual entry sheet
-        (`features/manual-entry`), which is the one place a row can be typed rather than
-        imported or scanned.
+        a drag cannot carry it, and **on** the card's bottom edge — `bottom-0` of a band that
+        is the card's own height — rather than hanging under the stack. Its 8px right inset
+        is the artboard's and is what keeps it inside the notch, whose step begins at the
+        card's 120th pixel; the extra 4px on its left is what keeps the plus from sitting
+        against that step. It was the design's control with no action behind it; it now opens
+        the manual entry sheet (`features/manual-entry`), which is the one place a row can be
+        typed rather than imported or scanned.
       */}
       <button
         type="button"
@@ -324,7 +322,7 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
           tick()
           onAddRecord?.()
         }}
-        className="absolute top-[240px] right-2 z-[6] flex h-12 min-w-32 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-2 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
+        className="absolute right-2 bottom-0 z-[6] flex h-12 min-w-32 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-3 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
       >
         <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
           <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />
