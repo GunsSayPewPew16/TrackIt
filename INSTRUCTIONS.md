@@ -434,7 +434,7 @@ left out and why.
   the entry chunk. **The sheet can be opened with a category already chosen**: a quick-log chip
   hands in the envelope its own rows were filed under (`quickActions` in `lib/derive.ts` carries
   the id, `App.openEntry` takes it, `SheetProps.category` seeds the screen's state), so
-  `LOG RESTAURANTS` arrives on *Food & Beverages • Restaurants* with the keypad up, exactly as
+  `Log Restaurants` arrives on *Food & Beverages • Restaurants* with the keypad up, exactly as
   the add-record pill opens it — and the pill hands in `null`, because a blank entry is what *it*
   means. The screen unmounts with the sheet, which is why the seed cannot outlive one open. The
   sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up

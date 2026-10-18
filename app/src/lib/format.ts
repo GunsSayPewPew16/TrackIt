@@ -215,3 +215,64 @@ export function timeOfDayWord(at: number = Date.now()): string {
   if (hour < 21) return "Evening"
   return "Night"
 }
+
+/** The little words that stay small inside a label unless they open it. */
+const JOINING_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "as",
+  "by",
+  "for",
+  "from",
+  "in",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "vs",
+  "with",
+])
+
+/**
+ * A label in the screen's reading case: `Log Restaurant, Fast-Food`.
+ *
+ * The quick-log chips used to shout — `LOG RESTAURANTS` — because that is how the artboard drew
+ * them, and a tray of capitals reads as an instruction rather than an offer. Title case is the
+ * same words at a talking volume, and the words underneath come from the owner's own sheet, so
+ * three shapes have to survive the trip: a category the export wrote plainly (`Public
+ * transport`), one it wrote in capitals (`BIGBASKET`), and a name whose capitals are the owner's
+ * own (`iPhone`, `McDonald's`). A word therefore keeps its shape when it is a short initialism
+ * or mixes cases past its first letter; everything else takes a capital and gives the rest back
+ * in lower case.
+ */
+export function titleCase(text: string): string {
+  return text
+    .trim()
+    .split(/\s+/)
+    .map((word, index) => {
+      // `HP`, `ATM`, `UPI`, `A/C`: capitals with nothing to spell, so this is an initialism
+      // rather than the sheet shouting, and lower-casing it would invent a different word.
+      const letters = word.replace(/[^A-Za-z]/g, "")
+      if (letters.length >= 2 && letters.length <= 4 && letters === letters.toUpperCase()) return word
+
+      // `iPhone`, `McDonald's`: a capital past the first letter is a decision, and lower-casing
+      // the rest of the word would rename the thing.
+      if (/[a-z]/.test(word) && /[A-Z]/.test(word.slice(1))) return word
+
+      // `and`, `of`, `the` — small in the middle, capital at the front: `Food and Drinks`, but
+      // `The Corner Shop`.
+      if (index > 0 && JOINING_WORDS.has(word.toLowerCase())) return word.toLowerCase()
+
+      // Everything else goes down to lower case first, so `FAST-FOOD` becomes `Fast-Food`
+      // rather than keeping the capitals it arrived with, and every part of a hyphenated or
+      // bracketed word takes its own capital.
+      return word
+        .toLowerCase()
+        .replace(/(^|[^A-Za-z])([a-z])/g, (_whole, lead, letter: string) => lead + letter.toUpperCase())
+    })
+    .join(" ")
+}

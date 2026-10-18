@@ -172,9 +172,9 @@ export const DEMO_DASHBOARD: DashboardModel = {
     // rows, because a chip opens the manual entry on its category — see `quickActions` in
     // `lib/derive.ts`, which is the same shape from real history.
     actions: [
-      { label: "LOG TRANSIT FARE", primary: true, category: "public-transport" },
-      { label: "LOG BREAKFAST", primary: false, category: "restaurant" },
-      { label: "LOG COFFEE", primary: false, category: "bar-cafe" },
+      { label: "Log Transit Fare", primary: true, category: "public-transport" },
+      { label: "Log Breakfast", primary: false, category: "restaurant" },
+      { label: "Log Coffee", primary: false, category: "bar-cafe" },
     ],
   },
   velocity: {

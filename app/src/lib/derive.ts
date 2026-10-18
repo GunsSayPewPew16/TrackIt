@@ -48,6 +48,7 @@ import {
   startOfMonth,
   startOfNextMonth,
   timeOfDayWord,
+  titleCase,
   whenLabel,
   wholeMoney,
 } from "./format"
@@ -253,7 +254,10 @@ function quickActions(rows: Row[], now: number): { label: string; primary: boole
     .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title))
     .slice(0, 3)
     .map((entry, index) => ({
-      label: `LOG ${entry.title.toUpperCase()}`,
+      // `Log Restaurants`, not `LOG RESTAURANTS`: the chip is an offer, and the tray is where
+      // the owner's own words are read back to them. `titleCase` is what keeps a merchant's
+      // capitals and an export's capitals from arriving in the same shouting voice.
+      label: `Log ${titleCase(entry.title)}`,
       primary: index === 0,
       category: [...entry.categories.entries()].sort((a, b) => b[1] - a[1])[0][0],
     }))

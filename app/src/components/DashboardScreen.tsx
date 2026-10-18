@@ -67,7 +67,7 @@ export function DashboardScreen({
   onAddRecord: () => void
   /**
    * A quick-log chip opens the same sheet with the category that chip's own rows were
-   * filed under already chosen — `LOG RESTAURANTS` arrives on *Food & Beverages •
+   * filed under already chosen — `Log Restaurants` arrives on *Food & Beverages •
    * Restaurants*, so the common entry is a figure and a confirm rather than a walk
    * through the mosaic.
    */
