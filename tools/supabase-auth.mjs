@@ -173,6 +173,18 @@ function describe(value) {
   return JSON.stringify(value)
 }
 
+/**
+ * Whether an origin is one only this machine can open.
+ *
+ * A loopback **Site URL** is the mistake this script exists to undo: Supabase rewrites every
+ * mailed link's `redirect_to` to it, so the link a phone receives lands on `localhost:3000`,
+ * which is the phone's own localhost and opens nothing. It is called out in the diff rather
+ * than left as one more setting the owner has to recognise.
+ */
+function isLoopback(value) {
+  return typeof value === "string" && /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(value)
+}
+
 const current = await call("GET", `/projects/${ref}/config/auth`)
 
 const wanted = {
@@ -194,7 +206,8 @@ if (changed.length === 0) {
 
 for (const [key, value] of changed) {
   console.log(`  ${key}`)
-  console.log(`    was: ${describe(current?.[key])}`)
+  const wasLoopback = key === "site_url" && isLoopback(current?.[key])
+  console.log(`    was: ${describe(current?.[key])}${wasLoopback ? "  ← a phone cannot open this" : ""}`)
   console.log(`    now: ${describe(value)}`)
 }
 
