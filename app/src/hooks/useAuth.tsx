@@ -12,6 +12,12 @@
  * this device exactly as it always has. That is also what keeps a fresh clone, a preview and the
  * flows check working with no setup.
  *
+ * **The name is editable, and it belongs to the account.** `rename` writes `profiles.full_name`,
+ * updates the cache this tab reads names through (`lib/profile.ts`), and tells the session's own
+ * metadata as well — best effort, because the session's copy is what answers with no network. On a
+ * build with no account there is nobody to ask, so the name is this browser's own
+ * (`lib/owner.ts`), and the same call writes that instead.
+ *
  * **The code is the session.** There is no "signed in but not verified" state to fall into,
  * because the password's session is thrown away before the code is even sent: Supabase signs a
  * password in by handing back a token, so the only way a second step means anything is if that
@@ -50,7 +56,17 @@
  */
 
 import type { Session, User } from "@supabase/supabase-js"
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react"
 
 import { attach, claimDeviceLedger, detach, flush } from "@/lib/cloud"
 import {
@@ -62,7 +78,8 @@ import {
   SIGNUPS_OPEN,
 } from "@/lib/portal"
 import { ticketFrom } from "@/lib/mail-link"
-import { displayName, nameFromAccount } from "@/lib/profile"
+import { ownerNameSnapshot, setOwnerName, subscribeOwnerName } from "@/lib/owner"
+import { displayName, nameFromAccount, rememberName } from "@/lib/profile"
 import { hasCloud, loadSupabase } from "@/lib/supabase"
 
 /** Where the ledger lives for this build: the account, or this device. */
@@ -77,8 +94,16 @@ export type AuthContextValue = {
   ready: boolean
   user: User | null
   email: string | null
-  /** What the account is called: `profiles.full_name`, then its sign-up metadata, then its address. */
+  /**
+   * What the account is called: `profiles.full_name`, then its sign-up metadata, then its address
+   * — or, on a build with no account, the name this device was given in Settings.
+   */
   name: string | null
+  /**
+   * Set that name. `true` when it was written; `false` when there is nowhere to write it — a blank
+   * name, or a cloud build with no session.
+   */
+  rename: (name: string) => Promise<boolean>
   /** The portal's step, so the screen can draw the code field without owning the flow. */
   stage: AuthStage
   /** Where the code was sent, while `stage` is `"code"`. */
@@ -300,16 +325,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [userId, session])
 
   /**
+   * What this browser is called on a build with no account, which is the only thing Settings can
+   * write there (`lib/owner.ts`). Subscribed rather than read once, so the greeting changes as the
+   * field is saved instead of on the next load.
+   */
+  const deviceName = useSyncExternalStore(subscribeOwnerName, ownerNameSnapshot, ownerNameSnapshot)
+
+  /**
    * The name, derived rather than stored: the session's own answer until the account's row
    * arrives, and never the previous account's — the id is part of the comparison, so signing
-   * in as somebody else cannot draw the last name for a frame.
+   * in as somebody else cannot draw the last name for a frame. Signed out — or built with no
+   * account at all — the device's own name stands in.
    */
   const name = useMemo(() => {
-    if (!session) return null
+    if (!session) return deviceName
     const fromSession = nameFromAccount(session.user)
     const read = profile?.id === session.user.id ? profile.name : null
-    return read ?? fromSession
-  }, [session, profile])
+    return read ?? fromSession ?? deviceName
+  }, [session, profile, deviceName])
 
   /**
    * Step one: the password, then the code.
@@ -566,6 +599,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (client) void client.auth.signOut({ scope: "local" }).catch(() => undefined)
   }, [])
 
+  /**
+   * Rename the account — or, with no account to name, this browser.
+   *
+   * Three writes happen in the account case and only the first one decides the answer, because
+   * they fail differently: the row is the fact (and is what every other device reads), the tab's
+   * cache is what keeps this session honest without a second query, and the session's metadata is a
+   * copy that only matters when the network is gone. A name that reaches the row and not the
+   * metadata is a name that is right everywhere and briefly stale offline; a name that reached
+   * neither is a rename that did not happen, which is why `false` is returned and the screen says so.
+   */
+  const rename = useCallback(
+    async (next: string) => {
+      const trimmed = next.trim()
+      if (trimmed.length === 0) return false
+
+      // A build with no account has nobody to tell: the name is this device's own.
+      if (!hasCloud || !session) {
+        setOwnerName(trimmed)
+        return true
+      }
+
+      const client = await loadSupabase()
+      if (!client) return false
+      const userId = session.user.id
+      const { error: failure } = await client
+        .from("profiles")
+        .upsert({ id: userId, full_name: trimmed }, { onConflict: "id" })
+      if (failure) return false
+
+      rememberName(userId, trimmed)
+      setProfile({ id: userId, name: trimmed })
+      void client.auth.updateUser({ data: { full_name: trimmed } }).catch(() => undefined)
+      return true
+    },
+    [session],
+  )
+
   const dismiss = useCallback(() => {
     setError(null)
     setNotice(null)
@@ -578,6 +648,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       email: session?.user.email ?? null,
       name,
+      rename,
       stage,
       challengeEmail,
       error,
@@ -596,6 +667,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       session,
       name,
+      rename,
       stage,
       challengeEmail,
       error,

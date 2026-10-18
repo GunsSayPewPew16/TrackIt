@@ -135,23 +135,27 @@ left out and why.
   wheel's drag and the sheet's pull-down are untouched — do not "fix" this by removing one of
   the three layers, because a different browser is covered by each.
 - **The colours are palettes, and `data-palette` is the only switch.** `app/src/index.css`
-  has one block per **palette**, each stating the whole table (surfaces, the ten roles, the
-  dock, the data colours, the tint numbers) — `ink` and `paper` are the artboards' own two
-  and the defaults, and `midnight` / `parchment` are samples there so a picker has something
-  to choose. `:root` alone carries `ink`, so a document that names nothing is the design of
-  record. **This is the modularity the owner asked for**: a theme picker is a list over
-  `lib/theme.ts`'s `PALETTES` calling `useTheme().choosePalette(id)`, and adding a palette is
-  one CSS block, one register row and one line in the boot table — nothing in a component
-  and no per-theme CSS ever again. There is **no `data-theme`**: a palette declares its own
-  theme (`color-scheme`, and which way the sun/moon toggle goes), the toggle flips to the
-  palette **the owner last used in the other theme** and to that theme's default only the
-  first time, and a browser that chose before palettes existed still gets its choice —
-  `trackit-theme`'s `light` / `dark` are read once and mapped to `paper` / `ink`. Three
-  things must be kept in step by hand, and `lib/theme.ts` is the one to edit first: the
-  register, the stylesheet blocks, and `app/index.html`'s boot table of id → canvas (the one
-  value a script needs before the stylesheet has run, because a `<meta>` cannot read CSS).
-  A palette that forgets a token inherits the previous block's value, which is why each
-  block states all twenty-one rather than an override or two.
+  has one block per **palette**, each stating the whole table (canvas, surfaces and their 1px
+  border, ink and ink2, the warning and chart accents, the date capsule, the dock, the data
+  colours, the tint numbers). Six named themes, each a **pair**: Sage & Sandstone (the
+  default), Kyoto Atelier, The Basel Archive, British Racing, Titanium & Monaco Blue and
+  Nordic Obsidian. `:root` alone carries Sage's dark, so a document that names nothing is the
+  design of record. **This is the modularity the owner asked for**: the settings grid is a
+  list over `lib/theme.ts`'s `THEME_CHOICES` calling `useTheme().chooseTheme(id)`, and adding
+  a theme is two CSS blocks, one register row and two lines in the boot table — nothing in a
+  component and no per-theme CSS ever again. There is **no `data-theme`**: a palette declares
+  its own theme (`color-scheme`, and which way the sun/moon toggle goes), and the toggle flips
+  to **the other side of the name on screen**, so Monaco's dark lands on Monaco's light rather
+  than on Sage. A browser that stored an older id still gets its side — `ink` / `paper` and the
+  old `midnight` / `parchment` samples are read once and mapped to Sage's pair. Three things
+  must be kept in step by hand, and `lib/theme.ts` is the one to edit first: the register, the
+  stylesheet blocks, and `app/index.html`'s boot table of id → canvas (the one value a script
+  needs before the stylesheet has run, because a `<meta>` cannot read CSS). A palette that
+  forgets a token inherits the previous block's value, which is why each block states every
+  token rather than an override or two. **The chart hue is the theme's**: the balance spline,
+  the daily-spend heatmap and the monthly allocation stack all read `--chart` (and mixes of it
+  with `--clay` / `--ink`), so the analytics screen changes with the theme, while `--data-*`
+  stays fixed because those colours belong to the owner's categories.
 - **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
   4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the

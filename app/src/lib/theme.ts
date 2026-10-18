@@ -3,10 +3,11 @@
  *
  * `index.css` defines every colour the app paints with, one **palette** to a block, and
  * switches between them on one thing only: `data-palette` on `<html>`. A palette is a
- * complete table — surfaces, ink, the two accents, the dock, the data colours — and it
- * declares which of the two **themes** it is, dark or light. Nothing here paints
- * anything; this is the reads and writes of that attribute, the remembered choice, and
- * the register a theme picker reads to build its list.
+ * complete table — canvas, surfaces and their 1px border, the two ink weights, the warning
+ * accent, the chart hue, the dock, the data colours — and it declares which of the two
+ * **themes** it is, dark or light. Nothing here paints anything; this is the reads and
+ * writes of that attribute, the remembered choice, and the register a theme picker reads to
+ * build its list.
  *
  * **Why a register and not just the attribute.** The stylesheet and the script each need
  * to know the palette's *canvas*: the CSS paints the page with it, and the script hands it
@@ -23,10 +24,9 @@
  *
  * **The theme is the palette's, not the document's.** There is no `data-theme` any more:
  * a document wears one palette, and the switch's old question ("dark or light?") is now
- * answered by what the chosen palette is. The toggle flips to the palette the owner last
- * used in the other theme, or that theme's default the first time — so choosing Midnight
- * and pressing the toggle lands on Paper, and pressing it again comes back to Midnight
- * rather than resetting to Ink.
+ * answered by what the chosen palette is. The toggle flips to the other side of the name
+ * being worn — so choosing Kyoto and pressing the toggle lands on Kyoto's light companion,
+ * and pressing it again comes back to its dark one rather than resetting to Sage.
  */
 
 /** The two themes the palettes are drawn for. A component that draws a sun or a moon needs this. */
@@ -49,20 +49,80 @@ export type Palette = {
 }
 
 /**
- * Every palette the app can wear, **dark ones first** and the artboard's own two leading
- * each group: `ink` and `paper` are the design of record's tables, and the defaults.
+ * Every table the app can wear, **dark ones first**, each named theme's two sides in the same
+ * order as `THEME_CHOICES` below. `defaultPaletteOf` reads the first of each group, so the order
+ * here is load bearing: Sage & Sandstone — the app's own pair — leads both halves.
  *
- * `midnight` and `parchment` are the register's samples, there so the picker has something
- * to choose and so the machinery is exercised by more than one table per theme. They are
- * the owner's palettes to keep or cut — deleting one is its `index.css` block, its row
- * here and its line in `index.html`.
+ * A name in the settings selector is not one table but **two**, one per mode, and that is the
+ * whole reason this register is a flat list of tables while the selector reads a list of names:
+ * the pair is offered once, and the header's sun/moon moves between its two sides.
  */
 export const PALETTES: Palette[] = [
-  { id: "ink", label: "Ink", theme: "dark", canvas: "#0a0f0d" },
-  { id: "midnight", label: "Midnight", theme: "dark", canvas: "#080c14" },
-  { id: "paper", label: "Paper", theme: "light", canvas: "#f8f6f2" },
-  { id: "parchment", label: "Parchment", theme: "light", canvas: "#f4efe6" },
+  { id: "sage-dark", label: "Sage & Sandstone", theme: "dark", canvas: "#0d1310" },
+  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#0b0c0e" },
+  { id: "basel-dark", label: "The Basel Archive", theme: "dark", canvas: "#120e0c" },
+  { id: "british-dark", label: "British Racing", theme: "dark", canvas: "#040d09" },
+  { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#080b11" },
+  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#0d0e12" },
+  { id: "sage-light", label: "Sage & Sandstone", theme: "light", canvas: "#fbf9f5" },
+  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f7f5f0" },
+  { id: "basel-light", label: "The Basel Archive", theme: "light", canvas: "#faf7f0" },
+  { id: "british-light", label: "British Racing", theme: "light", canvas: "#f5f7f4" },
+  { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#eff3f7" },
+  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f1f3f9" },
 ]
+
+/**
+ * The themes the selector offers, under the owner's own names — and **each name is a pair of
+ * tables, one per mode**, because a theme is an identity rather than a single screen: The Basel
+ * Archive is the same theme in its espresso dark and its cotton-cream light, and the sun/moon in
+ * the header flips between those two rather than between the register's defaults
+ * (`hooks/useTheme.ts`).
+ *
+ * **Sage is the app's own** and the pair every fresh install wears.
+ *
+ * **A name is not a table.** A pair pointing at palettes that do not exist would be an option that
+ * changes nothing when it is chosen, so a new theme arrives as this row *plus* its tables — a block
+ * for each side in `index.css`, both canvases in `index.html`, and both rows in `PALETTES`.
+ */
+export type ThemeChoice = {
+  /** The id the selector stores as its value. */
+  id: string
+  /** The pill's own word — short enough for a third of the tile. */
+  label: string
+  /** The full name, for the sentence under the row. */
+  title: string
+  /** The table to wear in dark mode. */
+  dark: string
+  /** …and in light mode. */
+  light: string
+}
+
+/** The six themes the selector offers, in the order it lists them. */
+export const THEME_CHOICES: ThemeChoice[] = [
+  { id: "sage", label: "Sage", title: "Sage & Sandstone", dark: "sage-dark", light: "sage-light" },
+  { id: "kyoto", label: "Kyoto", title: "Kyoto Atelier", dark: "kyoto-dark", light: "kyoto-light" },
+  { id: "basel", label: "Basel", title: "The Basel Archive", dark: "basel-dark", light: "basel-light" },
+  { id: "british", label: "Racing", title: "British Racing", dark: "british-dark", light: "british-light" },
+  { id: "monaco", label: "Monaco", title: "Titanium & Monaco Blue", dark: "monaco-dark", light: "monaco-light" },
+  { id: "nordic", label: "Nordic", title: "Nordic Obsidian", dark: "nordic-dark", light: "nordic-light" },
+]
+
+/** The choice an id names, or `null` when nothing has it. */
+export function themeChoice(id: unknown): ThemeChoice | null {
+  return typeof id === "string" ? (THEME_CHOICES.find((choice) => choice.id === id) ?? null) : null
+}
+
+/**
+ * The choice a table belongs to, or `null` for one no theme names — a table a previous release
+ * stored. The selector needs it to answer "which name is the screen wearing?", and the toggle
+ * needs it to know what the other side of the flip is.
+ */
+export function themeOfPalette(paletteId: string): ThemeChoice | null {
+  return (
+    THEME_CHOICES.find((choice) => choice.dark === paletteId || choice.light === paletteId) ?? null
+  )
+}
 
 /**
  * Where the chosen palette is remembered, and the key the theme it replaced was stored
@@ -74,7 +134,20 @@ export const PALETTE_STORAGE_KEY = "trackit-palette"
 /** The key the app remembered a *theme* under before palettes existed. Read once, never written. */
 export const LEGACY_THEME_STORAGE_KEY = "trackit-theme"
 
-/** The palette `data-palette` carries when the document says nothing: the artboard's dark. */
+/**
+ * Table ids from releases before the register had six names. A browser that stored one of these
+ * is moved to the pair that replaced it rather than dropped onto the default in the wrong mode:
+ * `ink` and `paper` were the artboard's own pair (Sage's), and the two samples land on the same
+ * sides. This is read-only history; nothing writes these ids again.
+ */
+const LEGACY_PALETTES: Record<string, string> = {
+  ink: "sage-dark",
+  paper: "sage-light",
+  midnight: "sage-dark",
+  parchment: "sage-light",
+}
+
+/** The palette `data-palette` carries when the document says nothing: the app's own dark. */
 export const DEFAULT_PALETTE: Palette = PALETTES[0]
 
 /** The name a theme's own remembered palette is kept under. */
@@ -82,7 +155,8 @@ const schemeKey = (theme: Theme): string => `${PALETTE_STORAGE_KEY}-${theme}`
 
 /** The palette an id names, or `null` when nothing has that id. */
 export function paletteFor(id: unknown): Palette | null {
-  return typeof id === "string" ? (PALETTES.find((palette) => palette.id === id) ?? null) : null
+  if (typeof id !== "string") return null
+  return PALETTES.find((palette) => palette.id === id) ?? paletteFor(LEGACY_PALETTES[id])
 }
 
 /** Every palette drawn for a theme, in the register's order — what the picker lists under a heading. */
@@ -91,8 +165,8 @@ export function palettesOf(theme: Theme): Palette[] {
 }
 
 /**
- * The palette a theme falls back to: its first in the register. The artboard's own two are
- * first in each group, so the design is what a theme means until the owner says otherwise.
+ * The palette a theme falls back to: its first in the register. Sage & Sandstone leads each
+ * group, so the app's own design is what a theme means until the owner says otherwise.
  */
 export function defaultPaletteOf(theme: Theme): Palette {
   return palettesOf(theme)[0] ?? DEFAULT_PALETTE

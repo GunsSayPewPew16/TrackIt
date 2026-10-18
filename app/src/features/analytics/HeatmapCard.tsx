@@ -19,13 +19,15 @@ const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"]
 const FLOOR = 0.14
 
 /**
- * A square's fill: the one data hue, mixed into the card by how much was spent. The card
- * is the lightest end and the full hue the heaviest, so the scale runs in one direction and
- * needs no legend. A day with nothing is an outline, not a tint.
+ * A square's fill: the palette's chart hue, mixed into the card by how much was spent. The
+ * card is the lightest end and the full hue the heaviest, so the scale runs in one direction
+ * and needs no legend. A day with nothing is an outline, not a tint. The hue is the theme's,
+ * not the category's: the heatmap answers "how much", and the two greens, blues and olives in
+ * the register are what make the same grid feel like the same app on six different screens.
  */
 function fillFor(intensity: number): string {
   const mix = Math.round((FLOOR + (1 - FLOOR) * intensity) * 100)
-  return `color-mix(in oklab, var(--data-red) ${mix}%, var(--card))`
+  return `color-mix(in oklab, var(--chart) ${mix}%, var(--card))`
 }
 
 const shortDate = (at: number) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })

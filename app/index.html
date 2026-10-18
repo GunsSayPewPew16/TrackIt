@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-palette="ink">
+<html lang="en" data-palette="sage-dark">
   <head>
     <meta charset="UTF-8" />
     <!--
@@ -13,7 +13,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0a0f0d" />
+    <meta name="theme-color" content="#0d1310" />
     <meta
       name="description"
       content="A private expense tracker: a bento dashboard and a daily ledger, kept on the device."
@@ -62,17 +62,33 @@
       // there — the module is the one to edit first.
       ;(function () {
         var CANVAS = {
-          ink: "#0a0f0d",
-          midnight: "#080c14",
-          paper: "#f8f6f2",
-          parchment: "#f4efe6",
+          "sage-dark": "#0d1310",
+          "kyoto-dark": "#0b0c0e",
+          "basel-dark": "#120e0c",
+          "british-dark": "#040d09",
+          "monaco-dark": "#080b11",
+          "nordic-dark": "#0d0e12",
+          "sage-light": "#fbf9f5",
+          "kyoto-light": "#f7f5f0",
+          "basel-light": "#faf7f0",
+          "british-light": "#f5f7f4",
+          "monaco-light": "#eff3f7",
+          "nordic-light": "#f1f3f9",
+        }
+        // Ids a release before the six-theme register could have stored. They are moved to the
+        // pair that replaced them, so an upgrade does not drop a light screen onto a dark table.
+        var OLD = {
+          ink: "sage-dark",
+          paper: "sage-light",
+          midnight: "sage-dark",
+          parchment: "sage-light",
         }
         // A browser that chose a *theme* before palettes existed (trackit-theme) keeps its
         // choice: light and dark become each theme's default palette.
-        var LEGACY = { dark: "ink", light: "paper" }
+        var LEGACY = { dark: "sage-dark", light: "sage-light" }
         try {
           var id = localStorage.getItem("trackit-palette")
-          if (!CANVAS[id]) id = LEGACY[localStorage.getItem("trackit-theme")]
+          if (!CANVAS[id]) id = OLD[id] || LEGACY[localStorage.getItem("trackit-theme")]
           if (CANVAS[id]) {
             document.documentElement.dataset.palette = id
             document.querySelector('meta[name="theme-color"]').setAttribute("content", CANVAS[id])

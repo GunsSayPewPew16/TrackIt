@@ -49,8 +49,6 @@ export function DashboardScreen({
   onAddRecord,
   onQuickLog,
   onSetBudget,
-  onOpenAccount,
-  hasAccount,
   onEditBalance,
 }: {
   model: DashboardModel
@@ -78,17 +76,6 @@ export function DashboardScreen({
    * card drawing it is the only place it can be changed.
    */
   onSetBudget: () => void
-  /**
-   * Tapping the name in the greeting opens the account panel (`components/AccountSheet.tsx`),
-   * which is where the sign-out lives. The name *is* the account, so it is the door — no
-   * extra circle in a header that has 28px of greeting and a 48px theme toggle in it.
-   */
-  onOpenAccount: () => void
-  /**
-   * Whether this build has an account behind the name. A device-only build has none, so the
-   * panel it opens has nothing to sign out of — and the name must not promise that it does.
-   */
-  hasAccount: boolean
   /**
    * A hold on the front account card opens that account's balance editor
    * (`features/balance/BalanceSheet.tsx`). The stack is a drag, a tap and a hold at once —
@@ -145,31 +132,13 @@ export function DashboardScreen({
             {greeting.word}
           </em>{" "}
           {/*
-            **The name is the account's door.** It wears the greeting's own roman cut and
-            nothing else draws a control around it — no second circle in a 48px header, no
-            chevron, no underline — because the line already says whose vault this is and a
-            thumb on a name is the oldest affordance there is. The padding is negative on the
-            left and right so the tap target is 8px wider than the word without moving it,
-            and `aria-label` says what the tap does for a screen reader, which cannot infer
-            it from a name.
+            **The name is a word again.** It used to be the account's door — a control drawn
+            around nothing but a name, so the greeting also had to explain what a tap on it did.
+            The sign-out has a tab of its own now (`components/SettingsScreen.tsx`), which is a
+            better home for a door than a name that does not look like one, and the masthead is
+            back to being one line and a theme toggle.
           */}
-          <button
-            type="button"
-            data-account-trigger=""
-            onClick={() => {
-              lightTap() // must run synchronously inside the tap for iOS
-              onOpenAccount()
-            }}
-            title={hasAccount ? "Your account" : "This device's ledger"}
-            aria-label={
-              hasAccount
-                ? `${greeting.name} — account and sign out`
-                : `${greeting.name} — this device's ledger`
-            }
-            className="-mx-1 inline rounded-lg px-1 text-left align-baseline"
-          >
-            {greeting.name}
-          </button>
+          <span>{greeting.name}</span>
           <span className="sr-only"> (in {greeting.language})</span>
         </h1>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />

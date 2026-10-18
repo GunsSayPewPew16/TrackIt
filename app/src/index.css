@@ -10,19 +10,23 @@
  * 8px rhythm the whole layout is built on. Where this file says more than the
  * artboards did, it is only to explain where a value comes from.
  *
- * A **palette** is one complete table of those roles: the dark and light pairs, the two
- * accents, the dock, the data colours. No component ever needs to know which one it is
- * drawn in: it says `bg-card` and `text-ink2` and gets that palette's pair. The palettes
- * are the blocks below, and **`data-palette` on `<html>` is the only switch between them**
- * — one attribute, one table, no per-component knowledge, which is what a theme picker
- * needs. `src/lib/theme.ts` is the register of their ids, labels and themes; `index.html`
- * puts the remembered one on before the first paint.
+ * A **palette** is one complete table of those roles: the canvas, the surfaces and their
+ * 1px border, the two ink weights, the warning accent, the chart hue, the dock and the data
+ * colours. No component ever needs to know which one it is drawn in: it says `bg-card` and
+ * `text-ink2` and gets that palette's pair. The palettes are the blocks below, and
+ * **`data-palette` on `<html>` is the only switch between them** — one attribute, one table,
+ * no per-component knowledge, which is what a theme picker needs. `src/lib/theme.ts` is the
+ * register of their ids, labels and themes; `index.html` puts the remembered one on before
+ * the first paint.
  *
- * The artboard's own dark is first (`ink`) and is also what `:root` alone carries, so a
- * document that names no palette is the design of record. `midnight` and `parchment` are
- * the register's two samples; a palette the register has never heard of simply falls back
- * to `ink`, and a palette that forgets a token falls back to the one it inherited from —
- * which is why every block here states the whole table rather than an override or two.
+ * The register is **six named themes, each a pair**: Sage & Sandstone (the artboard's own, and
+ * also what `:root` alone carries), Kyoto Atelier, The Basel Archive, British Racing,
+ * Titanium & Monaco Blue and Nordic Obsidian. A name is offered against both modes at once —
+ * the settings selector lists it once — so each arrives as a dark table and its light
+ * companion, and the header's sun/moon flips between the two sides of the name being worn
+ * (`lib/theme.ts` declares the pairs). Every block states the whole table rather than an
+ * override or two, because a palette that forgets a token falls back to the one it inherited
+ * from and would blend two themes together.
  */
 
 /* ------------------------------------------------------------------ *
@@ -170,86 +174,45 @@
 }
 
 /*
- * 1. Ink — the artboard's dark, and the default.
+ * 1. Sage & Sandstone, dark side — the app's own pair, and the default.
  *
- * The ten roles, the date capsule's own pair, the dock's surface and hairline, and the
- * data colours. Everything below this block inherits it until a palette says otherwise, so
- * the comments that explain an individual token live here.
+ * Six themes, two tables each: a named theme is an identity, so the settings selector lists it
+ * once and the header's sun/moon flips between its dark and light companions. Each table states
+ * the owner's six colour tokens and nothing is left to fall through:
+ *
+ *   App Canvas → --canvas      Bento Surfaces → --card      1px Borders → --line
+ *   Text       → --ink / --ink2 Warning alerts → --clay      Micro trend → --chart / --sage
+ *
+ * Everything else is derived the way the artboard's table was: --ink2 is the ink at 60% so a
+ * secondary label dims rather than changes hue; --on-clay and --on-sage are whichever of the
+ * canvas and white actually reads on the accent; the dock is one step above the card so the
+ * floating bar still separates from the list behind it; and the data colours stay put, because
+ * those are the owner's categories and not a theme's. Sage is the chart hue: the positive side
+ * of a figure and the line a graph draws are the same green by design.
  */
 :root,
-:root[data-palette="ink"] {
-  --canvas: #0a0f0d;
-  --card: #1a221e;
-  --line: #28332e;
+:root[data-palette="sage-dark"] {
+  --canvas: #0d1310;
+  --card: #1a2420;
+  --line: #2a3832;
   --ink: #f4f0ea;
   /* 60% of the primary ink: the artboards' own --ink2, written out as a pair. */
   --ink2: #f4f0ea99;
   --clay: #d4a373;
+  --chart: #a3b19b;
   --sage: #a3b19b;
-  --on-clay: #0a0f0d;
-  --on-sage: #0a0f0d;
+  --on-clay: #0d1310;
+  --on-sage: #0d1310;
   /*
-   * A date capsule at rest, from the owner's newer date container. It is not one of
-   * the ten roles: it is the one surface that sits *on* the panel rather than beside
-   * it, so it needs its own pair — and the pair is not the same colour in both
-   * themes. Dark rests on the card itself, outlined by the hairline; light rests on
-   * the canvas, a shade under the white panel it is drawn on. Neither is `--card`
-   * there, which is why this is a token and not a utility.
+   * A date capsule at rest: the one surface that sits *on* the panel rather than beside it, so
+   * it needs its own pair. Dark rests on the card itself, outlined by the hairline; light rests
+   * on the canvas, a shade under the white panel it is drawn on.
    */
-  --pill: #1a221e;
+  --pill: #1a2420;
   --pill-ink: #f4f0ea99;
-  /*
-   * The dock's own surface and hairline: a step lighter than the card, so the floating
-   * bar still reads against the list scrolling behind it.
-   */
-  --dock: #222c27;
-  --dock-line: #33423b;
-  /* The data-viz colours: the same reds, golds and indigo in both themes. */
-  --data-red: #c95a49;
-  --data-gold: #d9a74a;
-  --data-teal: #a3b19b;
-  --data-indigo: #2c3e50;
-  /*
-   * How much of a data colour a category tile carries: a 14% wash in dark, layered on
-   * the card's own #1A221E, and 10% on white where the same wash would read heavier.
-   * The border is a third of the colour in both themes. These are the manual-entry
-   * matrix's two numbers, and they live beside the colours they tint.
-   */
-  --tint-bg: 14%;
-  --tint-border: 35%;
-  /*
-   * A sub-category pill's selected state: a deeper wash of the parent's colour than the
-   * tile behind it (20% against 14%), a solid border, and white ink on top — which is the
-   * only place in the matrix where text changes colour rather than weight.
-   */
-  --tint-pill: 20%;
-  --tint-pill-ink: #ffffff;
-  color-scheme: dark;
-}
-
-/*
- * 2. Midnight — a sample dark. The same table, cooled: the surfaces go blue-black, the two
- * accents are lifted so they still read against them (a 13px label on `--card` has more
- * contrast to spare than the artboard's own pair, not less), and the data colours are
- * deliberately **unchanged** — those are the owner's categories, not the theme's.
- *
- * The date capsule's `--pill` is the card rather than the canvas here for the reason Ink
- * says: a capsule should rest *on* the panel it is drawn on, outlined by the hairline.
- */
-:root[data-palette="midnight"] {
-  --canvas: #080c14;
-  --card: #131a26;
-  --line: #232d3d;
-  --ink: #eef2f8;
-  --ink2: #eef2f899;
-  --clay: #d8a97a;
-  --sage: #93b3a6;
-  --on-clay: #080c14;
-  --on-sage: #080c14;
-  --pill: #131a26;
-  --pill-ink: #eef2f899;
-  --dock: #1a2331;
-  --dock-line: #2b3648;
+  --dock: #222d28;
+  --dock-line: #33443c;
+  /* The category colours: the same reds, golds and indigo in every theme. */
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -262,25 +225,25 @@
 }
 
 /*
- * 3. Paper — the artboard's light. The same ten roles over white, with the two washes
- * lightened for a bright ground: a 14% tint that reads well on a near-black card is heavy
- * on paper, and a white label on a 12% wash would vanish — hence the two tint numbers and
- * the ink on the lit pill.
+ * 2. Sage & Sandstone, light companion — the same roles over the warmest white the pair allows,
+ * with the clay taken deeper (a light ochre cannot carry a small label) and the chart green
+ * darkened so its line still reads on white.
  */
-:root[data-palette="paper"] {
-  --canvas: #f8f6f2;
+:root[data-palette="sage-light"] {
+  --canvas: #fbf9f5;
   --card: #ffffff;
-  --line: #e2ddd5;
-  --ink: #1a221e;
-  --ink2: #1a221e99;
+  --line: #e6e2d8;
+  --ink: #1a2420;
+  --ink2: #1a242099;
   --clay: #c58b54;
+  --chart: #6b7f64;
   --sage: #6b7f64;
-  --on-clay: #1a221e;
+  --on-clay: #1a2420;
   --on-sage: #ffffff;
-  --pill: #f8f6f2;
-  --pill-ink: #1a221e99;
+  --pill: #fbf9f5;
+  --pill-ink: #1a242099;
   --dock: #ffffff;
-  --dock-line: #dad4c9;
+  --dock-line: #ded9cd;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -294,24 +257,304 @@
 }
 
 /*
- * 4. Parchment — a sample light. Paper warmed: a cream canvas, an off-white card and a
- * brown-black ink, with the clay taken a shade deeper so it still carries the small dark
- * labels laid on it. Same data colours, same light tint numbers.
+ * 3. Kyoto Atelier, dark side — sumi-ink charcoal with slate tatami panels, toasted-rice ink,
+ * a hojicha-amber warning and a withered-bamboo chart. Deliberately flatter than the other
+ * darks, because its whole job is logging at midnight without a white flash.
  */
-:root[data-palette="parchment"] {
-  --canvas: #f4efe6;
-  --card: #fffdf8;
-  --line: #e3dac9;
-  --ink: #2a2118;
-  --ink2: #2a211899;
-  --clay: #c08a52;
-  --sage: #6d7c5f;
-  --on-clay: #2a2118;
+:root[data-palette="kyoto-dark"] {
+  --canvas: #0b0c0e;
+  --card: #17191d;
+  --line: #262a32;
+  --ink: #f7f4ef;
+  --ink2: #f7f4ef99;
+  --clay: #e65a4b;
+  --chart: #8ca382;
+  --sage: #8ca382;
+  --on-clay: #0b0c0e;
+  --on-sage: #0b0c0e;
+  --pill: #17191d;
+  --pill-ink: #f7f4ef99;
+  --dock: #1f2227;
+  --dock-line: #2e333b;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 4. Kyoto Atelier, light companion — bleached washi paper with alabaster panels. The coral
+ * warning is roasted down to a vermilion that can carry white, and the bamboo is a moss that
+ * reads on paper without turning grey.
+ */
+:root[data-palette="kyoto-light"] {
+  --canvas: #f7f5f0;
+  --card: #ffffff;
+  --line: #e5e1d7;
+  --ink: #0b0c0e;
+  --ink2: #0b0c0e99;
+  --clay: #c84335;
+  --chart: #5f7556;
+  --sage: #5f7556;
+  --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #f4efe6;
-  --pill-ink: #2a211899;
-  --dock: #fffdf8;
-  --dock-line: #ded3c0;
+  --pill: #f7f5f0;
+  --pill-ink: #0b0c0e99;
+  --dock: #ffffff;
+  --dock-line: #dbd6ca;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
+  --tint-pill: 12%;
+  --tint-pill-ink: var(--ink);
+  color-scheme: light;
+}
+
+/*
+ * 5. The Basel Archive, dark side — deep espresso ink, brushed-walnut panels and archival
+ * ivory. The ochre is the accent a budget alert wears; the olive patina is the chart's line.
+ */
+:root[data-palette="basel-dark"] {
+  --canvas: #120e0c;
+  --card: #1f1a17;
+  --line: #332b27;
+  --ink: #f8f6f0;
+  --ink2: #f8f6f099;
+  --clay: #e3b462;
+  --chart: #969f7d;
+  --sage: #969f7d;
+  --on-clay: #120e0c;
+  --on-sage: #120e0c;
+  --pill: #1f1a17;
+  --pill-ink: #f8f6f099;
+  --dock: #29231f;
+  --dock-line: #3a322c;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 6. The Basel Archive, light companion — heavy cotton cream with pure ivory panels, which is
+ * this theme's own Bento Surfaces token: the one pair where the card is a shade lighter than
+ * the canvas rather than darker. The ochre is antique rather than vintage, the olive aged.
+ */
+:root[data-palette="basel-light"] {
+  --canvas: #faf7f0;
+  --card: #ffffff;
+  --line: #e8e3d5;
+  --ink: #120e0c;
+  --ink2: #120e0c99;
+  --clay: #bd8f3e;
+  --chart: #66704d;
+  --sage: #66704d;
+  --on-clay: #120e0c;
+  --on-sage: #ffffff;
+  --pill: #faf7f0;
+  --pill-ink: #120e0c99;
+  --dock: #ffffff;
+  --dock-line: #dfd8c8;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
+  --tint-pill: 12%;
+  --tint-pill-ink: var(--ink);
+  color-scheme: light;
+}
+
+/*
+ * 7. British Racing, dark side — the darkest canvas in the register, a racing-green panel and
+ * a mint chart. The warning is a warm tan, because a red alert on this green would be the one
+ * hue this theme is built around and would read as decoration rather than a warning.
+ */
+:root[data-palette="british-dark"] {
+  --canvas: #040d09;
+  --card: #0d2118;
+  --line: #183d2c;
+  --ink: #faf8f2;
+  --ink2: #faf8f299;
+  --clay: #de9c5d;
+  --chart: #7ec4a4;
+  --sage: #7ec4a4;
+  --on-clay: #040d09;
+  --on-sage: #040d09;
+  --pill: #0d2118;
+  --pill-ink: #faf8f299;
+  --dock: #122a1f;
+  --dock-line: #1e4835;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 8. British Racing, light companion — a cool mist white rather than cream, so the green
+ * panels read as paint on paper instead of as foliage. The chart green is deepened to
+ * #398563 and its label goes white; the tan warning darkens enough to carry dark ink.
+ */
+:root[data-palette="british-light"] {
+  --canvas: #f5f7f4;
+  --card: #ffffff;
+  --line: #d3ddd7;
+  --ink: #040d09;
+  --ink2: #040d0999;
+  --clay: #b57438;
+  --chart: #398563;
+  --sage: #398563;
+  --on-clay: #040d09;
+  --on-sage: #ffffff;
+  --pill: #f5f7f4;
+  --pill-ink: #040d0999;
+  --dock: #ffffff;
+  --dock-line: #d6dfd9;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
+  --tint-pill: 12%;
+  --tint-pill-ink: var(--ink);
+  color-scheme: light;
+}
+
+/*
+ * 9. Titanium & Monaco Blue, dark side — obsidian stealth, smoked-gunmetal panels, frost
+ * silver ink and the one cool accent in the register. The warning *is* the blue here, so the
+ * chart takes the platinum tone instead: two blues would blur into one instruction.
+ */
+:root[data-palette="monaco-dark"] {
+  --canvas: #080b11;
+  --card: #131924;
+  --line: #20293b;
+  --ink: #f3f6f9;
+  --ink2: #f3f6f999;
+  --clay: #3b82f6;
+  --chart: #a3b4c6;
+  --sage: #a3b4c6;
+  --on-clay: #ffffff;
+  --on-sage: #080b11;
+  --pill: #131924;
+  --pill-ink: #f3f6f999;
+  --dock: #1a2230;
+  --dock-line: #2a3549;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 10. Titanium & Monaco Blue, light companion — anodized platinum over matte frost white.
+ * Both accents are dark enough for white ink, and the platinum chart turns to brushed iron
+ * so the spline is a line rather than a highlight.
+ */
+:root[data-palette="monaco-light"] {
+  --canvas: #eff3f7;
+  --card: #ffffff;
+  --line: #cbd5e1;
+  --ink: #080b11;
+  --ink2: #080b1199;
+  --clay: #1d63d8;
+  --chart: #64748b;
+  --sage: #64748b;
+  --on-clay: #ffffff;
+  --on-sage: #ffffff;
+  --pill: #eff3f7;
+  --pill-ink: #080b1199;
+  --dock: #ffffff;
+  --dock-line: #d6dfe9;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
+  --tint-pill: 12%;
+  --tint-pill-ink: var(--ink);
+  color-scheme: light;
+}
+
+/*
+ * 11. Nordic Obsidian, dark side — a blue-black canvas with indigo-violet warning and a
+ * sky-blue chart. The pair is the coolest in the register and the only one whose two accents
+ * sit on the same side of the wheel, so the chart is lightened a full step to keep a graph
+ * from reading as an alert.
+ */
+:root[data-palette="nordic-dark"] {
+  --canvas: #0d0e12;
+  --card: #181a22;
+  --line: #282c3a;
+  --ink: #f4f5f7;
+  --ink2: #f4f5f799;
+  --clay: #c4b5fd;
+  --chart: #93c5fd;
+  --sage: #93c5fd;
+  --on-clay: #0d0e12;
+  --on-sage: #0d0e12;
+  --pill: #181a22;
+  --pill-ink: #f4f5f799;
+  --dock: #1f222c;
+  --dock-line: #313648;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 12. Nordic Obsidian, light companion — a cool paper white with the violet and blue both
+ * deepened until they carry white labels. This is the one light pair whose canvas is grey
+ * rather than warm, which is what keeps it a companion to an obsidian screen.
+ */
+:root[data-palette="nordic-light"] {
+  --canvas: #f1f3f9;
+  --card: #ffffff;
+  --line: #d2d6e4;
+  --ink: #0d0e12;
+  --ink2: #0d0e1299;
+  --clay: #7c3aed;
+  --chart: #2563eb;
+  --sage: #2563eb;
+  --on-clay: #ffffff;
+  --on-sage: #ffffff;
+  --pill: #f1f3f9;
+  --pill-ink: #0d0e1299;
+  --dock: #ffffff;
+  --dock-line: #dde1ec;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -347,6 +590,7 @@
   --color-ink: var(--ink);
   --color-ink2: var(--ink2);
   --color-clay: var(--clay);
+  --color-chart: var(--chart);
   --color-sage: var(--sage);
   --color-on-clay: var(--on-clay);
   --color-on-sage: var(--on-sage);
@@ -432,6 +676,11 @@
   syntax: "<color>";
   inherits: true;
   initial-value: #d4a373;
+}
+@property --chart {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a3b19b;
 }
 @property --sage {
   syntax: "<color>";
@@ -578,6 +827,7 @@
       --ink 120ms ease,
       --ink2 120ms ease,
       --clay 120ms ease,
+      --chart 120ms ease,
       --sage 120ms ease,
       --on-clay 120ms ease,
       --on-sage 120ms ease,

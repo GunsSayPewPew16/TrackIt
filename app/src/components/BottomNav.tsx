@@ -24,8 +24,8 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  * accessible name. The marks change ink on the same 120ms ease as every other piece of text,
  * so a theme change repaints the whole page as one.
  *
- * **The tabs.** Home, Ledger, Stats and Profile, in that order. Profile has no screen yet,
- * so it is a placeholder: its tap does nothing but tick. Stats is the analytics screen.
+ * **The tabs.** Home, Ledger, Stats and Settings, in that order — four screens, and every one
+ * of them a screen: nothing in the dock is a placeholder any more.
  *
  * **The surface.** The pill sits on a step-lighter dock fill with its own hairline, and
  * its backdrop is blurred and clipped to the pill's own outline, so the list scrolling
@@ -36,7 +36,7 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  */
 
 /** The screens the dock can take you to. A tab with no screen has no `to`. */
-export type NavTab = "dashboard" | "ledger" | "stats"
+export type NavTab = "dashboard" | "ledger" | "stats" | "settings"
 
 export interface NavItem {
   key: string
@@ -52,7 +52,7 @@ const TABS: NavItem[] = [
   { key: "home", label: "Home", icon: Home, to: "dashboard" },
   { key: "ledger", label: "Ledger", icon: ArrowDownUp, to: "ledger" },
   { key: "stats", label: "Stats", icon: BarChart3, to: "stats" },
-  { key: "profile", label: "Profile", icon: UserRound },
+  { key: "settings", label: "Settings", icon: UserRound, to: "settings" },
 ]
 
 const SPRING = { type: "spring", stiffness: 300, damping: 25 } as const

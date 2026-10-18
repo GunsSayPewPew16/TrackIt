@@ -83,3 +83,16 @@ export async function loadProfileName(userId: string): Promise<string | null> {
 export async function displayName(account: Account): Promise<string | null> {
   return (await loadProfileName(account.id)) ?? nameFromAccount(account)
 }
+
+/**
+ * Record a name the owner has just given this account, so the tab's cache agrees with what it
+ * wrote.
+ *
+ * The cache exists so a sign-in costs one read per tab, and it would otherwise keep answering
+ * with the name that was true when the session opened — the greeting would go back to the old name
+ * on the next read that missed the provider's own state (`hooks/useAuth.tsx`). Writing through is
+ * also what makes the new name survive the tab's remaining lifetime without a second query.
+ */
+export function rememberName(userId: string, name: string | null): void {
+  names.set(userId, name)
+}

@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 
-import { AccountSheet } from "@/components/AccountSheet"
 import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
 import { LoginScreen } from "@/components/LoginScreen"
@@ -11,6 +10,8 @@ import { useAuth } from "@/hooks/useAuth"
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
 import type { Props as ScanProps } from "@/components/ScanScreen"
 import type { Props as StatsProps } from "@/components/AnalyticsScreen"
+// The settings screen's types only, same reason: it is fetched when its tab is first tapped.
+import type { Props as SettingsProps } from "@/components/SettingsScreen"
 // The budget editor's types only, for the same reason: it is fetched on the first hold.
 import type { BudgetSheetProps } from "@/features/budget/BudgetSheet"
 // The balance panel's types only, for the same reason: it is fetched on the first hold.
@@ -117,28 +118,28 @@ import type { Row } from "@/lib/types"
  */
 
 /**
- * The three screens that arrive when they are asked for. The named exports are the only reason
- * these are not plain `lazy` calls — a `lazy` component suspends on first render, and a
- * suspension is exactly what the cross-fade cannot carry.
+ * The screens that arrive when they are asked for. The named exports are the only reason these are
+ * not plain `lazy` calls — a `lazy` component suspends on first render, and a suspension is exactly
+ * what the cross-fade cannot carry.
  */
 const screens = {
   ledger: () => import("@/components/LedgerScreen").then((screen) => screen.LedgerScreen),
   scan: () => import("@/components/ScanScreen").then((screen) => screen.ScanScreen),
   stats: () => import("@/components/AnalyticsScreen").then((screen) => screen.AnalyticsScreen),
+  settings: () => import("@/components/SettingsScreen").then((screen) => screen.SettingsScreen),
 } as const
 
-type View = "dashboard" | "ledger" | "scan" | "stats"
+type View = "dashboard" | "ledger" | "scan" | "stats" | "settings"
 
 /** Whichever of the lazy screens has arrived — normally all of them, from the idle fetch. */
 type Arrived = {
   ledger?: ComponentType<LedgerProps>
   scan?: ComponentType<ScanProps>
   stats?: ComponentType<StatsProps>
+  settings?: ComponentType<SettingsProps>
 }
 function TrackIt() {
-  const { theme, toggleTheme } = useTheme()
-  /** A cloud build has an account behind the greeting; a device build only has this browser. */
-  const { mode } = useAuth()
+  const { theme, toggleTheme, palette, chooseTheme } = useTheme()
   /**
    * The moment this open is drawn on. The dashboard's figures are "this month", so they need
    * a clock, and taking it once here rather than on every derivation is also what keeps the
@@ -176,12 +177,6 @@ function TrackIt() {
   const [budgetOpen, setBudgetOpen] = useState(false)
   /** Which of the two budgets the editor is about. Read while the panel closes, too. */
   const [budgetScope, setBudgetScope] = useState<BudgetScope>("food")
-  /**
-   * The account panel: who is signed in, what is still waiting to sync, and the sign-out.
-   * It is opened by the name in the dashboard's greeting — see `components/AccountSheet.tsx`
-   * for why the door is the name rather than another circle in the header.
-   */
-  const [accountOpen, setAccountOpen] = useState(false)
   /**
    * The account whose balance is being edited, if any: the front card's hold. It is the id
    * rather than the card, because the card is a formatted view of the account and the panel
@@ -231,6 +226,7 @@ function TrackIt() {
       void screens.ledger()
       void screens.scan()
       void screens.stats()
+      void screens.settings()
       void import("@/features/manual-entry")
       void import("@/features/budget/BudgetSheet")
       void import("@/features/balance/BalanceSheet")
@@ -469,6 +465,7 @@ function TrackIt() {
   const Ledger = arrived.ledger
   const Scan = arrived.scan
   const Stats = arrived.stats
+  const Settings = arrived.settings
 
   return (
     <>
@@ -490,8 +487,6 @@ function TrackIt() {
               onAddRecord={() => void openEntry()}
               onQuickLog={(category) => void openEntry(category)}
               onSetBudget={() => void editBudget("food")}
-              onOpenAccount={() => setAccountOpen(true)}
-              hasAccount={mode === "cloud"}
               onEditBalance={(accountId) => void editBalance(accountId)}
             />
           ) : view === "ledger" && Ledger ? (
@@ -525,6 +520,13 @@ function TrackIt() {
               // screen for this merchant — and its answer is the status line's sentence, so the
               // screen itself never touches the ledger.
               onOpenEntry={(payee) => openEntry(null, payee)}
+            />
+          ) : view === "settings" && Settings ? (
+            <Settings
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              palette={palette}
+              onChooseTheme={chooseTheme}
             />
           ) : null}
         </motion.div>
@@ -592,8 +594,6 @@ function TrackIt() {
         />
       )}
 
-      {/** The account panel, and with it the only sign-out in the app. */}
-      <AccountSheet isOpen={accountOpen} onClose={() => setAccountOpen(false)} />
     </>
   )
 }

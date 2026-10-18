@@ -20,14 +20,18 @@ export const ALLOCATION_MONTHS = 12
 const TOP_GROUPS = 4
 
 /**
- * The allocation's colours: the app's own muted data tokens, not Wallet's saturated group paint.
- * The biggest groups take these in order; everything past them is "Other".
+ * The allocation's colours, and **they belong to the theme**: the biggest groups take these in
+ * order, and everything past them is "Other". The stack is read as one figure rather than as five
+ * category colours, so it is drawn from the palette's own two accents — the chart hue, then the
+ * warning — followed by two tones mixed from them, instead of from the saturated `--data-*` set
+ * the manual-entry matrix paints its category tiles with. Those data colours are the owner's
+ * categories and stay put from theme to theme; a graph is the theme's own voice.
  */
 const ALLOCATION_COLOURS = [
-  "var(--data-red)",
-  "var(--data-gold)",
-  "var(--data-teal)",
-  "color-mix(in oklab, var(--ink) 55%, var(--card))",
+  "var(--chart)",
+  "var(--clay)",
+  "color-mix(in oklab, var(--chart) 55%, var(--ink))",
+  "color-mix(in oklab, var(--ink) 45%, var(--card))",
 ]
 
 export interface HeatCell {

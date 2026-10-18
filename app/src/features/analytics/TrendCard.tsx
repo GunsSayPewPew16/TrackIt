@@ -170,8 +170,8 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} className="absolute left-0 overflow-visible" style={{ top: TOP }} aria-hidden>
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-                <stop offset="0" style={{ stopColor: "var(--ink)", stopOpacity: 0.18 }} />
-                <stop offset="1" style={{ stopColor: "var(--ink)", stopOpacity: 0 }} />
+                <stop offset="0" style={{ stopColor: "var(--chart)", stopOpacity: 0.22 }} />
+                <stop offset="1" style={{ stopColor: "var(--chart)", stopOpacity: 0 }} />
               </linearGradient>
             </defs>
             {/* the guides at every label day, which is what the labels read against */}
@@ -185,17 +185,17 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
               fill="none"
               strokeWidth={1.5}
               strokeLinecap="round"
-              className="stroke-ink"
+              className="stroke-chart"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
           </svg>
 
-          {/* the focus bar: translucent gold, fading toward the baseline */}
+          {/* the focus bar: the theme's warning accent, fading toward the baseline */}
           <motion.span
             aria-hidden
-            className="absolute w-2 -translate-x-1/2 bg-gradient-to-b from-data-gold/70 to-data-gold/0"
+            className="absolute w-2 -translate-x-1/2 bg-gradient-to-b from-clay/70 to-clay/0"
             initial={false}
             animate={{ left: p.x, top: TOP + p.y, height: H - p.y }}
             transition={dragging ? INSTANT : SPRING}

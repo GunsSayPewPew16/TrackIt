@@ -171,22 +171,26 @@ repository, and never in a bundle, which is the one rule that has not changed.
 ## The theme
 
 One set of colour roles, **a palette to a block**, switched by `data-palette` on `<html>`.
-The artboards' own two are `ink` (`#0A0F0D` canvas, `#1A221E` cards, `#28332E` hairlines,
-`#F4F0EA` ink, `#D4A373` clay, `#A3B19B` sage — the default) and `paper` (`#F8F6F2` /
-`#FFFFFF` / `#E2DDD5` / `#1A221E` / `#C58B54` / `#6B7F64`), and two samples sit beside them —
-`midnight`, a cooled dark, and `parchment`, a warmed light — so the planned theme picker has
-something to choose. No component knows which palette it is drawn in — it says `bg-card`
-and `text-ink2` and gets that palette's pair — and every surface repaints over the same
-120ms.
+The register is **six named themes, each a dark table and a light companion**: Sage &
+Sandstone (the app's own, and the default — `#0D1310` canvas, `#1A2420` cards, `#2A3832`
+hairlines, `#F4F0EA` ink, `#D4A373` warning, `#A3B19B` chart, with `#FBF9F5` / `#FFFFFF` /
+`#E6E2D8` / `#1A2420` / `#C58B54` / `#6B7F64` on the light side), Kyoto Atelier, The Basel
+Archive, British Racing, Titanium & Monaco Blue and Nordic Obsidian. A name is offered once
+because a theme is an identity, so the sun/moon flips between its two sides rather than
+between the app's defaults. No component knows which palette it is drawn in — it says
+`bg-card` and `text-ink2` and gets that palette's pair — and every surface repaints over the
+same 120ms.
 
-A palette is a complete table rather than a variation: surfaces, the ten roles, the date
-capsule, the dock and the data colours, all twenty-one in every block, so nothing is
-inherited from a palette the owner did not pick. `src/lib/theme.ts` is the register — ids,
-labels, themes and the canvas colour the browser's own chrome is painted with — and a theme
-picker is a list over it calling `choosePalette(id)`; the toggle flips to the palette that
-was last used in the other theme, so a pick survives a trip through the other side. A
-browser that chose before palettes existed keeps its choice (`trackit-theme`'s `dark` and
-`light` are read once and mapped to `ink` and `paper`).
+A palette is a complete table rather than a variation: the canvas, the surfaces and their
+1px border, the two ink weights, the warning and chart accents, the date capsule, the dock
+and the data colours, every token stated in every block, so nothing is inherited from a
+palette the owner did not pick. `src/lib/theme.ts` is the register — ids, labels, themes and
+the canvas colour the browser's own chrome is painted with — and the settings grid is a list
+over it calling `chooseTheme(id)`. The **chart hue** is what the analytics screen draws with:
+the balance spline, the daily-spend squares and the allocation stack all move with the theme,
+while the `--data-*` colours stay put because those are the owner's categories. A browser
+that stored a palette before the six-theme register keeps its side (`ink` / `paper` and the
+old `midnight` / `parchment` samples are read once and mapped to Sage's pair).
 
 The repaint is **one clock for the whole page**. The colour roles are registered with
 `@property` as `<color>` and the *tokens* — not the elements — are what transition, so
