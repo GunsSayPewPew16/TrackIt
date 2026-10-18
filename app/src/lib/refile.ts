@@ -95,7 +95,9 @@ const WALLET_TITLES: Record<string, string[]> = {
  *
  * Only envelopes whose meaning survives the move: `restaurant` is the matrix's
  * *Restaurants*, `internet` is *Internet & Mobile*, and the two dimensions a re-homed row
- * can land on keep their own names. The ids the matrix splits between two pills — a
+ * can land on keep their own names. `food-drinks` is the one *renamed* rather than
+ * re-homed — the owner calls that dimension **Food & Beverages** now, and the name is here
+ * so the ledger says what the picker says. The ids the matrix splits between two pills — a
  * `bar-cafe` row is a coffee shop *or* a bar, `tv-streaming` is Spotify *or* a film, and
  * `financial-investments` is stocks *or* funds — are deliberately absent: the row is
  * where it belongs, but only the owner knows which of the two it was, and a title is not
@@ -112,7 +114,7 @@ const NEW_NAME: Record<string, string> = {
   taxi: "Taxi & Rideshare",
   "vehicle-maintenance": "Maintenance",
   allowance: "Allowance",
-  "food-drinks": "Food & Drink",
+  "food-drinks": "Food & Beverages",
   housing: "Housing & Utilities",
   shopping: "Shopping",
   transportation: "Transportation",

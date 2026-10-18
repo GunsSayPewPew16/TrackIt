@@ -19,6 +19,12 @@ const collapse = {
 } as const
 
 interface ManualEntryScreenProps {
+  /**
+   * The category the entry starts on: a quick-log chip's own envelope, or `null` when the
+   * sheet was opened from the add-record pill. The mosaic reads it like any other choice,
+   * so a preset `restaurant` opens the closed row on *Food & Beverages • Restaurants*.
+   */
+  initialCategory?: string | null
   onClose: () => void
   onSubmit?: (entry: ManualEntry) => void
   /** Wired by the sheet so a drag that starts on the header can dismiss it. */
@@ -81,12 +87,17 @@ function JournalLine({
  * mosaic brings them back. The amount stays on screen throughout, because it is the
  * thing being edited and the sheet is not a wizard.
  */
-export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: ManualEntryScreenProps) {
+export function ManualEntryScreen({
+  initialCategory = null,
+  onClose,
+  onSubmit,
+  onHeaderPointerDown,
+}: ManualEntryScreenProps) {
   const { raw, value, press, reset } = useAmountInput()
   const [account, setAccount] = useState(ACCOUNTS[0].id)
   const [merchant, setMerchant] = useState("")
   const [note, setNote] = useState("")
-  const [category, setCategory] = useState<string | null>(null)
+  const [category, setCategory] = useState<string | null>(initialCategory)
   const [expanded, setExpanded] = useState(false)
   /**
    * How tall the category panel is allowed to be: the sheet's column, less the account
@@ -134,7 +145,9 @@ export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: Ma
           className="absolute inset-x-0 top-0 flex h-14 cursor-grab touch-none items-center justify-between px-4"
         >
           <span aria-hidden="true" className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-line" />
-          <span className="font-editorial text-[15px] leading-6 italic text-ink2">New expense</span>
+          {/* The sheet's title, at the editorial serif's reading size — 18px, one step up
+              the ladder from the 15px captions the same face sets elsewhere. */}
+          <span className="font-editorial text-[18px] leading-7 italic text-ink2">New expense</span>
           <button
             type="button"
             aria-label="Close"

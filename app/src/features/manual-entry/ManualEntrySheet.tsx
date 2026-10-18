@@ -23,7 +23,7 @@ import type { SheetProps } from "./types"
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const
 const DISMISS_DISTANCE = 150
 
-export function ManualEntrySheet({ isOpen, onClose, onSubmit }: SheetProps) {
+export function ManualEntrySheet({ isOpen, category, onClose, onSubmit }: SheetProps) {
   const controls = useDragControls()
 
   useEffect(() => {
@@ -82,6 +82,9 @@ export function ManualEntrySheet({ isOpen, onClose, onSubmit }: SheetProps) {
             className="fixed inset-0 z-[55] mx-auto w-full max-w-[390px] overflow-hidden bg-canvas"
           >
             <ManualEntryScreen
+              // Seeded per open: the screen unmounts with the sheet, so a chip's category
+              // is what the next open starts on and the add-record pill's `null` clears it.
+              initialCategory={category ?? null}
               onClose={onClose}
               onSubmit={onSubmit}
               onHeaderPointerDown={(event) => controls.start(event)}

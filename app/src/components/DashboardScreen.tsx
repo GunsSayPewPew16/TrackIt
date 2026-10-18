@@ -4,6 +4,7 @@ import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import type { GreetingLine } from "@/lib/greetings"
+import { lightTap } from "@/lib/haptics"
 import type { Theme } from "@/lib/theme"
 import type { DashboardModel } from "@/lib/view"
 
@@ -45,6 +46,7 @@ export function DashboardScreen({
   onToggleTheme,
   onScan,
   onAddRecord,
+  onQuickLog,
 }: {
   model: DashboardModel
   /**
@@ -58,6 +60,13 @@ export function DashboardScreen({
   onScan: () => void
   /** The add-record pill on the account stack opens the manual entry sheet. */
   onAddRecord: () => void
+  /**
+   * A quick-log chip opens the same sheet with the category that chip's own rows were
+   * filed under already chosen — `LOG RESTAURANTS` arrives on *Food & Beverages •
+   * Restaurants*, so the common entry is a figure and a confirm rather than a walk
+   * through the mosaic.
+   */
+  onQuickLog: (category: string) => void
 }) {
   /** The artboard's small letterspaced label, which every chip and pill wears. */
   const pill = "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
@@ -132,7 +141,15 @@ export function DashboardScreen({
           {/* A tray, so it scrolls sideways without a bar the way the artboard's does. */}
           <div className="hide-scrollbar flex gap-2 overflow-x-auto">
             {model.quickLog.actions.map((action) => (
-              <button key={action.label} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => {
+                  lightTap() // must run synchronously inside the tap for iOS
+                  onQuickLog(action.category)
+                }}
+                className="h-12 flex-none border-0 bg-transparent p-0"
+              >
                 <span
                   className={`${pill} h-8 rounded-2xl px-3 ${
                     action.primary ? "bg-sage text-on-sage" : "border border-sage bg-transparent text-sage"

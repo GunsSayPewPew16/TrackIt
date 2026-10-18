@@ -166,10 +166,13 @@ export const DEMO_DASHBOARD: DashboardModel = {
   quickLog: {
     title: "Quick log",
     context: timeOfDayWord(),
+    // The categories are what these three would file under if they were the owner's own
+    // rows, because a chip opens the manual entry on its category — see `quickActions` in
+    // `lib/derive.ts`, which is the same shape from real history.
     actions: [
-      { label: "LOG TRANSIT FARE", primary: true },
-      { label: "LOG BREAKFAST", primary: false },
-      { label: "LOG COFFEE", primary: false },
+      { label: "LOG TRANSIT FARE", primary: true, category: "public-transport" },
+      { label: "LOG BREAKFAST", primary: false, category: "restaurant" },
+      { label: "LOG COFFEE", primary: false, category: "bar-cafe" },
     ],
   },
   velocity: {

@@ -233,21 +233,36 @@ export function ledgerModel(rows: Row[], budgets: Budget[] = [], anchor?: number
  * The predictive tray's actions: what the owner buys at this time of day, from
  * the last thirty days of their own rows. The artboard's own three (a transit
  * fare, breakfast, coffee) are what the demo shows before anything is imported.
+ *
+ * **Each action carries the category its own rows were filed under**, because the tray is
+ * a door into the manual entry: pressing it opens the sheet with that category already
+ * chosen (`App.tsx` hands it in, `ManualEntryScreen` starts on it), so the common entry
+ * is one tap and a figure rather than a tap, a figure and a walk through the mosaic. A
+ * title the owner has filed two ways carries the envelope most of those rows used, which
+ * is the one they most often mean.
  */
-function quickActions(rows: Row[], now: number): { label: string; primary: boolean }[] {
+function quickActions(rows: Row[], now: number): { label: string; primary: boolean; category: string }[] {
   const recent = rows.filter((row) => isExpense(row) && row.at >= addDays(now, -30))
-  const counts = new Map<string, { title: string; count: number }>()
+  const counts = new Map<string, { title: string; count: number; categories: Map<string, number> }>()
   for (const row of recent) {
     const title = (row.title || filedName(row.category)).trim()
     if (!title) continue
     const held = counts.get(title.toLowerCase())
-    if (held) held.count += 1
-    else counts.set(title.toLowerCase(), { title, count: 1 })
+    if (held) {
+      held.count += 1
+      held.categories.set(row.category, (held.categories.get(row.category) ?? 0) + 1)
+    } else {
+      counts.set(title.toLowerCase(), { title, count: 1, categories: new Map([[row.category, 1]]) })
+    }
   }
   return [...counts.values()]
     .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title))
     .slice(0, 3)
-    .map((entry, index) => ({ label: `LOG ${entry.title.toUpperCase()}`, primary: index === 0 }))
+    .map((entry, index) => ({
+      label: `LOG ${entry.title.toUpperCase()}`,
+      primary: index === 0,
+      category: [...entry.categories.entries()].sort((a, b) => b[1] - a[1])[0][0],
+    }))
 }
 
 /**

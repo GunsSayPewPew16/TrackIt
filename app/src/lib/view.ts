@@ -86,8 +86,12 @@ export type DashboardModel = {
     title: string
     /** `Morning` — the tray is a guess about *now*, so it says which now. */
     context: string
-    /** The predictive actions, the first one filled. */
-    actions: { label: string; primary: boolean }[]
+    /**
+     * The predictive actions, the first one filled. Each carries the category its own
+     * rows were filed under, because the tray opens the manual entry with that category
+     * already chosen — an action is a door, not a label.
+     */
+    actions: { label: string; primary: boolean; category: string }[]
   }
   velocity: {
     /** `BURNING FAST` — how the pace reads, not just its number. */

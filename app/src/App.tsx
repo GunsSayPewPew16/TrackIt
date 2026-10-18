@@ -16,7 +16,7 @@ import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
 import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
-import { categoryFor, DEFAULT_CATEGORY } from "@/lib/categories"
+import { DEFAULT_CATEGORY } from "@/lib/categories"
 import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 import { appendToLedger } from "@/lib/ledger"
@@ -143,6 +143,11 @@ export default function App() {
    */
   const [EntrySheet, setEntrySheet] = useState<ComponentType<SheetProps> | null>(null)
   const [entryOpen, setEntryOpen] = useState(false)
+  /**
+   * The category the sheet opens on, when it was opened from a quick-log chip rather than
+   * from the add-record pill: `null` for a blank entry, which is what the pill means.
+   */
+  const [entryCategory, setEntryCategory] = useState<string | null>(null)
 
   /**
    * After the first screen is painted, the other two are fetched in the background, so a tap
@@ -193,13 +198,20 @@ export default function App() {
    * title (or the category's name when the merchant was left empty), and `source: manual`
    * so a hand-typed row can always be told from an imported or scanned one.
    */
-  const openEntry = useCallback(async () => {
-    if (!EntrySheet) {
-      const module = await import("@/features/manual-entry")
-      setEntrySheet(() => module.ManualEntrySheet)
-    }
-    setEntryOpen(true)
-  }, [EntrySheet])
+  const openEntry = useCallback(
+    async (category: string | null = null) => {
+      // Set before the sheet opens, and before any await: the category is what the sheet
+      // starts on, and a chip tap that fetched the module first would otherwise open a
+      // blank entry and only then be told what it was for.
+      setEntryCategory(category)
+      if (!EntrySheet) {
+        const module = await import("@/features/manual-entry")
+        setEntrySheet(() => module.ManualEntrySheet)
+      }
+      setEntryOpen(true)
+    },
+    [EntrySheet],
+  )
 
   const addEntry = useCallback((entry: ManualEntry) => {
     const at = Date.now()
@@ -258,6 +270,7 @@ export default function App() {
               onToggleTheme={toggleTheme}
               onScan={() => void goTo("scan")}
               onAddRecord={() => void openEntry()}
+              onQuickLog={(category) => void openEntry(category)}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger
@@ -294,7 +307,12 @@ export default function App() {
 
       {/* The one modal in the app: over the dock, and fetched on first use. */}
       {EntrySheet && (
-        <EntrySheet isOpen={entryOpen} onClose={() => setEntryOpen(false)} onSubmit={addEntry} />
+        <EntrySheet
+          isOpen={entryOpen}
+          category={entryCategory}
+          onClose={() => setEntryOpen(false)}
+          onSubmit={addEntry}
+        />
       )}
     </>
   )

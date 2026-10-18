@@ -39,7 +39,7 @@ import { lightTap } from "@/lib/haptics"
  * dimensions as an asymmetric bento mosaic, and then unfolds again — per parent —
  * into the sub-categories that actually file the row.
  *
- * **The mosaic is the parent tree.** Food & Drink and Shopping get the wide 2×1
+ * **The mosaic is the parent tree.** Food & Beverages and Shopping get the wide 2×1
  * blocks because they are where the money goes; Life & Leisure gets the 2×2 and
  * Investments a compact 1×1. Each tile is its data colour at `--tint-bg` (14% in dark
  * over the card's #1A221E, 10% on white) with a `--tint-border` (35%) hairline; the
@@ -89,8 +89,8 @@ type MatrixCategory = {
 const MATRIX: MatrixCategory[] = [
   {
     id: "food-drinks",
-    name: "Food & Drink",
-    short: "Food & drink",
+    name: "Food & Beverages",
+    short: "Food & beverages",
     tone: "red",
     area: "col-span-2",
     children: [

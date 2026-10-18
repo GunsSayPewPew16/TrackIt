@@ -87,8 +87,10 @@ to the nearest id that exists (`mobile-recharge` and `phone` → `internet`, `st
 `transportation`, and `friends` / `culture-sport` → `life-entertainment`), a title that still
 reads as an envelope's own name — Wallet's longer spelling included, see `WALLET_TITLES` — is
 replaced with the new name, and `filedName()` is what every screen calls a category by, so
-the ledger reads *Restaurants* / *Internet & Mobile* where the table still says `Restaurant,
-fast-food` / `Mobile Recharge`. It is applied wherever rows are read (the bundled sheet, the
+the ledger reads *Restaurants* / *Internet & Mobile* / *Food & Beverages* where the table still
+says `Restaurant, fast-food` / `Mobile Recharge` / `Food & Drinks` (`food-drinks` is the one
+name in `NEW_NAME` that is a *rename* rather than a re-filing, and it is there so the ledger
+says what the picker says). It is applied wherever rows are read (the bundled sheet, the
 stored ledger, an import), the store is rewritten in the same pass, and it is idempotent —
 **no new category ids were invented for it**, and `lib/categories.ts` stays the importer's own
 generated table.
@@ -257,7 +259,14 @@ left out and why.
   iOS are one/two/three clicks of the root switch, because the platform has no length to
   vary. A confirm converts the sheet's rupees to integer paise once and appends one
   `source: "manual"` row; the sheet's module is fetched on the first press, so it is not in
-  the entry chunk.
+  the entry chunk. **The sheet can be opened with a category already chosen**: a quick-log chip
+  hands in the envelope its own rows were filed under (`quickActions` in `lib/derive.ts` carries
+  the id, `App.openEntry` takes it, `SheetProps.category` seeds the screen's state), so
+  `LOG RESTAURANTS` arrives on *Food & Beverages • Restaurants* with the keypad up, exactly as
+  the add-record pill opens it — and the pill hands in `null`, because a blank entry is what *it*
+  means. The screen unmounts with the sheet, which is why the seed cannot outlive one open. The
+  sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up
+  from the 15px captions the same face sets elsewhere.
   **The mosaic is one surface whose height animates** — the row and the open panel are the
   same element, 56px closed and the sheet's measured room open — and the shape of that
   animation is a decision, not an implementation detail. It used to be two elements sharing

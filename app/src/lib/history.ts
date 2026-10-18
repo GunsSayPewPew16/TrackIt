@@ -31,7 +31,7 @@
  */
 
 import { ACCOUNTS, DEFAULT_ACCOUNT } from "./accounts"
-import { CATEGORIES, DEFAULT_CATEGORY, categoryFor, categoryIdForLabel } from "./categories"
+import { CATEGORIES, DEFAULT_CATEGORY, categoryIdForLabel } from "./categories"
 import { filedName } from "./refile"
 import { DEFAULT_CURRENCY } from "./format"
 import type { Budget, Kind, Row } from "./types"
