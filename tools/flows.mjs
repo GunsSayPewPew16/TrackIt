@@ -17,6 +17,10 @@
  *   3. **The date card** — opens on the current moment, cannot be closed by anything but
  *      `done` (the scrim is not a door), pages its months on a swipe without the day under
  *      the finger becoming the choice, and hands the moment back to the pill.
+ *   4. **The session** — on a build with a portal, the account that got in is still there after
+ *      a reload, and **Sign out** ends it for good: the portal is back, `trackit-auth` and the
+ *      portal's mark are gone, and a reload does not open the vault again. It runs last,
+ *      because it is the only flow that ends what the others need.
  *
  * **What it is not.** Not a unit-test suite, not a screenshot baseline, and not a cover of
  * the iOS-only paths: the switch-click haptics and the platform's own time wheel need a
@@ -44,6 +48,21 @@
  *     npm run check:flows                     # starts the dev server if it is not already up
  *     APP_URL=http://127.0.0.1:4324/ npm run check:flows
  *     TRACKIT_HEADED=1 npm run check:flows    # watch it, in a window
+ *
+ * The two auth flows need a **gated** build — the app with a portal — and a gate needs someone
+ * to open it. The server this script starts is chosen accordingly: device-only (`VITE_CLOUD=off`)
+ * with nothing handed in, **gated** when either a session or an account is given, so a run with
+ * credentials can never be pointed at a build that would ignore them. An `APP_URL` that is
+ * already up is used exactly as it is found, whatever it was built with.
+ *
+ * Either give it the real door — email, password, and the code from the inbox while it is still
+ * valid — or, to check remembered sessions and sign-out without an inbox, hand it a session id:
+ *
+ *     APP_URL=http://127.0.0.1:4323/ TRACKIT_TEST_EMAIL=you@example.com \
+ *       TRACKIT_TEST_PASSWORD=... TRACKIT_TEST_CODE=123456 npm run check:flows
+ *
+ *     APP_URL=http://127.0.0.1:4323/ TRACKIT_TEST_SESSION='{"id":"<uuid>","email":"you@example.com"}' \
+ *       npm run check:flows
  *
  * Exit codes: 0 everything passed, 1 an assertion failed, 2 the check could not run (no
  * browser, or the app never answered) — a missing Chrome is not mistaken for a green run.
@@ -268,10 +287,19 @@ async function reachable(url) {
  *
  * A check nobody can run is a check nobody runs, so this starts Vite itself and stops it
  * again at the end. A server that was already up is left exactly as it was found — the
- * owner may be watching it in the Preview panel — which is why the one it starts is a
- * **device-only** build (`VITE_CLOUD=off`): `lib/supabase-config.ts` gives every other build
- * the project, and a gated app would stop at the portal unless a test account is provided.
+ * owner may be watching it in the Preview panel.
+ *
+ * **Which build it starts is decided by what the run was given.** With no account and no
+ * session, the one it starts is **device-only** (`VITE_CLOUD=off`): `lib/supabase-config.ts`
+ * gives every other build the project, and a gated app would stop at the portal. With either
+ * `TRACKIT_TEST_SESSION` or an email and password, it starts the **gated** build instead — the
+ * only one with a portal — because a device build would quietly ignore the credentials and
+ * report the auth flows as green without ever asking for them.
  */
+const wantsDoor = Boolean(
+  process.env.TRACKIT_TEST_SESSION || process.env.TRACKIT_TEST_EMAIL || process.env.TRACKIT_TEST_PASSWORD,
+)
+
 async function ensureApp() {
   const deadline = Date.now() + 40000
   if (await reachable(APP_URL)) return null
@@ -279,7 +307,7 @@ async function ensureApp() {
     cwd: ROOT,
     detached: true,
     stdio: "ignore",
-    env: { ...process.env, VITE_CLOUD: "off" },
+    env: wantsDoor ? { ...process.env } : { ...process.env, VITE_CLOUD: "off" },
   })
   while (Date.now() < deadline) {
     await sleep(500)
@@ -417,10 +445,26 @@ class Screen {
     await sleep(700)
   }
 
-  /** What the page's own store holds, which is what a reload will show. */
+  /**
+   * What the page's own store holds, which is what a reload will show.
+   *
+   * **The key is the account's, when there is an account.** `lib/ledger.ts` keeps a signed-in
+   * build's ledger at `trackit-ledger:u:<uuid>` so two accounts on one device never share a
+   * sheet, and the device-only build at `trackit-ledger`. The harness signs in now, so a reader
+   * that only ever looked at the device key would find an empty store while the app was writing
+   * rows somewhere else and call every write a failure. The session in `trackit-auth` is the
+   * same one `lib/ledger.ts` reads its owner from, so this is the app's own answer, not a guess.
+   */
   rows() {
     return this.cdp.evaluate(`(() => {
-      const store = JSON.parse(localStorage.getItem("trackit-ledger") ?? '{"rows":[]}');
+      let owner = null;
+      try {
+        owner = JSON.parse(localStorage.getItem("trackit-auth") ?? "null")?.user?.id ?? null;
+      } catch {
+        owner = null;
+      }
+      const key = owner ? \`trackit-ledger:u:\${owner}\` : "trackit-ledger";
+      const store = JSON.parse(localStorage.getItem(key) ?? '{"rows":[]}');
       return store.rows;
     })()`)
   }
@@ -547,6 +591,57 @@ async function enterApp(screen) {
   const portal = await screen.cdp.evaluate(`document.querySelector('[aria-label="Email"]') !== null`)
   if (!portal) return "device"
 
+  /**
+   * A session handed in rather than typed.
+   *
+   * Signing in properly needs a code out of an inbox, and a check that needs a person is a
+   * check that stops being run. `TRACKIT_TEST_SESSION` is `{"id":…,"email":…}`: this writes the
+   * session object supabase-js would have stored, plus the portal's verified mark, and reloads.
+   * It is a **test harness**, not a door — nothing in the app reads it — and what it lets the
+   * suite exercise is the half of the promise a script *can* verify: that a session survives a
+   * reload, and that Sign out ends it. The sign-in itself still needs the real door above.
+   */
+  const seed = process.env.TRACKIT_TEST_SESSION
+  if (seed) {
+    let identity
+    try {
+      identity = JSON.parse(seed)
+    } catch {
+      throw new Error('TRACKIT_TEST_SESSION must be JSON like {"id":"<uuid>","email":"you@example.com"}')
+    }
+    if (!identity?.id) throw new Error("TRACKIT_TEST_SESSION needs an account id")
+    const session = {
+      access_token: "test-session",
+      token_type: "bearer",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: "test-refresh",
+      user: {
+        id: identity.id,
+        aud: "authenticated",
+        role: "authenticated",
+        email: identity.email ?? "test@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        app_metadata: { provider: "email", providers: ["email"] },
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      },
+    }
+    await screen.cdp.evaluate(`(() => {
+      localStorage.setItem("trackit-auth", ${JSON.stringify(JSON.stringify(session))});
+      localStorage.setItem("trackit-portal:verified", ${JSON.stringify(identity.id)});
+      return true;
+    })()`)
+    await screen.cdp.goto(APP_URL)
+    await screen.until(
+      `document.querySelector('[data-account-trigger]') !== null`,
+      "the dashboard after the seeded session",
+      20000,
+    )
+    notes.push("the session was seeded with TRACKIT_TEST_SESSION — sign-in itself was not exercised")
+    return "seeded"
+  }
+
   const email = process.env.TRACKIT_TEST_EMAIL
   const password = process.env.TRACKIT_TEST_PASSWORD
   if (!email || !password) return "portal"
@@ -578,6 +673,108 @@ async function enterApp(screen) {
     25000,
   )
   return "signed-in"
+}
+
+/**
+ * The session: remembered, and ended by the door.
+ *
+ * Runs **last**, because signing out is the one flow that takes away what the others need.
+ * Two things are asserted, and they are exactly the two the owner reported as broken from the
+ * outside: a reload does not send a signed-in device back to the portal, and **Sign out** does
+ * sign out — the portal is on screen, `trackit-auth` and the portal's verified mark are gone,
+ * and a second reload does not smuggle the session back.
+ */
+async function flowSession(screen) {
+  /** Whichever screen the app is on, read in its own round trip. */
+  const screenNow = () =>
+    `(() => {
+      if (document.querySelector('[aria-label="Email"]')) return "portal";
+      if (document.querySelector('[data-account-trigger]')) return "dashboard";
+      return null;
+    })()`
+
+  await check("session: the login is remembered across a reload", async () => {
+    await screen.open(APP_URL)
+    await screen.until(
+      `document.querySelector('[data-account-trigger]') !== null`,
+      "the dashboard",
+      20000,
+    )
+    await screen.cdp.goto(APP_URL)
+    const state = await screen.until(screenNow(), "the app after a reload", 20000)
+    assertEqual(state, "dashboard", "the screen a signed-in device gets after a reload")
+  })
+
+  await check("session: Sign out ends it, and it stays ended", async () => {
+    await screen.press("[data-account-trigger]")
+    await screen.until(
+      `document.querySelector('[role="dialog"][aria-label="Account"]') !== null`,
+      "the account panel",
+    )
+    const panel = await screen.text('[role="dialog"][aria-label="Account"]')
+    assert(/signed in as/i.test(panel ?? ""), "the account panel does not say who is signed in")
+    assert(/sign out/i.test(panel ?? ""), "the account panel draws no Sign out")
+
+    await screen.pressText('[role="dialog"][aria-label="Account"]', "Sign out")
+    const state = await screen.until(screenNow(), "the portal after Sign out", 15000)
+    assertEqual(state, "portal", "the screen after Sign out")
+
+    const store = await screen.cdp.evaluate(`(() => ({
+      session: localStorage.getItem("trackit-auth"),
+      mark: localStorage.getItem("trackit-portal:verified"),
+    }))()`)
+    assertEqual(store.session, null, "the stored session after Sign out")
+    assertEqual(store.mark, null, "the portal's verified mark after Sign out")
+
+    await screen.cdp.goto(APP_URL)
+    const after = await screen.until(screenNow(), "the app after signing out and reloading", 20000)
+    assertEqual(after, "portal", "the screen after signing out and reloading")
+  })
+}
+
+/**
+ * The door itself, checked where the suite can see it.
+ *
+ * The owner reported the login broken from the outside, so the suite asserts **the sign-in
+ * happened**, not merely that a dashboard appeared. A session handed in through
+ * `TRACKIT_TEST_SESSION` cannot prove that, and says so instead of passing quietly; a session
+ * walked through the real door is checked for the two things only a real one has — a token
+ * Supabase minted (three JWT segments, not the harness's placeholder) and the mailbox the code
+ * went to on the account.
+ */
+async function flowSignIn(screen, entry) {
+  // Two names, because they are two different claims: a run given a real account asserts the
+  // door's session, and a seeded run asserts only what the harder half of the run needs.
+  const claim =
+    entry === "signed-in"
+      ? "auth: the door walked a real signed-in session"
+      : "auth: the seeded session the rest of the run needs"
+  await check(claim, async () => {
+    const state = await screen.cdp.evaluate(`(() => {
+      const session = JSON.parse(localStorage.getItem("trackit-auth") ?? "null");
+      return {
+        dashboard: document.querySelector('[data-account-trigger]') !== null,
+        email: session?.user?.email ?? null,
+        // The harness writes this one token value and nothing else does.
+        seeded: session?.access_token === "test-session",
+        segments: typeof session?.access_token === "string"
+          ? session.access_token.split(".").length
+          : 0,
+      };
+    })()`)
+    assert(state.dashboard, "the dashboard is not on screen behind a session")
+    assert(state.email, "the stored session carries no account email")
+    if (entry === "signed-in") {
+      // Walked through the door: nothing here was handed in, so the token has to be one
+      // Supabase minted and the sign-in is genuinely covered by the run.
+      assertEqual(state.segments, 3, "the segments of the token the door was given")
+      assertEqual(state.seeded, false, "a signed-in session that was actually seeded")
+    } else {
+      // Seeded: the session is the harness's, and saying so is the honest report. What the
+      // run then covers is the remembered session and the sign-out, below.
+      assertEqual(state.seeded, true, "the seeded session the harder half of the run needs")
+    }
+  })
 }
 
 /**
@@ -958,9 +1155,15 @@ async function main() {
     const blocked = entry === "portal" || entry === "code"
     if (entry === "portal") await flowPortal(screen)
     else {
+      // The device build has no portal, so there is no door and nothing to sign out of: the
+      // two auth flows run only where the app has a session to keep or end.
+      const hasPortal = entry === "signed-in" || entry === "seeded"
+      if (hasPortal) await flowSignIn(screen, entry)
       await flowAddRecordSwitch(screen)
       await flowFriendsPill(screen)
       await flowDateCard(screen)
+      // Last, because it is the flow that signs the account out.
+      if (hasPortal) await flowSession(screen)
     }
 
     if (cdp.exceptions.length > 0) {

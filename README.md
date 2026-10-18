@@ -458,7 +458,8 @@ values from the source (`lib/supabase-config.ts`, so no host needs configuring),
 the portal, take the password and then the six digits Supabase mails — or the mailed link,
 returned to the app — and sign out from the account panel behind the greeting's name
 (`supabase/README.md` §2–3 says which Supabase settings make the mail carry digits and where its
-link may return to). A sign-in is remembered on the device until that sign-out; a release can
+link may return to — and `npm run setup:auth` applies those three settings to the project from the
+terminal, with a personal access token, so none of them needs clicking in the dashboard). A sign-in is remembered on the device until that sign-out; a release can
 retire every older session once by bumping `SESSION_EPOCH` in `lib/portal.ts`. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
 exists on the account yet**, so the live site greets from the fifty in its own bundle

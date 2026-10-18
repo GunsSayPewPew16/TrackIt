@@ -644,20 +644,36 @@ npm run check:flows  # the three key flows, driven in Chrome over CDP
 `check:flows` (`tools/flows.mjs`) is the portable half of the driving below: it launches its
 own Chrome on a throwaway profile, starts the dev server if one is not already up, and asserts
 the add-record rail and both kinds, a scanned code's payment screen, the Friends pill and its
-reload, and the date card's opening moment, swipe paging and `done` — with real mouse input,
-not `element.click()`, because a control under a drag layer still "clicks" from a script. It
-exits 1 on a failed assertion and 2 when it cannot run at all (no Chrome, or the app never
-answered), so a green run is never a missing browser. Keep it green: a new flow belongs there
-rather than in a one-off probe.
+reload, the date card's opening moment, swipe paging and `done`, and — on a build with a portal —
+the **session**: the account is still there after a reload, and **Sign out** reaches the portal
+with `trackit-auth` and the portal's mark gone and stays signed out over another reload. It uses
+real mouse input, not `element.click()`, because a control under a drag layer still "clicks" from
+a script. It exits 1 on a failed assertion and 2 when it cannot run at all (no Chrome, or the app
+never answered), so a green run is never a missing browser. Keep it green: a new flow belongs
+there rather than in a one-off probe. Signed in, the flows read the ledger the app is actually
+writing — `trackit-ledger:u:<uuid>` behind a session, `trackit-ledger` without one — so a check
+for a typed row is never fooled by the store the app has stopped using.
 
 **A gated build needs a test account, and now a code.** The script signs in with
 `TRACKIT_TEST_EMAIL` and `TRACKIT_TEST_PASSWORD` when the build has a portal; with neither set it
 checks the portal itself (its two fields, its refused submit, the closed sign-ups sentence) and
 exits **2** saying the signed-in flows did not run — never 0. A right password lands on the
 **six-digit step**, which a script cannot read an inbox for, so that is exit 2 as well unless
-`TRACKIT_TEST_CODE` carries a code that is still valid (five minutes; run it by hand). To run the
-signed-in flows without touching the project, build the device app instead: `VITE_CLOUD=off npm
-run check:flows` (or point `APP_URL` at a server started that way).
+`TRACKIT_TEST_CODE` carries a code that is still valid (five minutes; run it by hand). Signed in
+that way, the run asserts a **real** sign-in: the stored access token is a JWT and the session is
+not the harness's. `TRACKIT_TEST_SESSION='{"id":"<uuid>","email":"…"}'` is the other way in —
+it writes the session supabase-js would have stored and reloads, which covers the remembered
+session and the sign-out without an inbox but, as the notes it prints say, does not exercise the
+sign-in itself. To run thesigned-in flows without touching the project, build the device app instead: `VITE_CLOUD=off npm
+run check:flows` (or point `APP_URL` at a server started that way). The server the suite starts
+itself matches what it was handed: **gated** when a session or an account is given, device-only
+otherwise — so credentials are never pointed at a build that has no portal and reported green.
+
+The three Supabase settings the mail and the links depend on — the Magic Link template with
+`{{ .Token }}`, the Site URL, and both live origins on the redirect allow-list — are applied from
+the terminal rather than the dashboard: `SUPABASE_ACCESS_TOKEN=sbp_… npm run setup:auth`
+(`tools/supabase-auth.mjs`; idempotent, `--dry-run` prints the diff), which is `supabase/README.md`
+§2 as one command.
 
 Then drive the app. What is worth exercising for a change in these areas:
 

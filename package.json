@@ -10,6 +10,7 @@
     "typecheck": "npm --prefix app run typecheck && tsc -p backend/tsconfig.json",
     "lint": "oxlint",
     "check:flows": "node tools/flows.mjs",
+    "setup:auth": "node tools/supabase-auth.mjs",
     "dev:api": "wrangler dev --config backend/wrangler.toml --port 8787",
     "types": "wrangler types backend/worker-configuration.d.ts --config backend/wrangler.toml",
     "db:local": "wrangler d1 execute trackit-db --local --config backend/wrangler.toml --file=backend/schema.sql",

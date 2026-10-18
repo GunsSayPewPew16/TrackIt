@@ -78,6 +78,25 @@ Configuration**:
 **Forgot password?** mails a link whose target is that same Site URL, so the two settings fix it
 together.
 
+### All three of those settings, in one command
+
+The template above and the two URL settings are the steps most often forgotten, because they are
+the only part of this setup that lives in a dashboard rather than in the repository. They can be
+applied from the terminal instead — the same three edits through the **Management API**:
+
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_xxxx npm run setup:auth
+```
+
+The token is a **personal access token** from *Account → Access Tokens*
+(`https://supabase.com/dashboard/account/tokens`), not the project's publishable key: it is an
+account credential, so it belongs in the shell for one command and never in this repository. The
+script (`tools/supabase-auth.mjs`) writes the Magic Link body with `{{ .Token }}`, the Site URL and
+the redirect allow-list, reads the config back to prove the write landed, and leaves every other
+field of the auth config alone. It is idempotent — run it again and it says everything already
+matches. `--dry-run` prints the diff and writes nothing, `--project <ref>` points it at a staging
+project, and `--help` lists the rest.
+
 ## 3. Give the app the two public values
 
 **Settings → API** (or *API Keys*): copy the **Project URL** and the **publishable / anon** key.

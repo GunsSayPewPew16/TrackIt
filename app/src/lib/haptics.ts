@@ -26,6 +26,14 @@
  * clicks have been reported to stop ticking from iOS 26.5, where only a real tap does.
  * Nothing in the app waits on a tick; a silent phone is the accepted fallback.
  *
+ * **The switch must never keep the focus.** WebKit moves focus to a label's control when
+ * the label is activated, and this one is activated *while a text field is taking focus* —
+ * every field calls `lightTap` from its `onFocus`. Left alone, the tick would pull the
+ * caret into a 1×1 transparent checkbox at the top of the page: the keyboard never opens
+ * and a login screen's fields look like they cannot be tapped. So the element that had the
+ * focus is remembered before the click and given it back after (`preventScroll`, so the
+ * page cannot jump), with the switch itself blurred when nothing did.
+ *
  * Call these **synchronously inside a user gesture** (click, pointerdown, keydown).
  * iOS ignores them outside one, which is why a drag can be silent until it is released.
  * A desktop with neither path simply gets nothing, which is the right amount of feedback
@@ -68,6 +76,27 @@ function ensureSwitch(): HTMLLabelElement | null {
   return label
 }
 
+/**
+ * Activate the switch without letting it take the caret.
+ *
+ * WebKit focuses a label's control on activation. A field calling `lightTap` from its own
+ * `focus` handler would therefore hand the focus to that checkbox a moment after taking it,
+ * which on a phone means no keyboard at all — the login screen's fields read as dead. The
+ * element that had the focus is restored synchronously (and without scrolling), so the tick
+ * is invisible to the page's state; a tick fired from nowhere leaves the switch blurred
+ * instead of focused.
+ */
+function tickSwitch(label: HTMLLabelElement): void {
+  const input = label.firstElementChild
+  const had = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  label.click()
+  if (had && had !== input) {
+    if (document.activeElement !== had) had.focus({ preventScroll: true })
+  } else if (document.activeElement === input && input instanceof HTMLElement) {
+    input.blur()
+  }
+}
+
 function pulse(ms: number, clicks: number): void {
   if (typeof navigator === "undefined") return
 
@@ -84,11 +113,12 @@ function pulse(ms: number, clicks: number): void {
 
   const label = ensureSwitch()
   if (!label) return
-  label.click()
+  tickSwitch(label)
   for (let i = 1; i < clicks; i += 1) {
     // iOS ignores a second scripted click in the same frame; ~30ms is the gap at which
-    // the system plays another tick.
-    window.setTimeout(() => label?.click(), i * 30)
+    // the system plays another tick. The follow-ups have no caret to protect: activating
+    // the switch again is what the focus restore above already accounted for.
+    window.setTimeout(() => tickSwitch(label), i * 30)
   }
 }
 
