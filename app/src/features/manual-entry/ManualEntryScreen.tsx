@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { X } from "lucide-react"
-import { useState, type PointerEventHandler } from "react"
+import { useLayoutEffect, useRef, useState, type PointerEventHandler } from "react"
 
 import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
@@ -88,6 +88,28 @@ export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: Ma
   const [note, setNote] = useState("")
   const [category, setCategory] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  /**
+   * How tall the category panel is allowed to be: the sheet's column, less the account
+   * tray and the one gap above the panel. Measured rather than guessed, because the
+   * mosaic's height is what the whole expansion animates to and a hard-coded number
+   * would drift with the safe-area inset and the height of the phone.
+   */
+  const [panelRoom, setPanelRoom] = useState(0)
+  const column = useRef<HTMLDivElement>(null)
+  const tray = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const el = column.current
+    if (!el) return
+    const measure = () => {
+      const trayHeight = tray.current?.offsetHeight ?? 0
+      setPanelRoom(Math.max(0, el.clientHeight - trayHeight - 8))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const text = formatRaw(raw)
   const digitSize = text.length <= 8 ? 56 : text.length <= 11 ? 44 : 36
@@ -156,9 +178,10 @@ export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: Ma
         </p>
       </section>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 px-4">
+      <div ref={column} className="relative flex min-h-0 flex-1 flex-col gap-2 px-4">
         {/* The account tray: one segmented control, the same 48px row on every phone. */}
         <div
+          ref={tray}
           role="radiogroup"
           aria-label="Account"
           className="grid shrink-0 grid-cols-2 gap-0 rounded-[20px] border border-line bg-card p-1"
@@ -193,7 +216,17 @@ export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: Ma
           })}
         </div>
 
-        {/* The journal lines, hidden while the mosaic needs their room. */}
+        {/*
+          The journal lines, hidden while the mosaic needs their room.
+
+          They stay in the flow on purpose. The two lines are the 92px the panel travels
+          upward on its way open: the panel is the column's last item, so as the lines
+          collapse the panel's top edge rises with them while its own height animation
+          pushes the bottom edge down. That is the whole expansion in two layout
+          numbers, with no shared-layout projection — a morph of that kind scales the
+          mosaic's type non-uniformly for half a second, which is what made the tiles look
+          smeared on the way in.
+        */}
         <AnimatePresence initial={false}>
           {!expanded && (
             <motion.div key="journal" {...collapse} transition={SPRING} className="overflow-hidden">
@@ -206,13 +239,26 @@ export function ManualEntryScreen({ onClose, onSubmit, onHeaderPointerDown }: Ma
         <CategoryMatrix
           value={category}
           expanded={expanded}
+          room={panelRoom}
           onExpand={() => setExpanded(true)}
           onCollapse={() => setExpanded(false)}
           onSelect={setCategory}
         />
 
-        {/* The keypad and the confirm leave the room while the mosaic is open. */}
-        <AnimatePresence initial={false}>
+        {/*
+          The keypad and the confirm leave the room while the mosaic is open.
+
+          `popLayout` is what makes the panel's opening one motion instead of two. An
+          exiting child normally stays in the flow for the whole of its exit, so the
+          keypad would keep its 248px for 400ms while the mosaic was trying to grow into
+          them: the panel grew part of the way, stalled, then jumped the last 265px in a
+          single frame when the exit finished. `popLayout` measures the leaving child and
+          places it absolutely at once, so the column's free space is the full room from
+          the first frame and the panel animates into it in one movement. The panel is
+          given a stacking context above it, so the keypad sliding away is never drawn
+          over the mosaic that is replacing it.
+        */}
+        <AnimatePresence initial={false} mode="popLayout">
           {!expanded && (
             <motion.div
               key="pad"

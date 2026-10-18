@@ -25,6 +25,9 @@
 
 import { ACCOUNTS, accountFor } from "./accounts"
 import { categoryFor } from "./categories"
+// The name a person reads, which is the new tree's where it renamed an envelope: see
+// `lib/refile.ts`. The table itself is still the source of the id and the icon.
+import { filedName } from "./refile"
 import {
   addDays,
   clock,
@@ -103,7 +106,7 @@ function styleOf(row: Row, monthSpend: number): "std" | "alt" | "inc" {
 function tagOf(row: Row, style: "std" | "alt" | "inc"): string {
   if (style === "inc") return "Income"
   if (style === "alt") return "High expense"
-  return categoryFor(row.category).label
+  return filedName(row.category)
 }
 
 /**
@@ -120,6 +123,7 @@ export function initialsOf(name: string): string {
 /** One row as the ledger draws it. */
 function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, number>, budgets: Budget[]): LedgerCard {
   const category = categoryFor(row.category)
+  const name = filedName(row.category)
   const style = styleOf(row, monthSpend)
 
   // The same envelope the gauge measures, where one covers this category.
@@ -133,15 +137,15 @@ function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, nu
 
   return {
     id: row.id,
-    title: row.title || category.label,
+    title: row.title || name,
     // The artboard's subtitle is the category, then the note: `Coffee · Morning run`.
-    sub: category.label,
+    sub: name,
     ...(row.note ? { subNote: row.note } : {}),
     tag: row.tag ?? tagOf(row, style),
     amount: signedMoney(row.amountCents, row.kind),
     time: clock(row.at),
     account: accountFor(row.account).name,
-    payee: initialsOf(row.title || category.label),
+    payee: initialsOf(row.title || name),
     pct,
     pctLabel: `${pct}%`,
     pctAria,
@@ -234,7 +238,7 @@ function quickActions(rows: Row[], now: number): { label: string; primary: boole
   const recent = rows.filter((row) => isExpense(row) && row.at >= addDays(now, -30))
   const counts = new Map<string, { title: string; count: number }>()
   for (const row of recent) {
-    const title = (row.title || categoryFor(row.category).label).trim()
+    const title = (row.title || filedName(row.category)).trim()
     if (!title) continue
     const held = counts.get(title.toLowerCase())
     if (held) held.count += 1
@@ -311,7 +315,7 @@ function envelope(rows: Row[], budgets: Budget[], monthSpend: number, now: numbe
     pct,
     chips: ranked
       .slice(1, 4)
-      .map(([id, spent]) => `${categoryFor(id).label}: ${pctOf(spent, monthSpend)}% of spend`),
+      .map(([id, spent]) => `${filedName(id)}: ${pctOf(spent, monthSpend)}% of spend`),
   }
 }
 
@@ -341,7 +345,6 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amountCents)
   }
   const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]
-  const topCategory = top ? categoryFor(top[0]) : undefined
 
   // Three, which is what the card is drawn for: the artboard's recent section is a 48px
   // header and three 64px rows inside 280px, and the demo content (`lib/demo.ts`) has
@@ -385,10 +388,10 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
     },
     topCategory: {
       badge: "TOP CATEGORY",
-      name: topCategory?.label ?? "Nothing yet",
+      name: top ? filedName(top[0]) : "Nothing yet",
       // The category's own marker, which `RowIcon` draws when the name is not a
       // Lucide icon of its own.
-      icon: topCategory?.id ?? "unknown",
+      icon: top?.[0] ?? "unknown",
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
@@ -397,8 +400,8 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
       title: "Recent transactions",
       rows: recent.map((row) => ({
         id: row.id,
-        title: row.title || categoryFor(row.category).label,
-        sub: categoryFor(row.category).label,
+        title: row.title || filedName(row.category),
+        sub: filedName(row.category),
         subNote: whenLabel(row.at, now),
         amount: signedMoney(row.amountCents, row.kind),
       })),

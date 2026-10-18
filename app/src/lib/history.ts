@@ -32,6 +32,7 @@
 
 import { ACCOUNTS, DEFAULT_ACCOUNT } from "./accounts"
 import { CATEGORIES, DEFAULT_CATEGORY, categoryFor, categoryIdForLabel } from "./categories"
+import { filedName } from "./refile"
 import { DEFAULT_CURRENCY } from "./format"
 import type { Budget, Kind, Row } from "./types"
 
@@ -344,7 +345,7 @@ function walletRead(
       id: docId(record).replace(/^Record_/, ""),
       // A Wallet note is empty, so the category the owner filed it under is what
       // the row is called.
-      title: names.get(key) ?? categoryFor(category).label,
+      title: names.get(key) ?? filedName(category),
       category,
       account: accounts.get(String(record.accountId ?? "")) ?? DEFAULT_ACCOUNT,
       // Wallet stores money as integer minor units, which is this app's unit too.
@@ -397,7 +398,7 @@ function genericRead(items: Record<string, unknown>[], log: Recorder): Row[] {
 
     const category = categoryIdOf(item.category ?? item.categoryId ?? item.category_id)
     const named = item.title ?? item.description ?? item.memo ?? item.payee ?? item.name
-    const title = typeof named === "string" && named.trim() ? named.trim() : categoryFor(category).label
+    const title = typeof named === "string" && named.trim() ? named.trim() : filedName(category)
     const note = typeof item.note === "string" && item.note.trim() ? item.note.trim() : undefined
     const people = Array.isArray(item.people) ? item.people.filter(isString) : []
     const account = typeof item.account === "string" ? accountIdFor(item.account) : DEFAULT_ACCOUNT

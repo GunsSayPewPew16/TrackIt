@@ -358,6 +358,19 @@
     }
   }
 
+  /*
+   * Zoom is refused at the root.
+   *
+   * `touch-action` is the intersection of the element and every ancestor that has one,
+   * so this is the only place a pinch could be left enabled again — and `pan-x pan-y`
+   * grants the app's two scroll axes while withholding `pinch-zoom`, which also cancels
+   * the double-tap gesture. iOS Safari needs `src/lib/zoom.ts` underneath this and the
+   * viewport in `index.html` above it; the three together are the lock.
+   */
+  html {
+    touch-action: pan-x pan-y;
+  }
+
   html,
   body,
   #root {

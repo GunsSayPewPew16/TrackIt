@@ -80,6 +80,19 @@ knows which producer filled them:
   (and says which), and the gauge measures the export's own envelope where it carried
   one. If a figure is wrong, it is wrong in this file.
 
+**The rows are re-filed to the new tree on the way in.** `app/src/lib/refile.ts` is the one
+place that knows both vocabularies: an envelope the six dimensions cannot offer is re-homed
+to the nearest id that exists (`mobile-recharge` and `phone` → `internet`, `stationery` →
+`shopping`, `education` → `books-subs`, `wellness` → `health-beauty`, `long-distance` →
+`transportation`, and `friends` / `culture-sport` → `life-entertainment`), a title that still
+reads as an envelope's own name — Wallet's longer spelling included, see `WALLET_TITLES` — is
+replaced with the new name, and `filedName()` is what every screen calls a category by, so
+the ledger reads *Restaurants* / *Internet & Mobile* where the table still says `Restaurant,
+fast-food` / `Mobile Recharge`. It is applied wherever rows are read (the bundled sheet, the
+stored ledger, an import), the store is rewritten in the same pass, and it is idempotent —
+**no new category ids were invented for it**, and `lib/categories.ts` stays the importer's own
+generated table.
+
 `app/src/lib/history.ts` reads the file; `app/src/lib/ledger.ts` keeps the rows
 (`trackit-ledger`, and a shared `EMPTY_LEDGER` const, because `useSyncExternalStore`
 compares snapshots by identity). Importing the same backup twice is a no-op by
@@ -89,6 +102,15 @@ left out and why.
 
 ## Design decisions already made — do not undo them silently
 
+- **Zoom is off, on purpose, and it takes three layers to do it.** The viewport carries
+  `maximum-scale=1, user-scalable=no`; `index.css` refuses pinch with `touch-action: pan-x
+  pan-y` on `html` (the property is the intersection of every ancestor, so nothing below can
+  widen it again); and `src/lib/zoom.ts` cancels Safari's `gesturestart` / `gesturechange` and
+  a multi-finger `touchmove`, which is the only layer Safari's iOS honours. This is a fixed
+  390px phone layout and the installed app has no zoom-out affordance, so a stray second
+  thumb used to leave it cropped until the app was killed. Single-finger scrolling, the
+  wheel's drag and the sheet's pull-down are untouched — do not "fix" this by removing one of
+  the three layers, because a different browser is covered by each.
 - **Dark is the default**, and it is what `:root` carries. Light is the same ten
   roles with different values, on `data-theme="light"`, and the choice is remembered
   under `trackit-theme`. A boot script in `app/index.html` applies it before the first
@@ -236,6 +258,22 @@ left out and why.
   vary. A confirm converts the sheet's rupees to integer paise once and appends one
   `source: "manual"` row; the sheet's module is fetched on the first press, so it is not in
   the entry chunk.
+  **The mosaic is one surface whose height animates** — the row and the open panel are the
+  same element, 56px closed and the sheet's measured room open — and the shape of that
+  animation is a decision, not an implementation detail. It used to be two elements sharing
+  a Framer `layoutId`, and the morph scaled the whole mosaic (tiles stretched non-uniformly,
+  the card translucent for long enough that the leaving keypad showed through it) while the
+  exiting keypad kept its 248px in the flow, so the panel grew part of the way, stalled, and
+  snapped the last 265px in one frame. Three things hold the current behaviour up: the panel
+  is one `motion.div` with `animate={{ height }}` and **no `layoutId`**; `ManualEntryScreen`
+  measures the room the panel may take (column height less the account tray and one gap) and
+  passes it down as `room`; and the keypad leaves with `AnimatePresence mode="popLayout"` so
+  it vacates the layout on the first frame while it slides away, with the panel at
+  `relative z-10` over it. The journal lines deliberately stay *in* the flow on the way
+  open — their 92px of collapse is what carries the panel's top edge upward while its own
+  height pushes the bottom down, which is the whole travel of the expansion. Closed, the
+  mosaic is still mounted at zero opacity and `inert`, and a transparent button over the
+  card is the tap target.
 - **The greeting is Anthropic Serif Display, in two styles of one family.** The owner
   chose the face and supplied the two static Medium cuts; `"Hello,"` is the Medium
   Italic and the name the Medium roman, both registered in `index.css` with an explicit

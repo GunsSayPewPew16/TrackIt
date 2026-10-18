@@ -17,6 +17,7 @@
  * down with it.
  */
 
+import { refile, refileBudget, refileRow } from "./refile"
 import { seedSnapshot } from "./seed"
 import type { Budget, Row } from "./types"
 
@@ -95,9 +96,25 @@ function read(): LedgerSnapshot {
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return bundled()
     const store = parsed as Record<string, unknown>
-    const rows = Array.isArray(store.rows) ? store.rows.filter(isRow) : []
-    const budgets = Array.isArray(store.budgets) ? store.budgets.filter(isBudget) : []
-    return { rows: newestFirst(rows), budgets }
+    const storedRows = Array.isArray(store.rows) ? store.rows.filter(isRow) : []
+    const storedBudgets = Array.isArray(store.budgets) ? store.budgets.filter(isBudget) : []
+    /*
+     * A ledger written before the new tree existed still files rows under Wallet's older
+     * envelope names. They are re-filed on the way out (`lib/refile.ts`), and the store is
+     * rewritten in the same pass, so what is on disk is what the screens show — once. A
+     * second read finds nothing to change and writes nothing.
+     */
+    const { rows, budgets, changed } = refile(storedRows, storedBudgets)
+    const snapshot: LedgerSnapshot = { rows: newestFirst(rows), budgets }
+    if (changed > 0) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...snapshot }))
+      } catch {
+        // A refused write costs the owner nothing but the wait: the read is re-filed
+        // anyway, so this session and every later one still show the new tree.
+      }
+    }
+    return snapshot
   } catch {
     return bundled()
   }
@@ -138,17 +155,21 @@ export function appendToLedger(next: { rows?: Row[]; budgets?: Budget[] }): {
   const knownRows = new Set(current.rows.map((row) => row.id))
   const fresh: Row[] = []
   let skipped = 0
-  for (const row of next.rows ?? []) {
-    if (knownRows.has(row.id)) {
+  for (const incoming of next.rows ?? []) {
+    if (knownRows.has(incoming.id)) {
       skipped += 1
       continue
     }
-    knownRows.add(row.id)
-    fresh.push(row)
+    knownRows.add(incoming.id)
+    // An imported file is re-filed like everything else: a backup made before the new
+    // tree existed lands on the tree the app files under today.
+    fresh.push(refileRow(incoming))
   }
 
   const knownBudgets = new Set(current.budgets.map((budget) => budget.id))
-  const freshBudgets = (next.budgets ?? []).filter((budget) => !knownBudgets.has(budget.id))
+  const freshBudgets = (next.budgets ?? [])
+    .filter((budget) => !knownBudgets.has(budget.id))
+    .map(refileBudget)
 
   const merged: LedgerSnapshot = {
     rows: newestFirst([...fresh, ...current.rows]).slice(0, LIMIT),

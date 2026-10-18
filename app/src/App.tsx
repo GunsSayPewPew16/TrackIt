@@ -17,6 +17,7 @@ import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
 import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
 import { categoryFor, DEFAULT_CATEGORY } from "@/lib/categories"
+import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 import { appendToLedger } from "@/lib/ledger"
 
@@ -207,7 +208,7 @@ export default function App() {
       rows: [
         {
           id: `manual-${at}-${Math.random().toString(36).slice(2, 8)}`,
-          title: entry.merchant || categoryFor(category).label,
+          title: entry.merchant || filedName(category),
           category,
           account: entry.account,
           amountCents: Math.round(entry.amount * 100),
