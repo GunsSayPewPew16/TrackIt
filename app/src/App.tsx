@@ -8,18 +8,22 @@ import { DashboardScreen } from "@/components/DashboardScreen"
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
 import type { Props as ScanProps } from "@/components/ScanScreen"
 import type { Props as StatsProps } from "@/components/AnalyticsScreen"
+// The budget editor's types only, for the same reason: it is fetched on the first hold.
+import type { BudgetSheetProps } from "@/features/budget/BudgetSheet"
 // The sheet's types only. The component itself is fetched the first time the pill is
 // pressed, so the entry chunk does not pay for a keypad most opens never open.
 import type { ManualEntry, SheetProps } from "@/features/manual-entry"
 import { logPaidPayee } from "@/features/upi/logScan"
 import type { UpiPayee } from "@/features/upi/upi"
+import { useBudgets } from "@/hooks/useBudgets"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
-import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
+import { demoDashboard, DEMO_LEDGER } from "@/lib/demo"
 import { DEFAULT_CATEGORY } from "@/lib/categories"
 import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
+import type { BudgetScope } from "@/lib/budget"
 import { appendToLedger } from "@/lib/ledger"
 
 /**
@@ -124,7 +128,14 @@ type Arrived = {
 }
 export default function App() {
   const { theme, toggleTheme } = useTheme()
-  const { rows, budgets } = useLedger()
+  /**
+   * The moment this open is drawn on. The dashboard's figures are "this month", so they need
+   * a clock, and taking it once here rather than on every derivation is also what keeps the
+   * model stable for the memo below.
+   */
+  const [now] = useState(() => Date.now())
+  const { rows, budgets, remove } = useLedger()
+  const { limits, save: saveBudget } = useBudgets()
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   const [arrived, setArrived] = useState<Arrived>({})
@@ -144,6 +155,15 @@ export default function App() {
    */
   const [EntrySheet, setEntrySheet] = useState<ComponentType<SheetProps> | null>(null)
   const [entryOpen, setEntryOpen] = useState(false)
+  /**
+   * The budget editor, fetched on the first hold for the same reason every other panel is:
+   * a keypad that may never be opened should not be in the entry chunk. It is warmer with the
+   * others, so the first hold is normally a panel rather than a wait.
+   */
+  const [BudgetEditor, setBudgetEditor] = useState<ComponentType<BudgetSheetProps> | null>(null)
+  const [budgetOpen, setBudgetOpen] = useState(false)
+  /** Which of the two budgets the editor is about. Read while the panel closes, too. */
+  const [budgetScope, setBudgetScope] = useState<BudgetScope>("food")
   /**
    * The category the sheet opens on, when it was opened from a quick-log chip rather than
    * from the add-record pill: `null` for a blank entry, which is what the pill means.
@@ -176,6 +196,7 @@ export default function App() {
       void screens.scan()
       void screens.stats()
       void import("@/features/manual-entry")
+      void import("@/features/budget/BudgetSheet")
     }
     if (typeof window.requestIdleCallback === "function") {
       const idle = window.requestIdleCallback(warm, { timeout: 2000 })
@@ -283,6 +304,23 @@ export default function App() {
     [addEntry, entryPayee],
   )
 
+  /**
+   * Open the budget editor for one of the two budgets, fetching the panel first if this is
+   * the first hold. The scope is set before the await, so a first hold still opens the panel
+   * on the budget it was made on.
+   */
+  const editBudget = useCallback(
+    async (scope: BudgetScope) => {
+      setBudgetScope(scope)
+      if (!BudgetEditor) {
+        const module = await import("@/features/budget/BudgetSheet")
+        setBudgetEditor(() => module.BudgetSheet)
+      }
+      setBudgetOpen(true)
+    },
+    [BudgetEditor],
+  )
+
   /** Closing without confirming is an answer too: the scanner's hint comes back. */
   const closeEntry = useCallback(() => {
     setEntryOpen(false)
@@ -297,8 +335,8 @@ export default function App() {
    */
   const imported = hasHistory(rows)
   const dashboard = useMemo(
-    () => (imported ? dashboardModel(rows) : DEMO_DASHBOARD),
-    [imported, rows],
+    () => (imported ? dashboardModel(rows, now, limits.food) : demoDashboard(limits.food)),
+    [imported, rows, now, limits.food],
   )
   const ledger = useMemo(
     () => (imported ? ledgerModel(rows, budgets, anchor) : DEMO_LEDGER),
@@ -328,16 +366,26 @@ export default function App() {
               onScan={() => void goTo("scan")}
               onAddRecord={() => void openEntry()}
               onQuickLog={(category) => void openEntry(category)}
+              onSetBudget={() => void editBudget("food")}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger
               model={ledger}
               theme={theme}
               onToggleTheme={toggleTheme}
-            onPickMonth={setAnchor}
+              onPickMonth={setAnchor}
+              // The ledger screen only asks; the store is what forgets a row and tells every
+              // screen subscribed to it (`lib/ledger.ts`).
+              onDelete={remove}
             />
           ) : view === "stats" && Stats ? (
-          <Stats rows={rows} theme={theme} onToggleTheme={toggleTheme} />
+            <Stats
+              rows={rows}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              budgetCents={limits.total}
+              onSetBudget={() => void editBudget("total")}
+            />
         ) : view === "scan" && Scan ? (
             <Scan
               theme={theme}
@@ -369,6 +417,24 @@ export default function App() {
           payee={entryPayee}
           onClose={closeEntry}
           onSubmit={submitEntry}
+        />
+      )}
+
+      {/*
+        The budget editor. A long press on either budget card opens it on that budget — the
+        dashboard's envelope is `food`, the stats dial is `total` — and the save writes the
+        owner's number to `lib/budget.ts`, which is what redraws both cards.
+      */}
+      {BudgetEditor && (
+        <BudgetEditor
+          isOpen={budgetOpen}
+          scope={budgetScope}
+          limitCents={limits[budgetScope]}
+          onClose={() => setBudgetOpen(false)}
+          onSave={(cents) => {
+            saveBudget(budgetScope, cents)
+            setBudgetOpen(false)
+          }}
         />
       )}
     </>

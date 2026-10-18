@@ -1,12 +1,14 @@
-import { motion } from "framer-motion"
-import { Check, ChevronDown } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Check, ChevronDown, Trash2 } from "lucide-react"
 import { DropdownMenu } from "radix-ui"
 import { useState } from "react"
 
 import { DateWheel } from "@/components/DateWheel"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { useLongPress } from "@/hooks/useLongPress"
 import { monthKey, monthLabel } from "@/lib/format"
+import { heavyThud, mediumClick } from "@/lib/haptics"
 import type { Theme } from "@/lib/theme"
 import type { CardStyle } from "@/lib/types"
 import type { LedgerCard, LedgerModel } from "@/lib/view"
@@ -76,11 +78,31 @@ const FACES = ["bg-sage text-on-sage", "bg-clay text-on-clay", "bg-ink text-canv
 const CARD_PATH =
   "M0 20Q0 0 20 0H92C112 0 118 8 124 22C130 36 138 40 156 40H338Q358 40 358 60V108Q358 128 338 128H20Q0 128 0 108Z"
 
-/** One notched card. */
-function Card({ card, index }: { card: LedgerCard; index: number }) {
+/**
+ * One notched card. A long press is the owner's way to take the row back: it arms the
+ * confirm panel in `LedgerScreen` — the card itself is not deleted until the panel's own
+ * button is pressed, because a hold costs a thumb's rest and a delete costs the row.
+ */
+function Card({
+  card,
+  index,
+  onLongPress,
+}: {
+  card: LedgerCard
+  index: number
+  onLongPress: () => void
+}) {
   const skin = TREATMENTS[card.style]
+  const hold = useLongPress(onLongPress)
   return (
-    <article className="relative h-32 w-full flex-none">
+    <article
+      {...hold}
+      role="button"
+      tabIndex={0}
+      aria-label={`${card.title}, ${card.amount}, ${card.sub}. Hold to delete this entry`}
+      title="Hold to delete this entry"
+      className="relative h-32 w-full flex-none select-none [-webkit-touch-callout:none]"
+    >
       <svg
         width="358"
         height="128"
@@ -180,10 +202,14 @@ export type Props = {
   onToggleTheme: () => void
   /** Move the wheel's window to end on the day the picked month's newest row is. */
   onPickMonth: (anchor: number) => void
+  /** Delete one row by id — the app's store is what actually forgets it (`lib/ledger.ts`). */
+  onDelete: (id: string) => void
 }
 
-export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props) {
+export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelete }: Props) {
   const [selected, setSelected] = useState(model.selected)
+  /** The row a hold has armed for deletion, if any. */
+  const [pending, setPending] = useState<LedgerCard | null>(null)
 
   /**
    * A window the owner has just moved — they picked a month from the menu — opens
@@ -195,8 +221,15 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props
    */
   const [window, setWindow] = useState(model.days)
   if (window !== model.days) {
+    /*
+     * A rebuilt model is not always a moved window: deleting a row rewrites the day's cards
+     * without changing which month the wheel holds. The selection is reset only when the
+     * window itself changed (a month pick, or the 1st of the month arriving) — otherwise the
+     * owner would be thrown back to the anchor day for taking one row off it.
+     */
+    const moved = window[0]?.at !== model.days[0]?.at || window.length !== model.days.length
     setWindow(model.days)
-    setSelected(model.selected)
+    if (moved) setSelected(model.selected)
   }
 
   /**
@@ -356,12 +389,105 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             {day.cards.map((card, index) => (
-              <Card key={card.id} card={card} index={index} />
+              <Card key={card.id} card={card} index={index} onLongPress={() => setPending(card)} />
             ))}
             {day.cards.length === 0 && <p className="py-8 text-center text-ink2">{model.emptyNote}</p>}
           </motion.div>
         </div>
       </div>
+
+      {/*
+        The hold's answer: a confirm panel, not an instant delete.
+
+        A long press is easy to do by accident and a deleted row is not something the owner
+        can get back from a list, so the panel restates **which** row (title, category and
+        amount) and asks once. Its Delete is the 45ms thud — the same weight the manual entry
+        uses for anything that writes — and cancelling is the 20ms click, because it wrote
+        nothing. The dim layer closes it too, like every other panel in the app.
+      */}
+      <AnimatePresence>
+        {pending && (
+          <>
+            <motion.div
+              key="delete-dim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setPending(null)}
+              aria-hidden="true"
+              className="fixed inset-0 z-50 bg-canvas"
+            />
+            <div className="pointer-events-none fixed inset-0 z-[55] grid place-items-center px-4">
+              <motion.div
+                key="delete-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-entry-title"
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="pointer-events-auto w-full max-w-[358px] rounded-[20px] border border-line bg-card p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 flex-none place-items-center rounded-2xl bg-clay text-on-clay">
+                    <Trash2 strokeWidth={1.5} className="size-5" aria-hidden="true" />
+                  </span>
+                  <h2
+                    id="delete-entry-title"
+                    className="font-editorial text-[18px] leading-7 italic text-ink"
+                  >
+                    Delete this entry?
+                  </h2>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-line bg-canvas p-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-bold text-ink">{pending.title}</span>
+                    <span className="flex-none tabular-nums text-ink">{pending.amount}</span>
+                  </div>
+                  <div className="mt-0.5 flex gap-2 text-[11px] leading-4 text-ink2">
+                    <span className="min-w-0 truncate">{pending.sub}</span>
+                    <span aria-hidden="true" className="opacity-60">
+                      ·
+                    </span>
+                    <span className="flex-none">{pending.time}</span>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-[11px] leading-4 text-ink2">
+                  It leaves the ledger and this month’s totals with it. This cannot be undone.
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mediumClick()
+                      setPending(null)
+                    }}
+                    className="h-12 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  >
+                    keep it
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      heavyThud()
+                      onDelete(pending.id)
+                      setPending(null)
+                    }}
+                    className="h-12 rounded-2xl border-0 bg-clay font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-clay outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  >
+                    delete
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

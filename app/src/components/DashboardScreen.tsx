@@ -3,6 +3,7 @@ import { Camera } from "lucide-react"
 import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { useLongPress } from "@/hooks/useLongPress"
 import type { GreetingLine } from "@/lib/greetings"
 import { lightTap } from "@/lib/haptics"
 import type { Theme } from "@/lib/theme"
@@ -47,6 +48,7 @@ export function DashboardScreen({
   onScan,
   onAddRecord,
   onQuickLog,
+  onSetBudget,
 }: {
   model: DashboardModel
   /**
@@ -67,7 +69,17 @@ export function DashboardScreen({
    * through the mosaic.
    */
   onQuickLog: (category: string) => void
+  /**
+   * A long press on the envelope card opens the budget editor
+   * (`features/budget/BudgetSheet.tsx`). The F&B limit is the owner's own number, and the
+   * card drawing it is the only place it can be changed.
+   */
+  onSetBudget: () => void
 }) {
+  // The hold that edits the F&B limit. Both the whole card and its chips answer to it; a
+  // scroll cancels it (`hooks/useLongPress.ts`), which is what keeps the page draggable.
+  const holdEnvelope = useLongPress(onSetBudget)
+
   /** The artboard's small letterspaced label, which every chip and pill wears. */
   const pill = "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
   /** The money figures, which are the display face at its tightest tracking. */
@@ -218,19 +230,33 @@ export function DashboardScreen({
         sits.
 
         **This card is the Food & Beverages budget** (`lib/budget.ts`): the dimension's own
-        spend this month, out of ₹5,000, and the chips below the bar are its subcategories —
-        the figures come from `derive.ts`'s `envelope`, not from an imported Wallet budget.
+        spend this month, out of the owner's own limit (₹1,500 until they change it), and the
+        chips below the bar are its subcategories — the figures come from `derive.ts`'s
+        `envelope`, not from an imported Wallet budget. It is deliberately **not** the same
+        figure as the stats dial, which answers the whole month against ₹5,000.
+
+        **A hold on the card opens the editor.** The limit is the owner's, so it is edited
+        where it is drawn: `hooks/useLongPress.ts` gives the hold, the tick and a keyboard /
+        right-click path to it, and `onSetBudget` opens the panel. A scroll cancels the hold,
+        so the dashboard still scrolls under a thumb.
 
         The artboard splits the card `2fr 3fr`, which is a ratio drawn around its own
         `$240` and `/ $600`. A rupee figure carries a symbol and thousands separators, so
-        `/ ₹5,000` at the design's 40px is 135px — wider than the 124px track that ratio
+        `/ ₹1,500` at the design's 40px is 135px — wider than the 124px track that ratio
         gives it — and the line broke onto a third row, which the card's fixed 160px then
         clipped. Nothing about the type changes here: both money lines stay 40px on a 48px
         line, one under the other, and the column is simply sized by what it holds while
         the gauge takes what is left, which is the artboard's own intent. `whitespace-nowrap`
         is what keeps a longer number from ever doing that again.
       */}
-      <section className="grid h-40 grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4">
+      <section
+        {...holdEnvelope}
+        role="group"
+        tabIndex={0}
+        aria-label={`F&B Budget: ${model.envelope.spent} spent of ${model.envelope.limit}. Hold to change the budget`}
+        title="Hold to change the budget"
+        className="grid h-40 grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4 select-none [-webkit-touch-callout:none]"
+      >
         <div className="flex flex-col justify-between whitespace-nowrap">
           <div className={cardTitle}>{model.envelope.title}</div>
           <div>

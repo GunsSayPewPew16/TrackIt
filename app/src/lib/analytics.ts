@@ -1,5 +1,5 @@
 import { OPENING_BALANCE_CENTS } from "./accounts"
-import { BUDGET_CENTS, budgetSpent } from "./budget"
+import { BUDGET_DEFAULTS, budgetSpent } from "./budget"
 import { categoryFor, groupLabel } from "./categories"
 import { addDays, localDayKey, startOfDay, startOfMonth, startOfNextMonth } from "./format"
 import type { Row } from "./types"
@@ -96,10 +96,16 @@ export interface AllocationModel {
 }
 
 export interface GaugeModel {
-  /** Food & Beverages this month and last, in paise — see `lib/budget.ts`. */
+  /**
+   * Every expense this month and last, in paise, whatever its category: the dial answers
+   * "what has the month cost me?", which is the whole of the spending and not one dimension.
+   */
   thisMonth: number
   lastMonth: number
-  /** What the gauge measures against: the ₹5,000 the dashboard's card carries. */
+  /**
+   * What the gauge measures against: the owner's total-spending budget (`lib/budget.ts`),
+   * handed in by the screen so the dial and the card that edits it read one number.
+   */
   target: number
 }
 
@@ -249,17 +255,27 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
 }
 
 /**
- * The dial: what the month has taken out of the Food & Beverages budget, and the same for the
- * month before it. It is the dashboard's envelope card with a longer memory, so the two read
- * one figure and one limit (`lib/budget.ts`) — a dial that counted every category while the
- * card counted food would disagree with the card on the very same screen's data.
+ * The dial: every expense the month has taken, and the same for the month before it, against
+ * the owner's total-spending budget.
+ *
+ * This is deliberately **not** the dashboard's envelope card. The two cards track two
+ * different things — the card on the dashboard is Food & Beverages out of ₹1,500, and this
+ * dial is the whole month out of ₹5,000 (`lib/budget.ts` holds both) — so the dial counts
+ * each row once, category or not, and `GaugeCard` says *Total this month* rather than naming
+ * a dimension. Both limits are the owner's own and both are editable from the card drawing
+ * them, which is why the limit is an argument here rather than a constant.
  */
-export function gaugeModel(rows: Row[], now: number): GaugeModel {
+export function gaugeModel(
+  rows: Row[],
+  now: number,
+  /** The total-spending limit, in paise — the owner's own number (`lib/budget.ts`). */
+  totalLimitCents: number = BUDGET_DEFAULTS.total,
+): GaugeModel {
   const thisMonth = startOfMonth(now)
   const lastMonth = startOfMonth(addDays(thisMonth, -1))
   return {
-    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now)),
-    lastMonth: budgetSpent(rows, lastMonth, thisMonth),
-    target: BUDGET_CENTS,
+    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now), "total"),
+    lastMonth: budgetSpent(rows, lastMonth, thisMonth, "total"),
+    target: totalLimitCents,
   }
 }

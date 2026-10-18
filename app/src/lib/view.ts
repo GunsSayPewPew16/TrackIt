@@ -111,11 +111,11 @@ export type DashboardModel = {
     caption: string
   }
   envelope: {
-    /** `F&B Budget` — the one budget the app carries, see `lib/budget.ts`. */
+    /** `F&B Budget` — the dashboard's budget, see `lib/budget.ts`. */
     title: string
     /** What Food & Beverages has taken this month, `₹1,624`. */
     spent: string
-    /** What it allows, `₹5,000`. */
+    /** What it allows — the owner's own limit, `₹1,500` until they change it. */
     limit: string
     /** `32% USED`. */
     badge: string

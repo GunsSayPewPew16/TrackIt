@@ -187,6 +187,34 @@ export function appendToLedger(next: { rows?: Row[]; budgets?: Budget[] }): {
 }
 
 /**
+ * Forget one row, and say whether it was there.
+ *
+ * A long press on a card is the owner's way of taking a row back — a duplicate, a thing they
+ * did not buy, a payment they cancelled. Deleting is a **write**, so it goes through the same
+ * store as an import: the snapshot is rewritten (minus the row, with the budgets untouched)
+ * and every screen subscribed to it redraws. The result is that the row is gone after a
+ * reload too, which is the whole difference between this and hiding it.
+ *
+ * Unknown ids are a no-op rather than a removal of something else: the card's id came from
+ * the list it was drawn in, and a stale one must not be able to take a neighbouring row with
+ * it.
+ */
+export function removeFromLedger(id: string): boolean {
+  const current = ledgerSnapshot()
+  const rows = current.rows.filter((row) => row.id !== id)
+  if (rows.length === current.rows.length) return false
+
+  const next: LedgerSnapshot = { rows, budgets: current.budgets }
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...next }))
+  } catch {
+    // A refused write still removes it for this session, which is better than nothing.
+  }
+  commit(next)
+  return true
+}
+
+/**
  * Forget everything, and say how many rows were let go of.
  *
  * This stores an empty ledger rather than removing the key: a removed key reads as "never stored",

@@ -78,18 +78,24 @@ knows which producer filled them:
   spending, `High expense` is a share of the month rather than a threshold, and a card's
   little bar measures a budget where one exists and the category's share otherwise (and
   says which). If a figure is wrong, it is wrong in this file.
-- `app/src/lib/budget.ts` — the one budget the app carries, **Food & Beverages, ₹5,000 a
-  month**, and the gate every figure about it goes through (`isBudgetCategory` is
-  `categoryFor(id).group === "food-drinks"`; `budgetSpent` counts expenses inside a window).
-  The dashboard's envelope card and the stats screen's gauge both read it, so the two can never
-  disagree about the limit or the scope. It deliberately ignores the export's own `Budget`
-  documents: those still drive the per-row bars on the ledger, which is a different question —
-  what one category has used up. The card is titled **F&B Budget** and its chips are the
-  dimension's own subcategories, biggest first, each as a share of the food spend (they add up
-  to 100%, not to the pill); the gauge's label is *F&B this month* / *F&B last month* so a
-  ₹5,000 denominator is never read as the whole month's spending. The chips live in the card's
-  sideways tray, so four subcategories are a scroll, not a clipped row — that is the design's
-  tray, not an overflow bug.
+- `app/src/lib/budget.ts` — **two budgets, because they answer two different questions**,
+  and the store both limits live in. `food` is the dashboard's envelope card: **Food &
+  Beverages, ₹1,500 a month**, counted through `categoryFor(id).group === "food-drinks"`
+  (`isBudgetCategory`), so a taxi, a rent payment or an income row never moves it. `total` is
+  the stats screen's dial: **every expense in the month, ₹5,000 a month**, whatever its
+  category. `budgetSpent(rows, from, to, scope)` is the one gate both go through; the models
+  take the limit as an argument (`dashboardModel`'s `foodLimitCents`, `gaugeModel`'s
+  `totalLimitCents`) so `derive.ts` and `analytics.ts` stay pure, and `hooks/useBudgets.ts`
+  subscribes the screens to the store. **Both limits are the owner's own**, changed by holding
+  the card that draws them (`features/budget/BudgetSheet.tsx`), and kept in `localStorage`
+  under `trackit-budgets`; `BUDGET_DEFAULTS` is the fallback, never a ceiling. The module
+  deliberately ignores the export's own `Budget` documents: those still drive the per-row bars
+  on the ledger, which is a different question — what one category has used up. The card is
+  titled **F&B Budget** and its chips are the dimension's own subcategories, biggest first,
+  each as a share of the food spend (they add up to 100%, not to the pill); the dial's label is
+  *Total this month* / *Total last month*, because it is the whole month and not a dimension.
+  The chips live in the card's sideways tray, so four subcategories are a scroll, not a clipped
+  row — that is the design's tray, not an overflow bug.
 
 **The rows are re-filed to the new tree on the way in.** `app/src/lib/refile.ts` is the one
 place that knows both vocabularies: an envelope the six dimensions cannot offer is re-homed
@@ -139,7 +145,7 @@ left out and why.
   model hands it three — the demo content always did, which is why five of them only
   showed once real rows existed (`lib/derive.ts`). The envelope's money column is sized by
   the figure it holds (`grid-cols-[auto_1fr]` with `whitespace-nowrap`) because
-  `/ ₹5,000` at the design's 40px is 135px and the artboard's `2fr 3fr` track is 124px of
+  `/ ₹1,500` at the design's 40px is 135px and the artboard's `2fr 3fr` track is 124px of
   a card whose own example, `/ $600`, is 105: the wider line wrapped onto a third row,
   which the card's 160px then clipped. Neither change moves a type size, a line height or
   a height — keep it that way if either is revisited.
@@ -218,6 +224,33 @@ left out and why.
   menu of the months the history touches (`LedgerModel.months`), each anchored on the
   newest day *in that month* rather than on its end, so picking one cannot open on an
   empty sheet. Selecting the month already showing is a no-op.
+- **The two budgets are two different questions, and both belong to the owner.** The
+  dashboard's envelope card is Food & Beverages out of **₹1,500**; the stats dial is every
+  expense out of **₹5,000**. They were one figure once (the card and the dial both counted food
+  against ₹5,000), and that is exactly the state the owner split apart — do not merge them
+  again, and do not derive one screen's figure from the other's. Each limit is changed where
+  it is drawn: a hold on the envelope card or on the dial opens
+  `features/budget/BudgetSheet.tsx`, which reuses the manual entry's keypad, haptics and 40px
+  money type, starts on the current limit, and writes `lib/budget.ts`'s store (`trackit-budgets`,
+  integer paise, cached snapshot). Three details are load bearing: **the hold is
+  `hooks/useLongPress.ts` for both cards and for a ledger row** (500ms, 10px slop so a scroll
+  cancels it, a 20ms tick when it fires, and `contextmenu` / `Enter` as the desk and keyboard
+  paths — a hold must never be the only way in); **the models take the limit as an argument**,
+  so a save redraws only what changed and the derivation stays pure; and **the panel is fetched
+  on the first hold** like every other panel, because only the dashboard may be in the entry
+  chunk. The tick at the hold's moment is a timer rather than a touch, so iOS may stay silent —
+  the same accepted fallback as everywhere else.
+- **A ledger row is deleted by holding it, through a confirm.** `components/LedgerScreen.tsx`
+  arms the row (`Delete this entry?`, naming its title, category, time and amount), and only
+  that panel's **delete** writes: `lib/ledger.ts`'s `removeFromLedger` rewrites the store minus
+  the one id — budgets untouched — so every screen subscribed redraws and the row stays gone
+  after a reload. Three things are deliberate: **it is a confirm, not an instant delete**,
+  because a hold is easy to do by accident and a row cannot be recovered from a list; **the
+  save and the delete are the 45ms thud** while a cancel is the 20ms click, the same weights the
+  manual entry uses for writing and for not writing; and **the wheel keeps its day** — the
+  selection resets only when the *window* changed (a month pick, or the 1st arriving), not when
+  a day's cards were rewritten under it (`window[0]?.at` / length), which is what a deleted row
+  is. `App.tsx` passes `useLedger`'s `remove`, so the screen never touches storage itself.
 - **The day's rows are rebuilt, not cross-faded.** The artboard re-runs one fade-up
   keyframe on every change of day, and has no exit animation; a `mode="wait"` swap
   leaves the sheet empty for as long as a fade lasts, which is the one thing the
@@ -407,7 +440,8 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
-| The F&B budget | the card reads **F&B Budget** with ₹5,000 as its limit and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it); the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips; and the stats dial shows the same figure and limit, with *F&B last month* on its toggle |
+| The two budgets | with no stored limits: the dashboard card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on either opens the keypad editor on that card's own limit — Android `navigator.vibrate` 20ms, iOS two switch clicks — and saving rewrites `trackit-budgets` and redraws the card and the dial. The food limit must not move the dial's figure or the reverse; a limit changed while the ledger is empty still shows on the demo card; the total saved from the dial survives a reload |
+| Deleting a row | a hold on a ledger card (or Enter / right-click) opens **Delete this entry?** with that row's title, category, time and amount; a scroll cancels the hold; *keep it* leaves the store untouched, *delete* removes that id from `trackit-ledger`, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; Android vibrates 20ms on the hold and 45ms on the delete |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
 | The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading *pay and log transaction* (not *add record*), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |

@@ -191,16 +191,39 @@ export const DEMO_DASHBOARD: DashboardModel = {
     caption: "26% of spending",
   },
   envelope: {
-    // The app's one budget is Food & Beverages, ₹5,000 a month — `lib/budget.ts`, which the
-    // derived card reads too. The artboard's sample envelope (`$240 / $600`) is replaced by
-    // the same shape at the owner's own figures; the chips are the dimension's subcategories,
-    // as the derived card ranks them.
+    // The dashboard's budget is Food & Beverages, ₹1,500 a month by default — `lib/budget.ts`,
+    // which the derived card reads too (and whose limit the owner can change from the card).
+    // The artboard's sample envelope (`$240 / $600`) is replaced by the same shape at the
+    // owner's own figures; the chips are the dimension's subcategories, as the derived card
+    // ranks them. Its ₹240 of ₹1,500 is the 16% below.
     title: "F&B Budget",
     spent: wholeMoney(paise(240)),
-    limit: wholeMoney(paise(5000)),
-    badge: "5% USED",
-    pct: 5,
+    limit: wholeMoney(paise(1500)),
+    badge: "16% USED",
+    pct: 16,
     chips: ["Restaurants: 42% of spend", "Groceries: 35% of spend", "Bar, cafe: 23% of spend"],
   },
   recent: { title: "Recent transactions", rows: DEMO_RECENT },
+}
+
+/**
+ * The artboard's dashboard with the owner's current Food & Beverages limit on it.
+ *
+ * The demo is a literal, so it cannot derive a percentage the way `lib/derive.ts` does. This
+ * recomputes the envelope's limit, percentage and badge from the artboard's own ₹240 sample,
+ * which is what keeps the card editable in the one state where the demo is drawn: an empty
+ * ledger. Every other figure stays the artboard's, because it is still a first-visit design.
+ */
+export function demoDashboard(foodLimitCents: number): DashboardModel {
+  const spent = paise(240)
+  const pct = foodLimitCents > 0 ? Math.min(100, Math.round((spent / foodLimitCents) * 100)) : 0
+  return {
+    ...DEMO_DASHBOARD,
+    envelope: {
+      ...DEMO_DASHBOARD.envelope,
+      limit: wholeMoney(foodLimitCents),
+      pct,
+      badge: `${pct}% USED`,
+    },
+  }
 }

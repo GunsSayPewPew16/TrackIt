@@ -28,7 +28,9 @@ export function useAmountInput(initialRaw = "", maxInt = 9) {
   )
 
   const value = raw === "" || raw === "." ? 0 : Number(raw)
-  return { raw, value, press, reset: () => setRaw("") }
+  /** Clear the line, or start it on another figure — the budget editor re-opens on its limit. */
+  const reset = useCallback((next = "") => setRaw(next), [])
+  return { raw, value, press, reset }
 }
 
 /**

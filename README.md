@@ -37,9 +37,10 @@ the newer artboard drew in place of the single balance box — pull the front ca
 and it goes to the back of the stack, with the "Add card" pill pinned where it was; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
-side, the **F&B budget** (what Food & Beverages has taken this month out of ₹5,000, twenty
-segments and a needle at the same percentage as the pill above it, with the dimension's own
-subcategories as the chips under the bar), and the recent rows. The ledger is opened from the header's
+side, the **F&B budget** (what Food & Beverages has taken this month out of the owner's
+₹1,500, twenty segments and a needle at the same percentage as the pill above it, with the
+dimension's own subcategories as the chips under the bar — and a hold on the card opens the
+keypad that changes the limit), and the recent rows. The ledger is opened from the header's
 second circle, beside the theme toggle; the artboard's own "See all" button is gone
 from the recent card, where it would have been a second door to the same room.
 
@@ -54,7 +55,8 @@ capsule pitch of ~69px), and each capsule that crosses the axis plays a light ha
 Home and End move it too. Each day is a stack of **notched cards**: a 358×128 outline
 with a step cut out of its top-left corner, the category pill sitting in the cut and
 the faces on the step, in one of three treatments — plain, clay for a month's big
-expenses, sage for money in.
+expenses, sage for money in. **A hold on a card asks to delete that row** and the panel
+names it before it goes, which is the only way to take an entry back.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
@@ -331,8 +333,9 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 
 Working: all three screens in both themes, the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
-the month menu that reaches the months past the one the wheel holds, the Wallet import and
-both exports, the scanner (camera and manual entry, the payment screen as the add-record
+the month menu that reaches the months past the one the wheel holds, hold-to-delete on a
+card, the two editable budgets (the card's F&B one and the stats dial's total), the Wallet
+import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database

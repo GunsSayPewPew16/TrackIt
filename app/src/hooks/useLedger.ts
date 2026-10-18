@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react"
 
 import { readHistory, type DropReason } from "@/lib/history"
-import { appendToLedger, clearLedger, ledgerSnapshot, subscribeLedger } from "@/lib/ledger"
+import { appendToLedger, clearLedger, ledgerSnapshot, removeFromLedger, subscribeLedger } from "@/lib/ledger"
 
 /** What an import did, in the words the screen shows the owner. */
 export type ImportReport = { ok: boolean; message: string }
@@ -73,5 +73,8 @@ export function useLedger() {
 
   const clear = useCallback(() => clearLedger(), [])
 
-  return { rows: snapshot.rows, budgets: snapshot.budgets, importHistory, clear }
+  /** A long press on a ledger card: take that one row back, and its budgets stay. */
+  const remove = useCallback((id: string) => removeFromLedger(id), [])
+
+  return { rows: snapshot.rows, budgets: snapshot.budgets, importHistory, clear, remove }
 }

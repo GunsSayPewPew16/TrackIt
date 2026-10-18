@@ -4,6 +4,7 @@ import { Switch } from "radix-ui"
 
 import { CountUp } from "@/components/CountUp"
 import { Tile } from "@/features/analytics/Tile"
+import { useLongPress } from "@/hooks/useLongPress"
 import { gaugeModel } from "@/lib/analytics"
 import { wholeMoney } from "@/lib/format"
 import { lightTap } from "@/lib/haptics"
@@ -22,16 +23,37 @@ const TICKS = Array.from({ length: N }, (_, i) => {
   return `M${p(R1)}L${p(R2)}`
 }).join("")
 
-export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
+export function GaugeCard({
+  rows,
+  now,
+  budgetCents,
+  onSetBudget,
+}: {
+  rows: Row[]
+  now: number
+  /** What the dial measures against, in paise: the owner's total-spending budget. */
+  budgetCents: number
+  /** A long press on the dial opens the budget editor (`features/budget/BudgetSheet.tsx`). */
+  onSetBudget: () => void
+}) {
   const maskId = useId().replace(/:/g, "")
   const [lastMonth, setLastMonth] = useState(false)
-  const model = useMemo(() => gaugeModel(rows, now), [rows, now])
+  const model = useMemo(() => gaugeModel(rows, now, budgetCents), [rows, now, budgetCents])
   const spent = lastMonth ? model.lastMonth : model.thisMonth
   const fraction = model.target > 0 ? Math.min(1, spent / model.target) : 0
+  // A dial is a thing to hold: the hold is the only control on it, and it opens the editor.
+  const hold = useLongPress(onSetBudget)
 
   return (
     <Tile className="flex h-56 flex-col">
-      <div className="relative size-[139px]">
+      <div
+        {...hold}
+        role="button"
+        tabIndex={0}
+        aria-label={`${lastMonth ? "Total last month" : "Total this month"}: ${wholeMoney(spent)} of ${wholeMoney(model.target)}. Hold to change the budget`}
+        title="Hold to change the budget"
+        className="relative size-[139px] cursor-pointer touch-manipulation select-none [-webkit-touch-callout:none]"
+      >
         <svg viewBox="0 0 139 139" className="absolute inset-0 size-full" aria-hidden>
           <defs>
             {/* A thick arc sweeps clockwise to reveal the ticks the spend has reached. */}
@@ -55,10 +77,11 @@ export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          {/* The dial is the F&B budget, so it says so: a bare "spent this month" over
-              five thousand rupees would be read as all the month's spending. */}
-          <p className="w-[88px] text-[10px] leading-3 tracking-[0.01em] text-ink2">
-            {lastMonth ? "F&B last month" : "F&B this month"}
+          {/* The dial is the **total** budget, not the food one: the dashboard's envelope card
+              is where Food & Beverages is measured, and two dials saying "F&B" over two
+              different denominators is the confusion this label removes. */}
+          <p className="w-[104px] text-[10px] leading-3 tracking-[0.01em] text-ink2">
+            {lastMonth ? "Total last month" : "Total this month"}
           </p>
           <CountUp
             cents={spent}

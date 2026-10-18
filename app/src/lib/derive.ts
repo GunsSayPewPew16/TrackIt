@@ -18,14 +18,16 @@
  * - **The little bar on a card measures a budget where one exists** (the envelope
  *   the export carried for that category) **and the category's share of the month
  *   otherwise**, and it says which, because "62%" with no noun is not a fact.
- * - **The dashboard's envelope is the one budget the app carries**: Food &
- *   Beverages, against `lib/budget.ts`. It is not the export's own `Budget`
- *   documents — those stay on the ledger's per-row bars — and it counts the whole
- *   dimension, not the month, so a taxi can never make the food budget look full.
+ * - **The dashboard's envelope is the Food & Beverages budget** from `lib/budget.ts`,
+ *   and the limit is handed in rather than read, because the owner can change it from
+ *   the card itself. It is not the export's own `Budget` documents — those stay on the
+ *   ledger's per-row bars — and it counts the whole dimension, not the month, so a taxi
+ *   can never make the food budget look full. The stats dial is the *other* budget (all
+ *   spending), which is why the two cards can no longer share one figure.
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
-import { BUDGET_CENTS, BUDGET_TITLE, budgetSpent, isBudgetCategory } from "./budget"
+import { BUDGET_COPY, BUDGET_DEFAULTS, budgetSpent, isBudgetCategory } from "./budget"
 import { categoryFor } from "./categories"
 // The name a person reads, which is the new tree's where it renamed an envelope: see
 // `lib/refile.ts`. The table itself is still the source of the id and the icon.
@@ -276,15 +278,16 @@ function sparkline(rows: Row[], now: number): string {
 
 /**
  * The Food & Beverages envelope: what the dimension has taken this month, how much of the
- * ₹5,000 that is, and where it went.
+ * owner's food limit that is, and where it went.
  *
- * Both figures are the month's (`lib/budget.ts` owns the limit), and the chips are the
+ * Both figures are the month's, and the limit is the one handed in from `lib/budget.ts`
+ * (₹1,500 until the owner long-presses the card and changes it). The chips are the
  * dimension's own subcategories — Groceries, Restaurants, Bar & Café and the parent row —
  * each as its share of what has been spent on food. They are shares of the food spend and
  * not of the limit on purpose: a chip sums with its siblings to the whole of what went
  * out, which is the question the card's left-hand figure raises.
  */
-function envelope(rows: Row[], now: number): DashboardModel["envelope"] {
+function envelope(rows: Row[], now: number, limitCents: number): DashboardModel["envelope"] {
   const monthStart = startOfMonth(now)
   const monthRows = inWindow(rows.filter(isExpense), monthStart, startOfNextMonth(now))
   const spent = budgetSpent(rows, monthStart, startOfNextMonth(now))
@@ -295,14 +298,14 @@ function envelope(rows: Row[], now: number): DashboardModel["envelope"] {
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amountCents)
   }
   const ranked = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
-  const pct = pctOf(spent, BUDGET_CENTS)
+  const pct = pctOf(spent, limitCents)
 
   return {
-    title: BUDGET_TITLE,
+    title: BUDGET_COPY.food.label,
     // The gauge's own two figures are headlines, so they carry no paise — the
     // same reason the artboard writes `$240 / $600` and not `$240.00 / $600.00`.
     spent: wholeMoney(spent),
-    limit: wholeMoney(BUDGET_CENTS),
+    limit: wholeMoney(limitCents),
     badge: `${pct}% USED`,
     pct,
     chips: ranked.map(([id, cents]) => `${filedName(id)}: ${pctOf(cents, spent)}% of spend`),
@@ -315,7 +318,12 @@ function envelope(rows: Row[], now: number): DashboardModel["envelope"] {
  * category the money is actually going to, the Food & Beverages budget, and what just
  * happened.
  */
-export function dashboardModel(rows: Row[], now: number = Date.now()): DashboardModel {
+export function dashboardModel(
+  rows: Row[],
+  now: number = Date.now(),
+  /** The Food & Beverages limit, in paise — the owner's own number (`lib/budget.ts`). */
+  foodLimitCents: number = BUDGET_DEFAULTS.food,
+): DashboardModel {
   const expenses = rows.filter(isExpense)
 
   const monthStart = startOfMonth(now)
@@ -385,7 +393,7 @@ export function dashboardModel(rows: Row[], now: number = Date.now()): Dashboard
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
-    envelope: envelope(rows, now),
+    envelope: envelope(rows, now, foodLimitCents),
     recent: {
       title: "Recent transactions",
       rows: recent.map((row) => ({
