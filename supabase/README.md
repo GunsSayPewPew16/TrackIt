@@ -60,6 +60,12 @@ npm run setup:auth -- \
   --smtp-from onboarding@resend.dev --smtp-pass-file ~/.trackit-smtp
 ```
 
+**The code's width is the project's setting, not the app's.** `mailer_otp_length` is set to six
+below, and the portal's field takes six to eight and sends whatever arrived: this project's own
+`generate_link` hands back **eight** digits, so a field that insisted on six would truncate a
+code that is otherwise perfectly good — which is a sign-in that fails with nothing on screen to
+explain it.
+
 `~/.trackit-smtp` holds the SMTP password on one line (Resend's is an API key; the file is read
 and never printed, which keeps it out of the shell's history). The SMTP settings are written
 first and the template in the same pass, so one command is the whole thing. **Resend without a

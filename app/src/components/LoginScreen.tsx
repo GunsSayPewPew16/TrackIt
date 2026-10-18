@@ -41,9 +41,10 @@ import { SIGNUPS_OPEN } from "@/lib/portal"
  * have — which is the difference between a door that works on a desk and one that works in the
  * app on the phone.
  *
- * **The paste is caught, not typed.** The line is six characters wide because digits are six
- * long; a link is a hundred, so `onPaste` reads the clipboard before the field takes it and
- * hands anything that is not six digits to the link path.
+ * **The paste is caught, not typed.** The line takes the code's own width — which is Supabase's
+ * setting, not this app's, so it takes up to eight digits and sends them as they arrive — and a
+ * link is a hundred characters, so `onPaste` reads the clipboard before the field takes it and
+ * hands anything that is not a code to the link path.
  *
  * **States are words, never spinners.** A refusal is a sentence under the fields ("That email and
  * password don't match.", "That code didn't match…"), the button only carries a turning mark
@@ -181,7 +182,11 @@ export function LoginScreen() {
 
   /** Every half, before the button will do anything: an empty press cannot explain itself. */
   const ready = useMemo(() => {
-    if (askingForCode) return code.length === 6
+    // Six is the length this project asks Supabase for, but the code's width is Supabase's
+    // setting rather than the app's — and a mail whose code is eight digits long is a code
+    // nobody can type if the field insists on six. Anything from six up is taken and sent as
+    // it arrived; whether it is right is the server's answer to give.
+    if (askingForCode) return code.length >= 6
     return (
       email.trim().includes("@") &&
       password.length >= 8 &&
@@ -250,7 +255,7 @@ export function LoginScreen() {
           {askingForCode ? (
             <>
               Check <span className="font-sans text-ink">{challengeEmail}</span>: paste that
-              mail&apos;s link here, or type its six digits.
+              mail&apos;s link here, or type the code it carries.
             </>
           ) : (
             <>Your ledger follows you between devices, and stays on this one when the network doesn&apos;t.</>
@@ -262,11 +267,11 @@ export function LoginScreen() {
             <Line
               label="Code or link"
               value={code}
-              onChange={(next) => setCode(next.replace(/\D/g, "").slice(0, 6))}
+              onChange={(next) => setCode(next.replace(/\D/g, "").slice(0, 8))}
               placeholder="From the email we just sent..."
               type="text"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={8}
               autoComplete="one-time-code"
               autoFocus
               code
