@@ -139,7 +139,8 @@ left out and why.
 - **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
   4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
-  scan band, 224/176/160/280 for the dashboard's cards — are the artboard's, so keep
+  scan band, 224/176/160/280 for the dashboard's cards, and the account band's 224 of card
+  plus the 288 the pinned pill grew it to — are the artboard's, so keep
   them together with the comment that says where they came from.
 - **A fixed height is a promise about its content, and the content has to keep it.** Two
   cards were breaking that promise, and both are content-sized rather than re-tuned. The
@@ -184,7 +185,14 @@ left out and why.
   per account (`components/BalanceCards.tsx`), so the screen finally draws the accounts
   `lib/accounts.ts` has always carried instead of only their sum. Three things are the
   owner's rather than the artboard's: **the pill is pinned** (the export draws one inside
-  each card, so it would travel with the drag) at the export's own 8px inset; **the
+  each card, so it would travel with the drag) at the export's own 8px right inset; and it
+  is **below the card rather than inside it** — the owner asked for air between the two, so
+  it starts 240px down (the card's own bottom edge is 224: a 40px seat plus 184 of card),
+  which is a 16px gap, and the band grew from the artboard's 224px to **288px** (240 + the
+  48px pill) so the pill stays inside the band and the column's 8px gap still separates it
+  from the quick-log row. The 8px right inset is unchanged on purpose: it is what keeps the
+  pill's right edge lined up with the card's, so **do not trade that alignment away** for
+  more padding — the gap goes vertically, never horizontally; **the
   release re-stacks** — the export drops the front card 160px and re-indexes 300ms later,
   which drew a card below the band over the quick-log row, so the pulled card instead
   travels up to the back seat while the card behind takes the front, with no drop and no
@@ -489,6 +497,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | Changed | Check |
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
+| The account stack's pill | at 390 wide: the band is 288px, the front card's bottom edge is at 224 inside it, the pill's top is 240 (**a 16px gap**) and its bottom is the band's own 288, its right edge is 8px inside the card's (`right: 374` against the pill's `366` — the alignment the owner asked to keep), and the quick-log band starts 8px below the pill; pulling a card past 40px still re-stacks it without moving the pill |
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame from the toggle click, compare each element against its own final value, and repeat the flip several times (it is the *start* spread and the *last* change that matter; a token that is still moving at 200ms means a `color` transition has crept back onto an element). `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |

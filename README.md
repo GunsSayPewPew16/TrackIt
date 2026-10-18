@@ -34,7 +34,8 @@ hello in a different language every time the app is opened, see *The greeting* b
 with its
 two round header controls; the stack of account cards, one per account, which is what
 the newer artboard drew in place of the single balance box — pull the front card down
-and it goes to the back of the stack, with the "Add card" pill pinned where it was; a
+and it goes to the back of the stack, with the "Add card" pill pinned where it was — a
+16px gap under the card's bottom edge now, and still lined up with the card's right edge; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
 side, the **F&B budget** (what Food & Beverages has taken this month out of the owner's
