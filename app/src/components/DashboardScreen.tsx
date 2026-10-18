@@ -50,6 +50,7 @@ export function DashboardScreen({
   onQuickLog,
   onSetBudget,
   onOpenAccount,
+  onEditBalance,
 }: {
   model: DashboardModel
   /**
@@ -82,6 +83,12 @@ export function DashboardScreen({
    * extra circle in a header that has 28px of greeting and a 48px theme toggle in it.
    */
   onOpenAccount: () => void
+  /**
+   * A hold on the front account card opens that account's balance editor
+   * (`features/balance/BalanceSheet.tsx`). The stack is a drag, a tap and a hold at once —
+   * all three are told apart by the same 10px of travel (`hooks/useLongPress.ts`).
+   */
+  onEditBalance: (accountId: string) => void
 }) {
   // The hold that edits the F&B limit. Both the whole card and its chips answer to it; a
   // scroll cancels it (`hooks/useLongPress.ts`), which is what keeps the page draggable.
@@ -159,7 +166,7 @@ export function DashboardScreen({
       </div>
 
       {/* The accounts, as the newer artboard's stack of cards. */}
-      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} />
+      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} onEditBalance={onEditBalance} />
 
       {/* The scan square and the tray of things the owner probably just did. */}
       <div className="grid h-[104px] grid-cols-[104px_1fr] gap-2">

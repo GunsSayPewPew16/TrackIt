@@ -3,6 +3,7 @@ import { Banknote, Plus, QrCode } from "lucide-react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
 import { CountUp } from "@/components/CountUp"
+import { useLongPress } from "@/hooks/useLongPress"
 import { useTick } from "@/hooks/useTick"
 import { money } from "@/lib/format"
 import type { BalanceCard } from "@/lib/view"
@@ -63,6 +64,13 @@ import type { BalanceCard } from "@/lib/view"
  * date wheel plays (`hooks/useTick.ts` — a buzz on Android, the system's switch click on
  * iOS), and the tap strip plays it too. It is fired from the pointer handler itself,
  * which is the only place iOS will tick for its hidden switch.
+ *
+ * **A hold edits the card's balance.** The front card is also the way in to
+ * `features/balance/BalanceSheet.tsx`: a 500ms hold (or a right-click, or Enter on the
+ * focused card) opens the panel that sets what the account holds. It shares the card's own
+ * pointer handlers rather than replacing them, and both gestures cancel on the same 10px of
+ * travel (`hooks/useLongPress.ts`), so a pull is still a pull and a scroll is still a
+ * scroll — the hold only ever fires on a finger that stayed where it landed.
  */
 
 /** The two card treatments, as the colours each one's parts wear. */
@@ -123,7 +131,16 @@ const STACK = { duration: 0.55, ease: [0.34, 1.3, 0.5, 1] } as const
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))
 
-export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onAddRecord?: () => void }) {
+export function BalanceCards({
+  cards,
+  onAddRecord,
+  onEditBalance,
+}: {
+  cards: BalanceCard[]
+  onAddRecord?: () => void
+  /** A hold on the front card opens its balance editor, by account id. */
+  onEditBalance?: (accountId: string) => void
+}) {
   const count = cards.length
   const [index, setIndex] = useState(0)
   /** The card drawn in front. Guarded, because the list can shrink under the stack. */
@@ -131,6 +148,19 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
 
   const tick = useTick()
   const reduceMotion = useReducedMotion()
+
+  /**
+   * The hold, armed once for whichever card is in front.
+   *
+   * One hook rather than one per card, because the front seat is the only one a thumb can
+   * reach (`pointer-events-none` on the rest) — and the card it fires for is read at the
+   * moment it fires, so a stack that has cycled since the finger landed still opens the
+   * card that is actually under it.
+   */
+  const hold = useLongPress(() => {
+    const card = cards[front]
+    if (card) onEditBalance?.(card.id)
+  }, { disabled: !onEditBalance })
 
   /**
    * One `y` per card, kept across renders. A card's seat changes when it becomes the
@@ -259,10 +289,49 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
               y: seat,
               zIndex: isFront ? 3 : position === (front + 1) % count ? 2 : 1,
             }}
-            onPointerDown={isFront ? (event) => onPointerDown(event, seat) : undefined}
-            onPointerMove={isFront ? (event) => onPointerMove(event, seat) : undefined}
-            onPointerUp={isFront ? () => release(true) : undefined}
-            onPointerCancel={isFront ? () => release(false) : undefined}
+            role={isFront && onEditBalance ? "button" : undefined}
+            tabIndex={isFront && onEditBalance ? 0 : undefined}
+            aria-label={
+              isFront && onEditBalance
+                ? `${card.name} balance ${card.balance}. Hold to edit, drag down for the next account`
+                : undefined
+            }
+            title={isFront && onEditBalance ? "Hold to edit this balance" : undefined}
+            onPointerDown={
+              isFront
+                ? (event) => {
+                    hold.onPointerDown(event)
+                    onPointerDown(event, seat)
+                  }
+                : undefined
+            }
+            onPointerMove={
+              isFront
+                ? (event) => {
+                    hold.onPointerMove(event)
+                    onPointerMove(event, seat)
+                  }
+                : undefined
+            }
+            onPointerUp={
+              isFront
+                ? () => {
+                    hold.onPointerUp()
+                    release(true)
+                  }
+                : undefined
+            }
+            onPointerCancel={
+              isFront
+                ? () => {
+                    hold.onPointerCancel()
+                    release(false)
+                  }
+                : undefined
+            }
+            onPointerLeave={isFront ? hold.onPointerLeave : undefined}
+            onContextMenu={isFront ? hold.onContextMenu : undefined}
+            onKeyDown={isFront ? hold.onKeyDown : undefined}
             className={`absolute inset-x-0 top-10 h-[184px] touch-none select-none ${
               isFront ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"
             }`}

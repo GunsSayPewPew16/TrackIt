@@ -25,6 +25,8 @@ export type Props = {
   onToggleTheme: () => void
   /** The owner's total-spending budget, in paise — see `lib/budget.ts`. */
   budgetCents: number
+  /** What that budget counts, or `null` for every expense — see `lib/budget.ts`. */
+  budgetCategories: string[] | null
   /** A long press on the dial opens the budget editor (`features/budget/BudgetSheet.tsx`). */
   onSetBudget: () => void
 }
@@ -38,7 +40,14 @@ const rise: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
 }
 
-export function AnalyticsScreen({ rows, theme, onToggleTheme, budgetCents, onSetBudget }: Props) {
+export function AnalyticsScreen({
+  rows,
+  theme,
+  onToggleTheme,
+  budgetCents,
+  budgetCategories,
+  onSetBudget,
+}: Props) {
   // Read once per visit: the figures are the day the screen was opened on.
   const [now] = useState(() => Date.now())
   return (
@@ -61,7 +70,13 @@ export function AnalyticsScreen({ rows, theme, onToggleTheme, budgetCents, onSet
       </motion.div>
 
       <motion.div variants={rise} className="grid grid-cols-2 gap-4">
-        <GaugeCard rows={rows} now={now} budgetCents={budgetCents} onSetBudget={onSetBudget} />
+        <GaugeCard
+          rows={rows}
+          now={now}
+          budgetCents={budgetCents}
+          budgetCategories={budgetCategories}
+          onSetBudget={onSetBudget}
+        />
         <HeatmapCard rows={rows} now={now} />
       </motion.div>
 

@@ -7,7 +7,7 @@ import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
 import { clock, dayLabel, minutesOfDay, momentOn, startOfDay } from "@/lib/format"
 import { heavyThud, lightTap } from "@/lib/haptics"
-import type { Kind } from "@/lib/types"
+import type { Kind, Row } from "@/lib/types"
 import { CategoryMatrix } from "./CategoryMatrix"
 import { DateDialog } from "./DateDialog"
 import { Keypad } from "./Keypad"
@@ -158,6 +158,14 @@ interface ManualEntryScreenProps {
    * for **Pay and Log Transaction**; everything else about the screen is unchanged.
    */
   payee?: UpiPayee | null
+  /**
+   * The row being corrected, when a ledger card's **Edit** opened this sheet (see
+   * `SheetProps.editing`). It is the seed for every field on the screen and it is what makes
+   * the confirm a *save* rather than a second entry: the app writes the correction back under
+   * the row's own id (`App.tsx` → `lib/ledger.ts`), so nothing about the transaction changes
+   * except what was typed here.
+   */
+  editing?: Row | null
   onClose: () => void
   onSubmit?: (entry: ManualEntry) => void
   /** Wired by the sheet so a drag that starts on the header can dismiss it. */
@@ -263,14 +271,15 @@ function JournalLine({
 export function ManualEntryScreen({
   initialCategory = null,
   payee = null,
+  editing = null,
   onClose,
   onSubmit,
   onHeaderPointerDown,
 }: ManualEntryScreenProps) {
   const { raw, value, press, reset } = useAmountInput(
-    // A code that carried its amount starts on that figure: the merchant printed it, and
-    // the owner still confirms it — see `SheetProps.payee`.
-    payee?.amountCents != null ? rawFromCents(payee.amountCents) : "",
+    // An edit starts on the row's own figure, a code that carried its amount starts on that
+    // one, and a blank entry starts empty — the owner still confirms every one of them.
+    editing ? rawFromCents(editing.amountCents) : payee?.amountCents != null ? rawFromCents(payee.amountCents) : "",
   )
   /** The moment this sheet was opened: the latest day the picker may offer, and the default
    *  moment a new row is filed at. Taking it once keeps the pill and that row in one frame. */
@@ -279,12 +288,15 @@ export function ManualEntryScreen({
    * Money out is what this sheet was built for and stays the default; the kind rail is the one
    * control that changes it. Switching clears the category with it, because an income cannot be
    * filed under a spending dimension — `CategoryMatrix` draws a different tree for each kind.
+   *
+   * Every one of these starts on the row being edited when there is one, so opening a card's
+   * **Edit** is the record as it was written rather than a blank sheet to fill in again.
    */
-  const [kind, setKind] = useState<Kind>("expense")
-  const [account, setAccount] = useState(ACCOUNTS[0].id)
-  const [merchant, setMerchant] = useState("")
-  const [note, setNote] = useState("")
-  const [category, setCategory] = useState<string | null>(initialCategory)
+  const [kind, setKind] = useState<Kind>(editing?.kind ?? "expense")
+  const [account, setAccount] = useState(editing?.account ?? ACCOUNTS[0].id)
+  const [merchant, setMerchant] = useState(editing?.title ?? "")
+  const [note, setNote] = useState(editing?.note ?? "")
+  const [category, setCategory] = useState<string | null>(editing?.category ?? initialCategory)
   const [expanded, setExpanded] = useState(false)
   /**
    * The moment the row will be filed at — the current one unless the picker was used.
@@ -294,7 +306,7 @@ export function ManualEntryScreen({
    * rows typed for the same forgotten day sort the way they happened rather than the way
    * they were typed.
    */
-  const [at, setAt] = useState(() => momentOn(startOfDay(now), minutesOfDay(now)))
+  const [at, setAt] = useState(() => editing?.at ?? momentOn(startOfDay(now), minutesOfDay(now)))
   const [dateOpen, setDateOpen] = useState(false)
   /**
    * How tall the category panel may be: the middle band, less every row that stays above the
@@ -409,7 +421,13 @@ export function ManualEntryScreen({
           through, and it follows the kind (`New income` / `New expense`).
         */}
         <span className="font-editorial text-[18px] leading-7 italic text-ink2">
-          {payee === null && kind === "income" ? "New income" : "New expense"}
+          {editing
+            ? kind === "income"
+              ? "Edit income"
+              : "Edit expense"
+            : payee === null && kind === "income"
+              ? "New income"
+              : "New expense"}
         </span>
         <button
           type="button"
@@ -628,7 +646,13 @@ export function ManualEntryScreen({
               disabled={value <= 0}
               className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
             >
-              {payee !== null ? "Pay and Log Transaction" : kind === "income" ? "Add Income" : "Add Record"}
+              {editing
+                ? "Save changes"
+                : payee !== null
+                  ? "Pay and Log Transaction"
+                  : kind === "income"
+                    ? "Add Income"
+                    : "Add Record"}
             </button>
           </motion.div>
         )}

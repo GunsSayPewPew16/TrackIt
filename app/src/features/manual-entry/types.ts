@@ -1,5 +1,5 @@
 import type { UpiPayee } from "@/features/upi/upi"
-import type { Kind } from "@/lib/types"
+import type { Kind, Row } from "@/lib/types"
 
 /**
  * What the manual-entry sheet collects, and the shape the ledger takes it in.
@@ -57,6 +57,14 @@ export type SheetProps = {
    * on screen. `null` is the ordinary blank entry.
    */
   payee?: UpiPayee | null
+  /**
+   * The row being corrected, when the sheet was opened from a ledger card's **Edit** rather
+   * than from the add-record pill. Every field starts on that row's own figure — amount,
+   * direction, account, merchant, note, category **and the moment it happened** — and the
+   * confirm says *Save changes* instead of *Add Record*, so a correction is never mistaken
+   * for a second entry.
+   */
+  editing?: Row | null
   onClose: () => void
   /** Called with the entry after the confirm key. The sheet closes itself afterwards. */
   onSubmit?: (entry: ManualEntry) => void

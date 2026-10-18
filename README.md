@@ -41,13 +41,17 @@ two round header controls; the stack of account cards, one per account, which is
 the newer artboard drew in place of the single balance box — pull the front card down
 and it goes to the back of the stack, with the "Add card" pill pinned where it was: its
 bottom edge on the card's own bottom edge, sitting in the notch the card cuts out of its
-bottom-right corner, and lined up with the card's right edge; a
+bottom-right corner, and lined up with the card's right edge. **A hold on the front card
+sets what that account holds**: the balance is the owner's own figure, a starting point the
+ledger moves from there, and it survives a reload; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
 side, the **F&B budget** (what Food & Beverages has taken this month out of the owner's
 ₹1,500, twenty segments and a needle at the same percentage as the pill above it, with the
 dimension's own subcategories as the chips under the bar — and a hold on the card opens the
-keypad that changes the limit), and the recent rows. The ledger is opened from the header's
+keypad that changes the limit, with a *Tracking* page behind it that chooses which categories
+and subcategories count against it, every tap written at once so the card and the page's own
+figure move on the same frame), and the recent rows. The ledger is opened from the header's
 second circle, beside the theme toggle; the artboard's own "See all" button is gone
 from the recent card, where it would have been a second door to the same room.
 
@@ -62,8 +66,11 @@ capsule pitch of ~69px), and each capsule that crosses the axis plays a light ha
 Home and End move it too. Each day is a stack of **notched cards**: a 358×128 outline
 with a step cut out of its top-left corner, the category pill sitting in the cut and
 the faces on the step, in one of three treatments — plain, clay for a month's big
-expenses, sage for money in. **A hold on a card asks to delete that row** and the panel
-names it before it goes, which is the only way to take an entry back.
+expenses, sage for money in. **A hold on a card opens two answers**: *Edit* hands the row back to the
+add-record sheet with its own figures and its own moment — the amount, the account, the
+direction, the category, the merchant, the note, and the day and clock it happened on — and
+saving writes that row through, on the same id, so a correction keeps its place; *Delete*
+opens the confirm that names the row before it goes.
 
 **The add-record sheet** is where a row is typed: the amount at 56px with its rupee mark
 above it, the UPI/Cash tray, the **Expense / Income** rail, two journal lines, the six Wallet
@@ -438,8 +445,9 @@ tools/                  wallet-import.py, lucide-icons.py, make-icons.py, the tw
 
 Working: all three screens in both themes, the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
-the month menu that reaches the months past the one the wheel holds, hold-to-delete on a
-card, the two editable budgets (the card's F&B one and the stats dial's total), the add-record
+the month menu that reaches the months past the one the wheel holds, hold-to-edit-or-delete on a
+card, the editable account balances, the two editable budgets (the card's F&B one and the stats
+dial's total) and what each of them tracks, the add-record
 sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's

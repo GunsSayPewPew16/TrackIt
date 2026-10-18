@@ -235,6 +235,37 @@ export function removeFromLedger(id: string): boolean {
 }
 
 /**
+ * Replace one row, keeping its id, and say whether it was there.
+ *
+ * An edit is a **write to the same row**, not a delete and an insert: the id is what the
+ * cloud's upsert conflicts on (`lib/cloud.ts`), so a correction lands on the transaction it
+ * corrects instead of leaving a deleted row behind it and a new one beside it. The moment
+ * (`at`) travels with the row, which is what keeps an expense the owner backdated in
+ * October on the 3rd of October after they fix its amount.
+ *
+ * A row that is not in the ledger is a no-op: the editor was opened from a card, and a
+ * card's id came from the list it was drawn in.
+ */
+export function updateLedgerRow(next: Row): boolean {
+  const current = ledgerSnapshot()
+  const index = current.rows.findIndex((row) => row.id === next.id)
+  if (index < 0) return false
+
+  const rows = [...current.rows]
+  rows[index] = refileRow(next)
+  // Newest first is the store's own order, and an edit can move a row's moment.
+  const merged: LedgerSnapshot = { rows: newestFirst(rows), budgets: current.budgets }
+  try {
+    window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, ...merged }))
+  } catch {
+    // Memory still carries the correction, which is what the screens read.
+  }
+  commit(merged)
+  sink?.upsert([refileRow(next)], [])
+  return true
+}
+
+/**
  * Forget everything, and say how many rows were let go of.
  *
  * This stores an empty ledger rather than removing the key: a removed key reads as "never stored",

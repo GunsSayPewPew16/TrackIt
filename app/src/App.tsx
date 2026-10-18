@@ -13,11 +13,14 @@ import type { Props as ScanProps } from "@/components/ScanScreen"
 import type { Props as StatsProps } from "@/components/AnalyticsScreen"
 // The budget editor's types only, for the same reason: it is fetched on the first hold.
 import type { BudgetSheetProps } from "@/features/budget/BudgetSheet"
+// The balance panel's types only, for the same reason: it is fetched on the first hold.
+import type { BalanceSheetProps } from "@/features/balance/BalanceSheet"
 // The sheet's types only. The component itself is fetched the first time the pill is
 // pressed, so the entry chunk does not pay for a keypad most opens never open.
 import type { ManualEntry, SheetProps } from "@/features/manual-entry"
 import { logPaidPayee } from "@/features/upi/logScan"
 import type { UpiPayee } from "@/features/upi/upi"
+import { useBalances } from "@/hooks/useBalances"
 import { useBudgets } from "@/hooks/useBudgets"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
@@ -26,8 +29,10 @@ import { demoDashboard, DEMO_LEDGER } from "@/lib/demo"
 import { DEFAULT_CATEGORY } from "@/lib/categories"
 import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
-import type { BudgetScope } from "@/lib/budget"
+import { budgetSpent, type BudgetScope } from "@/lib/budget"
+import { startOfMonth, startOfNextMonth } from "@/lib/format"
 import { appendToLedger } from "@/lib/ledger"
+import type { Row } from "@/lib/types"
 
 /**
  * The app: three screens, and the state that decides what they show.
@@ -138,8 +143,9 @@ function TrackIt() {
    * model stable for the memo below.
    */
   const [now] = useState(() => Date.now())
-  const { rows, budgets, remove } = useLedger()
-  const { limits, save: saveBudget } = useBudgets()
+  const { rows, budgets, remove, update } = useLedger()
+  const { limits, tracked, save: saveBudget, saveTracked } = useBudgets()
+  const { openings, setBalance } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   const [arrived, setArrived] = useState<Arrived>({})
@@ -175,6 +181,18 @@ function TrackIt() {
    */
   const [accountOpen, setAccountOpen] = useState(false)
   /**
+   * The account whose balance is being edited, if any: the front card's hold. It is the id
+   * rather than the card, because the card is a formatted view of the account and the panel
+   * needs the numbers (`features/balance/BalanceSheet.tsx`).
+   */
+  const [balanceAccount, setBalanceAccount] = useState<string | null>(null)
+  /**
+   * The balance panel, fetched on the first hold for the same reason the budget editor is:
+   * a keypad that may never be opened does not belong in the entry chunk. It is warmed idly
+   * with the others, so in practice the first hold is a panel rather than a wait.
+   */
+  const [BalanceEditor, setBalanceEditor] = useState<ComponentType<BalanceSheetProps> | null>(null)
+  /**
    * The category the sheet opens on, when it was opened from a quick-log chip rather than
    * from the add-record pill: `null` for a blank entry, which is what the pill means.
    */
@@ -187,6 +205,12 @@ function TrackIt() {
    * its own `source: "upi"` and the VPA in its note.
    */
   const [entryPayee, setEntryPayee] = useState<UpiPayee | null>(null)
+  /**
+   * The row being corrected, when the sheet was opened from a ledger card's **Edit** rather
+   * than from the add-record pill. It is the whole row, not an id, because the app already
+   * holds every row (`useLedger`) and the sheet needs its figures to start on.
+   */
+  const [entryEditing, setEntryEditing] = useState<Row | null>(null)
   /**
    * Where the scanner's answer goes. A scanned code hands the sheet a promise, and the sentence
    * is what that promise resolves with once the owner confirms or gives up — the scanner's own
@@ -207,6 +231,7 @@ function TrackIt() {
       void screens.stats()
       void import("@/features/manual-entry")
       void import("@/features/budget/BudgetSheet")
+      void import("@/features/balance/BalanceSheet")
     }
     if (typeof window.requestIdleCallback === "function") {
       const idle = window.requestIdleCallback(warm, { timeout: 2000 })
@@ -245,12 +270,18 @@ function TrackIt() {
    * so a hand-typed row can always be told from an imported or scanned one.
    */
   const openEntry = useCallback(
-    async (category: string | null = null, payee: UpiPayee | null = null): Promise<string | null> => {
-      // Set before the sheet opens, and before any await: the category and the payee are what
-      // the sheet starts on, and a tap that fetched the module first would otherwise open a
-      // blank entry and only then be told what it was for.
+    async (
+      category: string | null = null,
+      payee: UpiPayee | null = null,
+      /** The row a ledger card's Edit handed over, if this open is a correction. */
+      editing: Row | null = null,
+    ): Promise<string | null> => {
+      // Set before the sheet opens, and before any await: the category, the payee and the row
+      // being corrected are what the sheet starts on, and a tap that fetched the module first
+      // would otherwise open a blank entry and only then be told what it was for.
       setEntryCategory(category)
       setEntryPayee(payee)
+      setEntryEditing(editing)
       const answer = payee === null
         ? null
         : new Promise<string | null>((resolve) => {
@@ -293,6 +324,39 @@ function TrackIt() {
   }, [])
 
   /**
+   * The sheet's confirm, in edit mode: the same row, corrected.
+   *
+   * Everything the sheet knows is written onto the row it started on — **the id stays**, which
+   * is what makes this a correction rather than a second entry: the card keeps its place in
+   * the ledger, the cloud's upsert lands on the same `client_id` (`lib/cloud.ts`), and every
+   * total it was part of simply moves. Fields the sheet does not ask about ride along
+   * untouched: an imported row keeps its Wallet id, its icon and its people, and a scanned
+   * one keeps `source: "upi"`.
+   */
+  const editEntry = useCallback(
+    (row: Row, entry: ManualEntry) => {
+      const category = entry.category ?? DEFAULT_CATEGORY
+      const next: Row = {
+        ...row,
+        title: entry.merchant || filedName(category),
+        category,
+        account: entry.account,
+        amountCents: Math.round(entry.amount * 100),
+        kind: entry.kind,
+        // The moment is the row's own unless the pill was moved, and that is the point of
+        // seeding the sheet with it: a backdated expense is corrected where it happened.
+        at: entry.at,
+      }
+      // A note the owner cleared is gone rather than stored as an empty string: a row with no
+      // note has no such key anywhere else in the app.
+      if (entry.note) next.note = entry.note
+      else delete next.note
+      update(next)
+    },
+    [update],
+  )
+
+  /**
    * The sheet's confirm.
    *
    * One screen, two rows: a hand-typed entry is `addEntry`'s (`source: "manual"`, an id no
@@ -305,6 +369,10 @@ function TrackIt() {
    */
   const submitEntry = useCallback(
     (entry: ManualEntry) => {
+      if (entryEditing !== null) {
+        editEntry(entryEditing, entry)
+        return
+      }
       if (entryPayee === null) {
         addEntry(entry)
         return
@@ -321,7 +389,7 @@ function TrackIt() {
       )
       settleScan.current = null
     },
-    [addEntry, entryPayee],
+    [addEntry, editEntry, entryEditing, entryPayee],
   )
 
   /**
@@ -344,9 +412,39 @@ function TrackIt() {
   /** Closing without confirming is an answer too: the scanner's hint comes back. */
   const closeEntry = useCallback(() => {
     setEntryOpen(false)
+    setEntryEditing(null)
     settleScan.current?.(null)
     settleScan.current = null
   }, [])
+
+  /**
+   * A ledger card's hold → **Edit**: find the row the app actually holds and open the sheet on
+   * it. The lookup is by the card's id, which is the row's own; a card whose row has gone (a
+   * delete on another device, a pull that landed in between) opens nothing rather than a blank
+   * sheet with somebody else's figures.
+   */
+  const editRow = useCallback(
+    (id: string) => {
+      const row = rows.find((candidate) => candidate.id === id)
+      if (row) void openEntry(row.category, null, row)
+    },
+    [rows, openEntry],
+  )
+
+  /**
+   * A balance card's hold: fetch the panel on the first one, then open it on that account.
+   * The account id is set before the await, like every other panel here.
+   */
+  const editBalance = useCallback(
+    async (accountId: string) => {
+      setBalanceAccount(accountId)
+      if (!BalanceEditor) {
+        const module = await import("@/features/balance/BalanceSheet")
+        setBalanceEditor(() => module.BalanceSheet)
+      }
+    },
+    [BalanceEditor],
+  )
 
   /**
    * Both models are rebuilt when the ledger changes and not on every render: the
@@ -355,8 +453,11 @@ function TrackIt() {
    */
   const imported = hasHistory(rows)
   const dashboard = useMemo(
-    () => (imported ? dashboardModel(rows, now, limits.food) : demoDashboard(limits.food)),
-    [imported, rows, now, limits.food],
+    () =>
+      imported
+        ? dashboardModel(rows, now, limits.food, tracked.food, openings)
+        : demoDashboard(limits.food, tracked.food, openings),
+    [imported, rows, now, limits.food, tracked.food, openings],
   )
   const ledger = useMemo(
     () => (imported ? ledgerModel(rows, budgets, anchor) : DEMO_LEDGER),
@@ -388,6 +489,7 @@ function TrackIt() {
               onQuickLog={(category) => void openEntry(category)}
               onSetBudget={() => void editBudget("food")}
               onOpenAccount={() => setAccountOpen(true)}
+              onEditBalance={(accountId) => void editBalance(accountId)}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger
@@ -398,6 +500,9 @@ function TrackIt() {
               // The ledger screen only asks; the store is what forgets a row and tells every
               // screen subscribed to it (`lib/ledger.ts`).
               onDelete={remove}
+              // …and an edit comes back the same way: the sheet is opened here, over the
+              // ledger, with the row the app holds.
+              onEdit={editRow}
             />
           ) : view === "stats" && Stats ? (
             <Stats
@@ -405,6 +510,7 @@ function TrackIt() {
               theme={theme}
               onToggleTheme={toggleTheme}
               budgetCents={limits.total}
+              budgetCategories={tracked.total}
               onSetBudget={() => void editBudget("total")}
             />
         ) : view === "scan" && Scan ? (
@@ -436,6 +542,7 @@ function TrackIt() {
           isOpen={entryOpen}
           category={entryCategory}
           payee={entryPayee}
+          editing={entryEditing}
           onClose={closeEntry}
           onSubmit={submitEntry}
         />
@@ -451,10 +558,33 @@ function TrackIt() {
           isOpen={budgetOpen}
           scope={budgetScope}
           limitCents={limits[budgetScope]}
+          tracked={tracked[budgetScope]}
+          // What the budget has counted so far this month, so the picker's own figure moves
+          // on every toggle — re-derived here because the rows do not leave the app.
+          spentCents={budgetSpent(rows, startOfMonth(now), startOfNextMonth(now), tracked[budgetScope])}
           onClose={() => setBudgetOpen(false)}
           onSave={(cents) => {
             saveBudget(budgetScope, cents)
             setBudgetOpen(false)
+          }}
+          // Written on every toggle rather than on the save: the card behind the panel is
+          // the answer to what a choice does, so it has to move while the panel is open.
+          onTrack={(categories) => saveTracked(budgetScope, categories)}
+        />
+      )}
+
+      {/** The balance editor: what the card's hold opened, by account id. */}
+      {BalanceEditor && (
+        <BalanceEditor
+          isOpen={balanceAccount !== null}
+          name={dashboard.cards.find((card) => card.id === balanceAccount)?.name ?? "Account"}
+          balanceCents={
+            dashboard.cards.find((card) => card.id === balanceAccount)?.cents ?? 0
+          }
+          onClose={() => setBalanceAccount(null)}
+          onSave={(cents) => {
+            if (balanceAccount) setBalance(balanceAccount, cents)
+            setBalanceAccount(null)
           }}
         />
       )}

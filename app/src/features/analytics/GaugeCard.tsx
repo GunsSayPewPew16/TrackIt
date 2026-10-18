@@ -27,18 +27,24 @@ export function GaugeCard({
   rows,
   now,
   budgetCents,
+  budgetCategories,
   onSetBudget,
 }: {
   rows: Row[]
   now: number
   /** What the dial measures against, in paise: the owner's total-spending budget. */
   budgetCents: number
+  /** What that budget counts — the owner's own selection, or `null` for every expense. */
+  budgetCategories: string[] | null
   /** A long press on the dial opens the budget editor (`features/budget/BudgetSheet.tsx`). */
   onSetBudget: () => void
 }) {
   const maskId = useId().replace(/:/g, "")
   const [lastMonth, setLastMonth] = useState(false)
-  const model = useMemo(() => gaugeModel(rows, now, budgetCents), [rows, now, budgetCents])
+  const model = useMemo(
+    () => gaugeModel(rows, now, budgetCents, budgetCategories),
+    [rows, now, budgetCents, budgetCategories],
+  )
   const spent = lastMonth ? model.lastMonth : model.thisMonth
   const fraction = model.target > 0 ? Math.min(1, spent / model.target) : 0
   // A dial is a thing to hold: the hold is the only control on it, and it opens the editor.

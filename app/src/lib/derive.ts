@@ -19,15 +19,20 @@
  *   the export carried for that category) **and the category's share of the month
  *   otherwise**, and it says which, because "62%" with no noun is not a fact.
  * - **The dashboard's envelope is the Food & Beverages budget** from `lib/budget.ts`,
- *   and the limit is handed in rather than read, because the owner can change it from
- *   the card itself. It is not the export's own `Budget` documents — those stay on the
- *   ledger's per-row bars — and it counts the whole dimension, not the month, so a taxi
- *   can never make the food budget look full. The stats dial is the *other* budget (all
- *   spending), which is why the two cards can no longer share one figure.
+ *   and the limit **and the categories it tracks** are handed in rather than read, because
+ *   the owner can change both from the card itself. It is not the export's own `Budget`
+ *   documents — those stay on the ledger's per-row bars — and it counts the categories the
+ *   owner chose, not the month, so a taxi can never make the food budget look full unless
+ *   it was asked to. The stats dial is the *other* budget (all spending), which is why the
+ *   two cards can no longer share one figure.
+ *
+ * **Balances come from the store, not from the table.** Each card's opening is handed in
+ * (`lib/balances.ts`), because the owner can set what a card reads by holding it; what is
+ * derived is still the same sum — opening, plus income, minus expenses.
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
-import { BUDGET_COPY, BUDGET_DEFAULTS, budgetSpent, isBudgetCategory } from "./budget"
+import { BUDGET_COPY, BUDGET_DEFAULTS, BUDGET_TRACKED_DEFAULTS, budgetSpent } from "./budget"
 import { categoryFor } from "./categories"
 // The name a person reads, which is the new tree's where it renamed an envelope: see
 // `lib/refile.ts`. The table itself is still the source of the id and the icon.
@@ -287,14 +292,23 @@ function sparkline(rows: Row[], now: number): string {
  * not of the limit on purpose: a chip sums with its siblings to the whole of what went
  * out, which is the question the card's left-hand figure raises.
  */
-function envelope(rows: Row[], now: number, limitCents: number): DashboardModel["envelope"] {
+function envelope(
+  rows: Row[],
+  now: number,
+  limitCents: number,
+  /** The categories this budget counts, or `null` for every expense (`lib/budget.ts`). */
+  categories: string[] | null,
+): DashboardModel["envelope"] {
   const monthStart = startOfMonth(now)
   const monthRows = inWindow(rows.filter(isExpense), monthStart, startOfNextMonth(now))
-  const spent = budgetSpent(rows, monthStart, startOfNextMonth(now))
+  const spent = budgetSpent(rows, monthStart, startOfNextMonth(now), categories)
 
+  // The chips rank whatever the budget actually counted: with the default set that is the
+  // F&B dimension's four ids, and with the owner's own selection it is that selection.
+  const tracked = categories === null ? null : new Set(categories)
   const byCategory = new Map<string, number>()
   for (const row of monthRows) {
-    if (!isBudgetCategory(row.category)) continue
+    if (tracked !== null && !tracked.has(row.category)) continue
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amountCents)
   }
   const ranked = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
@@ -323,6 +337,13 @@ export function dashboardModel(
   now: number = Date.now(),
   /** The Food & Beverages limit, in paise — the owner's own number (`lib/budget.ts`). */
   foodLimitCents: number = BUDGET_DEFAULTS.food,
+  /** What that budget counts — the owner's own selection (`lib/budget.ts`). */
+  foodCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.food,
+  /**
+   * The opening balance of each account, in paise (`lib/balances.ts`). Omitted, the import's
+   * own openings are used, which is what every caller but the app wants.
+   */
+  openings: Record<string, number> = {},
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -357,7 +378,7 @@ export function dashboardModel(
   const cards = ACCOUNTS.map((account) => {
     const own = rows.filter((row) => accountFor(row.account).id === account.id)
     const balance =
-      account.openingCents +
+      (openings[account.id] ?? account.openingCents) +
       sum(own.filter((row) => row.kind === "income")) -
       sum(own.filter(isExpense))
     return {
@@ -393,7 +414,7 @@ export function dashboardModel(
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
-    envelope: envelope(rows, now, foodLimitCents),
+    envelope: envelope(rows, now, foodLimitCents, foodCategories),
     recent: {
       title: "Recent transactions",
       rows: recent.map((row) => ({

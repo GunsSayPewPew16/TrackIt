@@ -25,7 +25,7 @@ import type { SheetProps } from "./types"
 const SPRING = { type: "spring", stiffness: 400, damping: 34, mass: 0.8 } as const
 const DISMISS_DISTANCE = 150
 
-export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }: SheetProps) {
+export function ManualEntrySheet({ isOpen, category, payee, editing, onClose, onSubmit }: SheetProps) {
   const controls = useDragControls()
 
   useEffect(() => {
@@ -64,8 +64,10 @@ export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }:
             role="dialog"
             aria-modal="true"
             // The same sheet, named for what it does: a scanned code's open is a payment,
-            // and the add-record open records either direction.
-            aria-label={payee ? "Pay and log transaction" : "Manual record entry"}
+            // a card's Edit is a correction, and the add-record open records either direction.
+            aria-label={
+              payee ? "Pay and log transaction" : editing ? "Edit record" : "Manual record entry"
+            }
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -93,6 +95,9 @@ export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }:
               // `SheetProps.payee`. It also seeds the keypad when the code carried an
               // amount, so a printed figure is confirmed rather than retyped.
               payee={payee ?? null}
+              // The row being corrected, when a ledger card's Edit opened this sheet. It seeds
+              // every field, including the moment, so the correction lands where the row is.
+              editing={editing ?? null}
               onClose={onClose}
               onSubmit={onSubmit}
               onHeaderPointerDown={(event) => controls.start(event)}

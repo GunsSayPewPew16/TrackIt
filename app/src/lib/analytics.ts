@@ -1,5 +1,5 @@
 import { OPENING_BALANCE_CENTS } from "./accounts"
-import { BUDGET_DEFAULTS, budgetSpent } from "./budget"
+import { BUDGET_DEFAULTS, BUDGET_TRACKED_DEFAULTS, budgetSpent } from "./budget"
 import { categoryFor, groupLabel } from "./categories"
 import { addDays, localDayKey, startOfDay, startOfMonth, startOfNextMonth } from "./format"
 import type { Row } from "./types"
@@ -261,21 +261,24 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
  * This is deliberately **not** the dashboard's envelope card. The two cards track two
  * different things — the card on the dashboard is Food & Beverages out of ₹1,500, and this
  * dial is the whole month out of ₹5,000 (`lib/budget.ts` holds both) — so the dial counts
- * each row once, category or not, and `GaugeCard` says *Total this month* rather than naming
- * a dimension. Both limits are the owner's own and both are editable from the card drawing
- * them, which is why the limit is an argument here rather than a constant.
+ * each row once, and `GaugeCard` says *Total this month* rather than naming a dimension.
+ * Its categories are the owner's too: left alone, "whole month" means every expense; a
+ * chosen set means exactly that set. Both limits and both sets are editable from the card
+ * drawing them, which is why both are arguments here rather than constants.
  */
 export function gaugeModel(
   rows: Row[],
   now: number,
   /** The total-spending limit, in paise — the owner's own number (`lib/budget.ts`). */
   totalLimitCents: number = BUDGET_DEFAULTS.total,
+  /** What the total budget counts, or `null` for every expense (`lib/budget.ts`). */
+  totalCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.total,
 ): GaugeModel {
   const thisMonth = startOfMonth(now)
   const lastMonth = startOfMonth(addDays(thisMonth, -1))
   return {
-    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now), "total"),
-    lastMonth: budgetSpent(rows, lastMonth, thisMonth, "total"),
+    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now), totalCategories),
+    lastMonth: budgetSpent(rows, lastMonth, thisMonth, totalCategories),
     target: totalLimitCents,
   }
 }

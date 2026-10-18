@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Check, ChevronDown, Trash2 } from "lucide-react"
+import { Check, ChevronDown, Pencil, Trash2 } from "lucide-react"
 import { DropdownMenu } from "radix-ui"
 import { useState } from "react"
 
@@ -79,9 +79,11 @@ const CARD_PATH =
   "M0 20Q0 0 20 0H92C112 0 118 8 124 22C130 36 138 40 156 40H338Q358 40 358 60V108Q358 128 338 128H20Q0 128 0 108Z"
 
 /**
- * One notched card. A long press is the owner's way to take the row back: it arms the
- * confirm panel in `LedgerScreen` — the card itself is not deleted until the panel's own
- * button is pressed, because a hold costs a thumb's rest and a delete costs the row.
+ * One notched card. A long press opens the row's own small panel in `LedgerScreen` — two
+ * answers, **Edit** and **Delete** — because a hold is the only way into a row that is
+ * already written, and both answers are things a thumb might have meant. Neither happens on
+ * the hold itself: the panel is what decides, and the delete goes through a second
+ * confirmation behind it.
  */
 function Card({
   card,
@@ -99,8 +101,8 @@ function Card({
       {...hold}
       role="button"
       tabIndex={0}
-      aria-label={`${card.title}, ${card.amount}, ${card.sub}. Hold to delete this entry`}
-      title="Hold to delete this entry"
+      aria-label={`${card.title}, ${card.amount}, ${card.sub}. Hold to edit or delete this entry`}
+      title="Hold to edit or delete this entry"
       className="relative h-32 w-full flex-none select-none [-webkit-touch-callout:none]"
     >
       <svg
@@ -192,6 +194,33 @@ function Card({
 }
 
 /**
+ * The row, restated inside a panel: what it was, what it cost, where it was filed and when.
+ *
+ * Both panels above the card open with this block, because both are about one row and a
+ * thumb has just covered the card that said which. It is the same card-in-a-card the delete
+ * confirmation has always drawn — a hairline box on the canvas, title left, money right,
+ * the category and the clock under it — so the two panels cannot describe a row two
+ * different ways.
+ */
+function EntrySummary({ card }: { card: LedgerCard }) {
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-canvas p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 truncate font-bold text-ink">{card.title}</span>
+        <span className="flex-none tabular-nums text-ink">{card.amount}</span>
+      </div>
+      <div className="mt-0.5 flex gap-2 text-[11px] leading-4 text-ink2">
+        <span className="min-w-0 truncate">{card.sub}</span>
+        <span aria-hidden="true" className="opacity-60">
+          ·
+        </span>
+        <span className="flex-none">{card.time}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * What this screen is given. Named and exported because the screen is fetched rather than
  * imported (`App.tsx` holds it as a `ComponentType<Props>`), and a type is the only thing
  * about it that can be in the entry chunk without dragging the screen back into one.
@@ -204,12 +233,20 @@ export type Props = {
   onPickMonth: (anchor: number) => void
   /** Delete one row by id — the app's store is what actually forgets it (`lib/ledger.ts`). */
   onDelete: (id: string) => void
+  /**
+   * Open one row in the record sheet, by id. The screen only asks; the app owns the sheet
+   * (`App.tsx`), and the row is handed over as the ledger holds it rather than as this card
+   * draws it — a card has formatted strings, and the editor needs the numbers.
+   */
+  onEdit: (id: string) => void
 }
 
-export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelete }: Props) {
+export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelete, onEdit }: Props) {
   const [selected, setSelected] = useState(model.selected)
-  /** The row a hold has armed for deletion, if any. */
+  /** The row a hold has opened the small panel for, if any. */
   const [pending, setPending] = useState<LedgerCard | null>(null)
+  /** The row the panel's Delete has armed for the confirmation, if any. */
+  const [confirming, setConfirming] = useState<LedgerCard | null>(null)
 
   /**
    * A window the owner has just moved — they picked a month from the menu — opens
@@ -397,16 +434,100 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
       </div>
 
       {/*
-        The hold's answer: a confirm panel, not an instant delete.
+        The hold's answer: one small panel, two answers.
 
-        A long press is easy to do by accident and a deleted row is not something the owner
-        can get back from a list, so the panel restates **which** row (title, category and
-        amount) and asks once. Its Delete is the 45ms thud — the same weight the manual entry
-        uses for anything that writes — and cancelling is the 20ms click, because it wrote
-        nothing. The dim layer closes it too, like every other panel in the app.
+        A long press is easy to do by accident, and it is also the only way into a row that
+        already exists — so it opens a panel rather than doing anything itself. The panel
+        restates **which** row (title, category, amount and clock, the same summary the
+        confirmation below uses) and offers the two things that can be done to one:
+        **Edit** hands the row to the record sheet, and **Delete** opens the confirmation
+        behind it. Neither writes on the press, and the panel is dismissed by the dim layer,
+        the way every other panel in the app is.
       */}
       <AnimatePresence>
         {pending && (
+          <>
+            <motion.div
+              key="entry-dim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setPending(null)}
+              aria-hidden="true"
+              className="fixed inset-0 z-50 bg-canvas"
+            />
+            <div className="pointer-events-none fixed inset-0 z-[55] grid place-items-center px-4">
+              <motion.div
+                key="entry-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="entry-actions-title"
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="pointer-events-auto w-full max-w-[358px] rounded-[20px] border border-line bg-card p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 flex-none place-items-center rounded-2xl bg-sage text-on-sage">
+                    <Pencil strokeWidth={1.5} className="size-5" aria-hidden="true" />
+                  </span>
+                  <h2
+                    id="entry-actions-title"
+                    className="font-editorial text-[18px] leading-7 italic text-ink"
+                  >
+                    This entry
+                  </h2>
+                </div>
+
+                <EntrySummary card={pending} />
+
+                <p className="mt-3 text-[11px] leading-4 text-ink2">
+                  Edit opens it in the record sheet with its own figures, on the day it happened.
+                  Deleting takes it out of the ledger and this month’s totals with it.
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mediumClick()
+                      onEdit(pending.id)
+                      setPending(null)
+                    }}
+                    className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  >
+                    <Pencil strokeWidth={1.5} className="size-4" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mediumClick()
+                      setConfirming(pending)
+                      setPending(null)
+                    }}
+                    className="flex h-12 items-center justify-center gap-2 rounded-2xl border-0 bg-clay font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-clay outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                  >
+                    <Trash2 strokeWidth={1.5} className="size-4" aria-hidden="true" />
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/*
+        The delete confirmation, which the panel above opens: a deleted row is not something
+        the owner can get back from a list, so it is asked once more, with the row restated.
+        Its Delete is the 45ms thud — the same weight the manual entry uses for anything that
+        writes — and cancelling is the 20ms click, because it wrote nothing.
+      */}
+      <AnimatePresence>
+        {confirming && (
           <>
             <motion.div
               key="delete-dim"
@@ -414,7 +535,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
               animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              onClick={() => setPending(null)}
+              onClick={() => setConfirming(null)}
               aria-hidden="true"
               className="fixed inset-0 z-50 bg-canvas"
             />
@@ -442,19 +563,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
                   </h2>
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-line bg-canvas p-3">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate font-bold text-ink">{pending.title}</span>
-                    <span className="flex-none tabular-nums text-ink">{pending.amount}</span>
-                  </div>
-                  <div className="mt-0.5 flex gap-2 text-[11px] leading-4 text-ink2">
-                    <span className="min-w-0 truncate">{pending.sub}</span>
-                    <span aria-hidden="true" className="opacity-60">
-                      ·
-                    </span>
-                    <span className="flex-none">{pending.time}</span>
-                  </div>
-                </div>
+                <EntrySummary card={confirming} />
 
                 <p className="mt-3 text-[11px] leading-4 text-ink2">
                   It leaves the ledger and this month’s totals with it. This cannot be undone.
@@ -465,7 +574,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
                     type="button"
                     onClick={() => {
                       mediumClick()
-                      setPending(null)
+                      setConfirming(null)
                     }}
                     className="h-12 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
                   >
@@ -475,8 +584,8 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
                     type="button"
                     onClick={() => {
                       heavyThud()
-                      onDelete(pending.id)
-                      setPending(null)
+                      onDelete(confirming.id)
+                      setConfirming(null)
                     }}
                     className="h-12 rounded-2xl border-0 bg-clay font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-clay outline-none focus-visible:ring-2 focus-visible:ring-ink"
                   >

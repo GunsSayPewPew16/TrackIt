@@ -16,8 +16,10 @@
  * replaces it the moment there is something real to show.
  */
 
+import { BUDGET_TRACKED_DEFAULTS } from "./budget"
 import { initialsOf } from "./derive"
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
+import { filedName } from "./refile"
 import type { CardStyle, Kind } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
@@ -207,23 +209,64 @@ export const DEMO_DASHBOARD: DashboardModel = {
 }
 
 /**
- * The artboard's dashboard with the owner's current Food & Beverages limit on it.
+ * The artboard's ₹240 of food, split the way its three chips already were (42 / 35 / 23%).
+ *
+ * This is what lets the demo answer the tracked set: with an empty ledger there are no rows
+ * to sum, so the card's figure has to be a sample that can be *taken apart* — unticking
+ * Groceries drops ₹84 from the envelope on that tap, exactly as `lib/derive.ts` would drop
+ * real grocery rows. The rupee amounts are whole so the demo's figure stays printed flat.
+ */
+const DEMO_FOOD_PARTS: Record<string, number> = {
+  restaurant: 10_100,
+  groceries: 8_400,
+  "bar-cafe": 5_500,
+}
+
+/**
+ * The artboard's dashboard with the owner's current Food & Beverages limit on it, and with
+ * the categories that budget counts.
  *
  * The demo is a literal, so it cannot derive a percentage the way `lib/derive.ts` does. This
- * recomputes the envelope's limit, percentage and badge from the artboard's own ₹240 sample,
- * which is what keeps the card editable in the one state where the demo is drawn: an empty
- * ledger. Every other figure stays the artboard's, because it is still a first-visit design.
+ * recomputes the envelope's limit, percentage, badge and chips from the artboard's own ₹240
+ * sample, which is what keeps the card editable in the one state where the demo is drawn: an
+ * empty ledger. The sample is the sum of `DEMO_FOOD_PARTS` the budget tracks, so a hold that
+ * changes what the budget counts moves the card here too — the demo and the derived card are
+ * the same *promise*, even though only one of them has rows to count. Every other figure
+ * stays the artboard's, because it is still a first-visit design — **including the cards'
+ * balances, except where the owner has set one**: a balance typed on a card is a fact about
+ * the account rather than a sample of it, so it is the one figure here that survives the demo.
  */
-export function demoDashboard(foodLimitCents: number): DashboardModel {
-  const spent = paise(240)
+export function demoDashboard(
+  foodLimitCents: number,
+  /** The categories the food budget counts, or `null` for every expense (`lib/budget.ts`). */
+  foodCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.food,
+  openings: Record<string, number> = {},
+): DashboardModel {
+  const tracked = foodCategories === null ? null : new Set(foodCategories)
+  const parts = Object.entries(DEMO_FOOD_PARTS)
+    .filter(([id]) => tracked === null || tracked.has(id))
+    .sort((a, b) => b[1] - a[1])
+  const spent = parts.reduce((total, [, cents]) => total + cents, 0)
   const pct = foodLimitCents > 0 ? Math.min(100, Math.round((spent / foodLimitCents) * 100)) : 0
   return {
     ...DEMO_DASHBOARD,
+    // With nothing imported there are no rows to carry a balance, so the opening *is* the
+    // figure — the same sum `lib/derive.ts` does with an empty ledger.
+    cards: DEMO_DASHBOARD.cards.map((card) => {
+      const opening = openings[card.id]
+      if (opening === undefined) return card
+      const cents = Math.max(opening, 0)
+      return { ...card, cents, balance: money(cents) }
+    }),
     envelope: {
       ...DEMO_DASHBOARD.envelope,
+      spent: wholeMoney(spent),
       limit: wholeMoney(foodLimitCents),
       pct,
       badge: `${pct}% USED`,
+      // Shares of what the budget counted, which is the same question the derived chips
+      // answer: they sum with their siblings to the whole of what went out.
+      chips: parts.map(([id, cents]) => `${filedName(id)}: ${spent > 0 ? Math.round((cents / spent) * 100) : 0}% of spend`),
     },
   }
 }
