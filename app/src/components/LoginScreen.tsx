@@ -1,6 +1,6 @@
 import { motion, type Variants } from "framer-motion"
 import { ArrowRight, Loader2 } from "lucide-react"
-import { useMemo, useState, type FormEvent, type ReactNode } from "react"
+import { useMemo, useState, type ClipboardEvent, type FormEvent, type ReactNode } from "react"
 
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { useAuth } from "@/hooks/useAuth"
@@ -31,12 +31,19 @@ import { SIGNUPS_OPEN } from "@/lib/portal"
  * sentence. The code line is set as a code (tabular figures, wide tracking, the numbers centred
  * in the line) because it is not prose.
  *
- * **The paragraph names both halves of the mail, because one of them may be all there is.** The
- * digits need the Magic Link body to carry `{{ .Token }}`, and a free-tier project on Supabase's
- * built-in mailer cannot change its template at all (`supabase/README.md` §2) — there the mail
- * carries the link and nothing else. The link opens the same vault (it comes back to this address
- * and `hooks/useAuth.tsx` adopts the session), so the sentence offers it rather than leaving
- * somebody waiting for six digits that were never sent.
+ * **Two halves of one proof, and either will do.** The digits need the Magic Link body to carry
+ * `{{ .Token }}`, which a free-tier project on Supabase's built-in mailer cannot arrange at all
+ * (`supabase/README.md` §2) — there the mail carries the link and nothing else. The link opens
+ * the same vault (it comes back to this address and `hooks/useAuth.tsx` adopts the session), but
+ * **only where a link can be opened**: inside an installed iOS web app it cannot, because that
+ * app shares no storage with Safari and a link tapped in Mail goes to Safari. So the field takes
+ * the link too, pasted in, and `verifyOtp({ token_hash })` spends it exactly as the link would
+ * have — which is the difference between a door that works on a desk and one that works in the
+ * app on the phone.
+ *
+ * **The paste is caught, not typed.** The line is six characters wide because digits are six
+ * long; a link is a hundred, so `onPaste` reads the clipboard before the field takes it and
+ * hands anything that is not six digits to the link path.
  *
  * **States are words, never spinners.** A refusal is a sentence under the fields ("That email and
  * password don't match.", "That code didn't match…"), the button only carries a turning mark
@@ -78,6 +85,7 @@ function Line({
   maxLength,
   autoFocus,
   code,
+  onPaste,
 }: {
   label: string
   value: string
@@ -91,6 +99,15 @@ function Line({
   autoFocus?: boolean
   /** Draw the value as a code rather than as a word: tabular figures, wide tracking. */
   code?: boolean
+  /**
+   * Read what is being pasted before the field takes it.
+   *
+   * The code field is six characters wide because the digits are six long, and a mailed link is
+   * a hundred — so the paste is where the link has to be caught, while the whole of it is still
+   * in hand. Whether to `preventDefault` is the caller's call: six digits are the field's own
+   * business, and a link is not.
+   */
+  onPaste?: (event: ClipboardEvent<HTMLInputElement>) => void
 }) {
   const typed = value.length > 0
   const id = `portal-${label.replace(/\s+/g, "-").toLowerCase()}`
@@ -113,6 +130,7 @@ function Line({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onFocus={lightTap}
+          onPaste={onPaste}
           placeholder={placeholder}
           autoComplete={autoComplete}
           inputMode={inputMode}
@@ -140,6 +158,7 @@ export function LoginScreen() {
     signIn,
     signUp,
     verifyCode,
+    verifyLink,
     resendCode,
     cancelChallenge,
     resetPassword,
@@ -184,6 +203,27 @@ export function LoginScreen() {
     }
   }
 
+  /**
+   * A paste into the code line: six digits stay the field's business, anything else is the link.
+   *
+   * Only a paste can carry a link in — nobody types a hundred characters — so this is the whole
+   * of the link path on the screen, and it is why the field never has to grow: the pasted text is
+   * read here, before `maxLength` can cut it down to six.
+   */
+  const pasted = async (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text")
+    if (/^\s*\d{6}\s*$/.test(text)) return
+    event.preventDefault()
+    if (!text.trim() || busy) return
+    lightTap()
+    setBusy(true)
+    try {
+      await verifyLink(text)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="flex h-dvh w-full flex-col overflow-y-auto bg-canvas px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] text-ink">
       <header className="flex h-12 shrink-0 items-center justify-end">
@@ -209,9 +249,8 @@ export function LoginScreen() {
         <motion.p variants={ROW} className="mt-3 max-w-[32ch] text-[13px] leading-5 text-ink2">
           {askingForCode ? (
             <>
-              Six digits are on their way to{" "}
-              <span className="font-sans text-ink">{challengeEmail}</span> — or open the link in that
-              mail here, which signs you in.
+              Check <span className="font-sans text-ink">{challengeEmail}</span>: paste that
+              mail&apos;s link here, or type its six digits.
             </>
           ) : (
             <>Your ledger follows you between devices, and stays on this one when the network doesn&apos;t.</>
@@ -221,7 +260,7 @@ export function LoginScreen() {
         <form onSubmit={submit} className="mt-10">
           {askingForCode ? (
             <Line
-              label="Six-digit code"
+              label="Code or link"
               value={code}
               onChange={(next) => setCode(next.replace(/\D/g, "").slice(0, 6))}
               placeholder="From the email we just sent..."
@@ -231,6 +270,7 @@ export function LoginScreen() {
               autoComplete="one-time-code"
               autoFocus
               code
+              onPaste={pasted}
             />
           ) : (
             <>
@@ -279,7 +319,7 @@ export function LoginScreen() {
             {!error && notice && <p className="text-[13px] leading-5 text-ink2">{notice}</p>}
             {!error && !notice && askingForCode && (
               <p className="font-editorial text-[13px] leading-5 italic text-ink2">
-                It expires in five minutes.
+                Whichever arrives, it works once.
               </p>
             )}
           </div>
@@ -310,7 +350,7 @@ export function LoginScreen() {
                 disabled={busy}
                 className="border-0 bg-transparent p-0 text-[12px] leading-4 text-ink2 underline decoration-line underline-offset-4 disabled:opacity-40"
               >
-                Send another code
+                Send another one
               </button>
               <button
                 type="button"

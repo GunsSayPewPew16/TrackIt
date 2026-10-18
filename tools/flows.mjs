@@ -674,24 +674,57 @@ async function enterApp(screen) {
   /** Whichever of the two things a right password leads to. */
   const afterPassword = () =>
     `(() => {
-      if (document.querySelector('[aria-label="Six-digit code"]')) return "code";
+      if (document.querySelector('[aria-label="Code or link"]')) return "code";
       if (document.querySelector('[aria-label="Add Record"]')) return "dashboard";
       return null;
     })()`
   const reached = await screen.until(afterPassword(), "the code step or the dashboard", 25000)
   if (reached === "dashboard") return "signed-in"
 
-  const code = process.env.TRACKIT_TEST_CODE
-  if (!code) return "code"
-  await screen.press('[aria-label="Six-digit code"]')
-  await screen.cdp.send("Input.insertText", { text: code })
-  await screen.press('button[type="submit"]')
+  /**
+   * The second step, walked whichever half the owner has in hand.
+   *
+   * `TRACKIT_TEST_LINK` is a link from that mail — the whole thing, or its hash — and pasting it
+   * is the path an installed iOS web app has to take, because a link tapped in Mail opens in
+   * Safari and that app cannot see Safari's storage. A link is single use, so one handed in here
+   * has to be the one this run just had mailed: start the run, take the link out of the inbox,
+   * and pass it to a second run to exercise this path — or take the digits, `TRACKIT_TEST_CODE`,
+   * which stay valid for five minutes.
+   */
+  const link = process.env.TRACKIT_TEST_LINK
+  if (link) {
+    await pasteInto(screen, '[aria-label="Code or link"]', link)
+  } else {
+    const code = process.env.TRACKIT_TEST_CODE
+    if (!code) return "code"
+    await screen.press('[aria-label="Code or link"]')
+    await screen.cdp.send("Input.insertText", { text: code })
+    await screen.press('button[type="submit"]')
+  }
   await screen.until(
     `document.querySelector('[aria-label="Add Record"]') !== null`,
-    "the dashboard after the code",
+    "the dashboard after the second step",
     25000,
   )
   return "signed-in"
+}
+
+/**
+ * Paste `text` into `selector` the way a clipboard paste arrives.
+ *
+ * Not a keystroke: a browser-level Ctrl+V cannot be scripted (headless Chrome has no clipboard to
+ * read), and what the app reads is this event anyway — a `paste` with a `DataTransfer` behind it.
+ * The field's own `onPaste` decides whether to take it.
+ */
+async function pasteInto(screen, selector, text) {
+  await screen.cdp.evaluate(`(() => {
+    const field = document.querySelector(${JSON.stringify(selector)});
+    field.focus();
+    const data = new DataTransfer();
+    data.setData("text/plain", ${JSON.stringify(text)});
+    field.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    return true;
+  })()`)
 }
 
 /**
@@ -748,6 +781,63 @@ async function flowSession(screen) {
     await screen.cdp.goto(APP_URL)
     const after = await screen.until(screenNow(), "the app after signing out and reloading", 20000)
     assertEqual(after, "portal", "the screen after signing out and reloading")
+  })
+}
+
+/**
+ * The mailed link read as a ticket: the half of the paste path that needs no mailbox.
+ *
+ * `lib/mail-link.ts` is what turns whatever the owner pasted into something `verifyOtp` will
+ * take, and the shapes it has to survive are the mail client's, not a developer's: links wrapped
+ * across two lines, a trailing comma from the sentence around them, angle brackets from a
+ * forward, and the hash on its own. Vite serves the module to the page (`await import`), which is
+ * how this can be asserted without a mail — and the whole paste path is walked when a run is
+ * handed `TRACKIT_TEST_LINK` (see `enterApp`).
+ *
+ * A built bundle has no such path, so a run against one says that instead of pretending.
+ */
+async function flowMailLink(screen) {
+  const dev = await screen.cdp.evaluate(`!!document.querySelector('script[src*="/@vite/client"]')`)
+  if (!dev) {
+    notes.push(
+      "the mail-link parser check did not run: APP_URL is a built bundle, and a module has no path in one",
+    )
+    return
+  }
+  await check("mail link: the link, a wrapped one and the bare hash are all read as tickets", async () => {
+    const verdicts = await screen.cdp.evaluate(`(async () => {
+      const { ticketFrom } = await import("/src/lib/mail-link.ts");
+      const hash = "a1".repeat(28);
+      const link =
+        "https://project.supabase.co/auth/v1/verify?token=" + hash +
+        "&type=magiclink&redirect_to=https%3A%2F%2Ftrack-it-pwa.vercel.app%2F";
+      // A newline in the middle of the hash, the way a mail client wraps a long link. Built
+      // with String.fromCharCode rather than an escape sequence, because this whole block is
+      // already a string on its way to the page: one parser too many reads the escapes.
+      const wrapped = link.slice(0, 45) + String.fromCharCode(10) + link.slice(45);
+      const cases = [
+        ["the mailed link", link, true],
+        ["the same link, wrapped by the mail client", wrapped, true],
+        ["the bare hash", hash, true],
+        ["a comma stuck to the end", link + ",", true],
+        ["wrapped in angle brackets", "<" + link + ">", true],
+        ["a link with no token", "https://track-it-pwa.vercel.app/", false],
+        ["plain prose", "here is the code", false],
+        ["six digits", "123456", false],
+        ["a long string that is not a hash", "z".repeat(56), false],
+        ["nothing at all", "", false],
+      ];
+      return cases.map(([name, text, wanted]) => ({ name, wanted, got: Boolean(ticketFrom(text)) }));
+    })()`)
+    const wrong = (verdicts ?? []).filter((verdict) => verdict.got !== verdict.wanted)
+    assert(
+      (verdicts ?? []).length === 10,
+      `the parser check did not run: ${(verdicts ?? []).length} verdicts came back`,
+    )
+    assert(
+      wrong.length === 0,
+      `misread: ${wrong.map((verdict) => `${verdict.name} → ${verdict.got ? "a ticket" : "nothing"}`).join(", ")}`,
+    )
   })
 }
 
@@ -1178,6 +1268,7 @@ async function main() {
       // two auth flows run only where the app has a session to keep or end.
       const hasPortal = entry === "signed-in" || entry === "seeded"
       if (hasPortal) await flowSignIn(screen, entry)
+      await flowMailLink(screen)
       await flowAddRecordSwitch(screen)
       await flowFriendsPill(screen)
       await flowDateCard(screen)
@@ -1200,6 +1291,13 @@ async function main() {
         "\nThe signed-in flows did not run: this build gates the app and no test account was\n" +
           "given. Set TRACKIT_TEST_EMAIL and TRACKIT_TEST_PASSWORD to an account in the project\n" +
           "(with email confirmation off), or build the device-only app with VITE_CLOUD=off.",
+      )
+    }
+    if (entry === "signed-in" && !process.env.TRACKIT_TEST_LINK) {
+      console.log(
+        "\nThe pasted-link half of the second step was not exercised: this run was given digits\n" +
+          "(TRACKIT_TEST_CODE). A link is single use, so pass a fresh one as TRACKIT_TEST_LINK\n" +
+          "(or its hash alone) to walk the path an installed iOS web app has to take.",
       )
     }
     if (entry === "code") {

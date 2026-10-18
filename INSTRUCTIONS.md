@@ -669,11 +669,22 @@ run check:flows` (or point `APP_URL` at a server started that way). The server t
 itself matches what it was handed: **gated** when a session or an account is given, device-only
 otherwise — so credentials are never pointed at a build that has no portal and reported green.
 
-The three Supabase settings the mail and the links depend on — the Magic Link template with
+The Supabase settings the mail and the links depend on — the Magic Link template with
 `{{ .Token }}`, the Site URL, and both live origins on the redirect allow-list — are applied from
 the terminal rather than the dashboard: `SUPABASE_ACCESS_TOKEN=sbp_… npm run setup:auth`
 (`tools/supabase-auth.mjs`; idempotent, `--dry-run` prints the diff), which is `supabase/README.md`
-§2 as one command.
+§2 as one command. Pass `--smtp-host/--smtp-user/--smtp-from/--smtp-pass-file` and the same run
+configures the project's own mail server **first** and then the template: Supabase's own mailer
+refuses every template edit (so the mail can only carry a link), and a project with its own SMTP
+does not. That refusal is the one thing that decides whether the digits exist at all.
+
+The portal's second step takes either half of that mail: the six digits, or **the link pasted
+in**, which `verifyOtp({ token_hash })` spends exactly as opening the link would
+(`app/src/lib/mail-link.ts`). The paste is the only way in inside an **installed iOS web app** —
+that app has its own storage and a link tapped in Mail opens Safari — so `npm run check:flows`
+has a check for the parser (every shape a mail client mangles a link into) and, when a run is
+handed `TRACKIT_TEST_LINK`, the paste itself; a link is single use, so a fresh one has to be
+taken out of the inbox and passed to a second run.
 
 Then drive the app. What is worth exercising for a change in these areas:
 

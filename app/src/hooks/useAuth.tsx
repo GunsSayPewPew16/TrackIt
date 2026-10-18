@@ -37,6 +37,12 @@
  * points that link back at this app, and a session found in the URL hash is marked verified on
  * boot, so the door opens either way. Nothing else about the portal changes.
  *
+ * **The link can also be pasted in, which is the only way through inside an installed iOS web
+ * app.** That app is its own container — no storage shared with Safari — and a link tapped in
+ * Mail opens in Safari, so the session it carries can never arrive on its own there. `verifyLink`
+ * reads the pasted link with `lib/mail-link.ts` and spends it through `verifyOtp({ token_hash })`,
+ * the same request the link itself makes. Same proof, same single use, no template required.
+ *
  * **A session from an older release is not a session.** `SESSION_EPOCH` in `lib/portal.ts` is
  * checked on boot: when the number moves, the stored session is dropped once — with the verified
  * mark — and this device records that it is on the new epoch. That is what signs everybody out
@@ -55,6 +61,7 @@ import {
   settleEpoch,
   SIGNUPS_OPEN,
 } from "@/lib/portal"
+import { ticketFrom } from "@/lib/mail-link"
 import { displayName, nameFromAccount } from "@/lib/profile"
 import { hasCloud, loadSupabase } from "@/lib/supabase"
 
@@ -84,6 +91,13 @@ export type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<boolean>
   /** Check the six digits, which is what actually signs the account in. */
   verifyCode: (code: string) => Promise<boolean>
+  /**
+   * The other half of the same proof: a link from that mail, pasted in rather than opened.
+   *
+   * The only way in on a project whose mail carries a link and no digits — and the *only* way
+   * in at all inside an installed iOS web app, which cannot be handed a session by a link.
+   */
+  verifyLink: (text: string) => Promise<boolean>
   resendCode: () => Promise<boolean>
   /** Give up on the code step: no session, back to the password. */
   cancelChallenge: () => Promise<void>
@@ -345,6 +359,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
+  /**
+   * The end of both second steps: this session counts, and the portal is done with.
+   *
+   * Marked before the session is adopted: `lib/portal.ts` is what `App` trusts, and the order is
+   * the difference between an account that opened and one that was locked out.
+   */
+  const openVault = useCallback((session: Session) => {
+    markVerified(session.user.id)
+    holding.current = false
+    setSession(session)
+    setStage("password")
+    setChallengeEmail(null)
+  }, [])
+
   /** Step two: the six digits, which are the only thing that opens the account. */
   const verifyCode = useCallback(
     async (code: string) => {
@@ -365,16 +393,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError("That code didn't sign you in. Ask for another one.")
         return false
       }
-      // Marked before the session is adopted: `lib/portal.ts` is what `App` trusts, and the
-      // order is the difference between an account that opened and one that was locked out.
-      markVerified(data.session.user.id)
-      holding.current = false
-      setSession(data.session)
-      setStage("password")
-      setChallengeEmail(null)
+      openVault(data.session)
       return true
     },
-    [challengeEmail],
+    [challengeEmail, openVault],
+  )
+
+  /**
+   * Step two, the other half: the link from that mail, pasted in.
+   *
+   * A mailbox proof is the mail being received, and a link that was received proves exactly what
+   * six digits prove — so this is not a way around the second step, it is the same step in the
+   * one shape that fits **inside an installed iOS web app**: that app has its own storage and a
+   * link tapped in Mail opens in Safari, so the session a link carries can never arrive on its
+   * own. Pasting the link is the owner carrying it in by hand, and `verifyOtp({ token_hash })` is
+   * the request the link would have made.
+   *
+   * The refusal is worded for a link rather than a code: single use is the thing that goes wrong
+   * with these (the mail may also have been fetched by tapping it, which spends it).
+   */
+  const verifyLink = useCallback(
+    async (text: string) => {
+      const client = await loadSupabase()
+      if (!client) return false
+      setError(null)
+      setNotice(null)
+      const ticket = ticketFrom(text)
+      if (!ticket) {
+        setError("That doesn't read as the link from the mail — copy the whole link and paste it here.")
+        return false
+      }
+      const { data, error: failure } = await client.auth.verifyOtp({
+        token_hash: ticket.tokenHash,
+        type: ticket.type,
+      })
+      if (failure) {
+        const refused = failure.message.toLowerCase()
+        setError(
+          refused.includes("expired") || refused.includes("invalid")
+            ? "That link has already been used or has expired — send another one."
+            : said(failure.message),
+        )
+        return false
+      }
+      if (!data.session) {
+        setError("That link didn't sign you in. Send another one.")
+        return false
+      }
+      openVault(data.session)
+      return true
+    },
+    [openVault],
   )
 
   const resendCode = useCallback(async () => {
@@ -515,6 +584,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       notice,
       signIn,
       verifyCode,
+      verifyLink,
       resendCode,
       cancelChallenge,
       signUp,
@@ -532,6 +602,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       notice,
       signIn,
       verifyCode,
+      verifyLink,
       resendCode,
       cancelChallenge,
       signUp,

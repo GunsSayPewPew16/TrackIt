@@ -78,14 +78,21 @@ function usage(exitCode = 0) {
   SUPABASE_ACCESS_TOKEN=sbp_... npm run setup:auth [options]
 
 Options
-  --project <ref>   Supabase project ref (default: read from app/src/lib/supabase-config.ts)
-  --site <url>      Site URL, the address a mailed link lands on (default: ${DEFAULT_SITE})
-  --pages <url>     Second redirect origin, added to the allow-list (default: ${DEFAULT_PAGES})
-  --dry-run         Print the changes and write nothing
-  --help            This text
+  --project <ref>       Supabase project ref (default: read from app/src/lib/supabase-config.ts)
+  --site <url>          Site URL, the address a mailed link lands on (default: ${DEFAULT_SITE})
+  --pages <url>         Second redirect origin, added to the allow-list (default: ${DEFAULT_PAGES})
+  --smtp-host <host>    Mail server host. Setting it (with the rest below) is what unlocks the
+  --smtp-port <port>    mail template — Supabase refuses template edits on its own mailer.
+  --smtp-user <user>
+  --smtp-pass-file <path>  A file holding the SMTP password (one line). Never passed as an
+                           argument, so it stays out of the shell's history and this output.
+  --smtp-from <address>    The address the mail comes from (the provider's verified sender).
+  --smtp-name <name>    The name in front of it (default: TrackIt)
+  --dry-run             Print the changes and write nothing
+  --help                This text
 
-The token is an account credential (Account → Access Tokens). It is never read from a file and
-never printed. Nothing else in the project's auth config is touched.`
+The token is an account credential (Account → Access Tokens). The SMTP password is read from a
+file and never printed. Nothing else in the project's auth config is touched.`
   console.log(text)
   process.exit(exitCode)
 }
@@ -107,6 +114,47 @@ const dryRun = args.includes("--dry-run")
 const site = flag("site") ?? DEFAULT_SITE
 const pages = flag("pages") ?? DEFAULT_PAGES
 const token = process.env.SUPABASE_ACCESS_TOKEN?.trim() ?? ""
+
+/**
+ * The mail server, when one is being configured.
+ *
+ * **This is the setting that unlocks the six digits.** With the project's own mailer, Supabase
+ * refuses to edit a template — so a stock project can only ever mail a *link*, which is no way
+ * into an installed iOS web app (a link tapped in Mail opens Safari, and that app has its own
+ * storage). A project with its own SMTP may edit its templates, which is what puts `{{ .Token }}`
+ * in the mail and a six-digit code on the screen. The password is read from a **file** rather
+ * than an argument: an argument is in the shell's history and in this output.
+ */
+const smtpHost = flag("smtp-host") ?? process.env.SUPABASE_SMTP_HOST?.trim() ?? ""
+const smtpPort = flag("smtp-port") ?? "465"
+const smtpUser = flag("smtp-user") ?? process.env.SUPABASE_SMTP_USER?.trim() ?? ""
+const smtpFrom = flag("smtp-from") ?? process.env.SUPABASE_SMTP_FROM?.trim() ?? ""
+const smtpName = flag("smtp-name") ?? process.env.SUPABASE_SMTP_NAME?.trim() ?? "TrackIt"
+const smtpPassFile = flag("smtp-pass-file") ?? process.env.SUPABASE_SMTP_PASSWORD_FILE?.trim() ?? ""
+const smtpWanted = Boolean(smtpHost)
+
+if (smtpWanted && (!smtpUser || !smtpFrom || !smtpPassFile)) {
+  console.error(
+    "--smtp-host also needs --smtp-user, --smtp-from and --smtp-pass-file (host, username, the\n" +
+      "address the mail comes from, and a file with the password).\n",
+  )
+  process.exit(1)
+}
+
+let smtpPass = ""
+if (smtpWanted) {
+  try {
+    // One line, and any newline the file ends with is not part of the password.
+    smtpPass = readFileSync(smtpPassFile, "utf8").trim()
+  } catch (error) {
+    console.error(`Could not read the SMTP password from ${smtpPassFile}: ${error.message}`)
+    process.exit(1)
+  }
+  if (!smtpPass) {
+    console.error(`${smtpPassFile} is empty.`)
+    process.exit(1)
+  }
+}
 
 if (!token) {
   console.error(
@@ -221,9 +269,28 @@ const wanted = {
   mailer_templates_magic_link_content: MAGIC_LINK_TEMPLATE,
   mailer_otp_length: OTP_LENGTH,
   mailer_otp_exp: OTP_SECONDS,
+  ...(smtpWanted
+    ? {
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        smtp_user: smtpUser,
+        smtp_pass: smtpPass,
+        smtp_admin_email: smtpFrom,
+        smtp_sender_name: smtpName,
+      }
+    : {}),
 }
 
-const changed = Object.entries(wanted).filter(([key, value]) => current?.[key] !== value)
+/**
+ * What differs. The SMTP password is always written.
+ *
+ * Supabase does not read it back — no API in this project returns it — so there is nothing to
+ * compare it against, and a run that left it out would leave a rotated password in the old
+ * server's hands. It is sent every time, and the diff says so instead of pretending to compare.
+ */
+const changed = Object.entries(wanted).filter(
+  ([key, value]) => key === "smtp_pass" || current?.[key] !== value,
+)
 
 console.log(`\nSupabase auth — ${ref}\n`)
 if (changed.length === 0) {
@@ -233,6 +300,12 @@ if (changed.length === 0) {
 
 for (const [key, value] of changed) {
   console.log(`  ${key}`)
+  // The password is never echoed, in either column: this output is a terminal's history.
+  if (key === "smtp_pass") {
+    console.log("    was: (never read back)")
+    console.log(`    now: (the ${Buffer.byteLength(value, "utf8")} bytes from ${smtpPassFile})`)
+    continue
+  }
   const wasLoopback = key === "site_url" && isLoopback(current?.[key])
   console.log(`    was: ${describe(current?.[key])}${wasLoopback ? "  ← a phone cannot open this" : ""}`)
   console.log(`    now: ${describe(value)}`)
@@ -244,28 +317,39 @@ if (dryRun) {
 }
 
 /**
- * The settings, in the two groups the project treats differently.
+ * The settings, in the three groups the project treats differently.
  *
- * The URLs are ordinary configuration. The mail template is not: **a free-tier project on the
- * built-in mailer cannot change its templates at all** — the dashboard will not offer it and the
- * API answers 400 with *Email template modification is not available for free tier projects using
- * the default email provider* — and because that refusal arrives for the whole request, sending it
- * alongside the URLs would lose them too. So the URLs are written first, on their own, and the
- * mail settings are then asked for separately and reported on their own terms.
+ * The URLs are ordinary configuration. The mail template is not: **a project on Supabase's own
+ * mailer cannot change its templates at all** — the dashboard will not offer it and the API answers
+ * 400 with *Email template modification is not available for free tier projects using the default
+ * email provider* — and because that refusal arrives for the whole request, sending it alongside
+ * the URLs would lose them too. A project with its own SMTP has no such limit, which is why the
+ * mail server is written **before** the template: the template is only editable once it exists.
  */
-const URL_SETTINGS = ["site_url", "uri_allow_list"]
-const MAIL_SETTINGS = [
-  "mailer_subjects_magic_link",
-  "mailer_templates_magic_link_content",
-  "mailer_otp_length",
-  "mailer_otp_exp",
+const GROUPS = [
+  { name: "the redirect settings", keys: ["site_url", "uri_allow_list"], mail: false },
+  {
+    name: "the mail server",
+    keys: ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_admin_email", "smtp_sender_name"],
+    mail: false,
+  },
+  {
+    name: "the mail template",
+    keys: [
+      "mailer_subjects_magic_link",
+      "mailer_templates_magic_link_content",
+      "mailer_otp_length",
+      "mailer_otp_exp",
+    ],
+    mail: true,
+  },
 ]
 
 const refusals = []
 let applied = 0
 
-for (const group of [URL_SETTINGS, MAIL_SETTINGS]) {
-  const patch = Object.fromEntries(changed.filter(([key]) => group.includes(key)))
+for (const group of GROUPS) {
+  const patch = Object.fromEntries(changed.filter(([key]) => group.keys.includes(key)))
   const count = Object.keys(patch).length
   if (count === 0) continue
   const result = await request("PATCH", `/projects/${ref}/config/auth`, patch)
@@ -274,11 +358,12 @@ for (const group of [URL_SETTINGS, MAIL_SETTINGS]) {
     continue
   }
   refusals.push({
+    name: group.name,
     keys: Object.keys(patch),
     status: result.status,
     detail: result.detail,
     hint: result.hint,
-    mail: group === MAIL_SETTINGS,
+    mail: group.mail,
   })
 }
 
@@ -290,23 +375,48 @@ for (const group of [URL_SETTINGS, MAIL_SETTINGS]) {
  */
 const after = await call("GET", `/projects/${ref}/config/auth`)
 const refusedKeys = new Set(refusals.flatMap((refusal) => refusal.keys))
-const wrong = Object.entries(wanted).filter(
-  ([key, value]) => !refusedKeys.has(key) && after?.[key] !== value,
-)
+const wrong = Object.entries(wanted).filter(([key, value]) => {
+  if (refusedKeys.has(key)) return false
+  // The password is the one setting with nothing to compare it to at all: this API never
+  // returns it, so there is no read-back to hold it to. It was written; whether the mail server
+  // accepts it is only knowable by the mail server.
+  if (key === "smtp_pass") return false
+  return after?.[key] !== value
+})
 
 if (applied > 0) console.log(`\n  Applied ${applied} ${applied === 1 ? "setting" : "settings"}.`)
+if (smtpWanted && applied > 0) {
+  console.log(
+    "\n  The SMTP password is written on every run and never read back — Supabase does not return\n" +
+      "  it, so this is the one setting only the mail server can confirm. Send yourself a code to\n" +
+      "  check it end to end.",
+  )
+}
 
 for (const refusal of refusals) {
-  console.error(`\n  The project refused ${refusal.keys.join(", ")} — ${refusal.status}.\n  ${refusal.detail}`)
-  if (refusal.mail) {
+  console.error(
+    `\n  The project refused ${refusal.name} (${refusal.keys.join(", ")}) — ${refusal.status}.\n  ${refusal.detail}`,
+  )
+  if (refusal.mail && !smtpWanted) {
     console.error(
       `
-  That is Supabase's free tier: with the built-in mail provider the mail template cannot be
-  edited at all, so the six-digit code step cannot be fed — the mail carries the link and no
-  digits. Two ways out: connect your own SMTP under Authentication → Emails → SMTP Settings
-  (then run this again, and the template lands), or keep signing in with the mailed link, which
-  this app adopts on the way back (\`detectSessionInUrl\`, lib/supabase.ts). The Site URL is what
-  decides where that link lands, and it is the half this run did apply.
+  That is Supabase's own mailer: it refuses every template edit, so the six-digit code step
+  cannot be fed, and the mail carries a link and no digits. A link is no way into an installed
+  iOS web app — it opens in Safari, whose storage that app cannot see — which is what the
+  portal's paste path works around. To get the digits, give the project a mail server:
+
+    npm run setup:auth -- --smtp-host <host> --smtp-port 465 --smtp-user <user> \\
+      --smtp-from <verified sender> --smtp-pass-file <file with the password>
+
+  and run it again — the template is written in that same pass, once the mail server is there.
+`,
+    )
+  }
+  if (refusal.mail && smtpWanted) {
+    console.error(
+      `
+  The mail server was accepted and the template alone was not, which is the opposite of the
+  usual refusal. Supabase's own message above is the one to act on; re-running is worth a try.
 `,
     )
   }
@@ -322,8 +432,8 @@ if (refusals.length > 0) {
   process.exit(1)
 }
 
-console.log(`
-  The mail now carries a six-digit code, the Site URL is ${site},
-  and ${pages} is on the redirect allow-list. Send yourself one with the
-  portal's password step to check it end to end.
-`)
+console.log(
+  smtpWanted
+    ? `\n  The mail now carries a six-digit code, the Site URL is ${site},\n  and ${pages} is on the redirect allow-list.\n`
+    : `\n  The mail now carries a six-digit code, the Site URL is ${site},\n  and ${pages} is on the redirect allow-list. Send yourself one with the\n  portal's password step to check it end to end.\n`,
+)

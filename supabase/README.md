@@ -48,15 +48,33 @@ Supabase's `{{ .Token }}` — and Supabase's stock *Magic Link* template contain
 <p>It expires in five minutes. If you did not ask for it, ignore this email.</p>
 ```
 
-**On the free plan this template cannot be edited at all.** With the built-in mail provider,
-Supabase refuses it in both places — the dashboard offers no editor, and the Management API
-answers `400: Email template modification is not available for free tier projects using the
-default email provider` — so the mail carries the link and no digits, and `npm run setup:auth`
-reports exactly that while still applying the two URL settings it can (and exits 1, because the
-config is not what the script says it should be). The link is not a dead end: it comes back to
-this app's own address, which adopts the session it carries (see below), so the free tier signs
-in through the link. Connect custom SMTP to get the six digits, then run it again — the template
-lands then.
+**A project on Supabase's own mailer cannot edit this template at all.** Supabase refuses it in
+both places — the dashboard offers no editor, and the Management API answers `400: Email template
+modification is not available for free tier projects using the default email provider` — so the
+mail carries the link and no digits. A project with **its own SMTP** has no such limit, and the
+same command configures both, because the mail server is what unlocks the template:
+
+```bash
+npm run setup:auth -- \
+  --smtp-host smtp.resend.com --smtp-port 465 --smtp-user resend \
+  --smtp-from onboarding@resend.dev --smtp-pass-file ~/.trackit-smtp
+```
+
+`~/.trackit-smtp` holds the SMTP password on one line (Resend's is an API key; the file is read
+and never printed, which keeps it out of the shell's history). The SMTP settings are written
+first and the template in the same pass, so one command is the whole thing. **Resend without a
+verified domain can only mail the address its account was made with** ([their
+note](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain)) — which is exactly
+this app's one recipient, so `onboarding@resend.dev` as the sender is enough. A Gmail account
+works too (`smtp.gmail.com`, 465, an app password, your own address as the sender).
+
+Until a mail server is there, the **link** is how a desk signs in: it comes back to this app's
+own address, which adopts the session it carries (see below). Inside an installed iOS web app
+that does not work — a link tapped in Mail opens Safari, whose storage that app cannot see — and
+that is what the portal's **paste** step is for: the code line takes the link too, and
+`verifyOtp({ token_hash })` spends it exactly as opening it would (`lib/mail-link.ts`). The
+digits are the only proof that can be *typed* inside the installed app, so they are the thing
+worth having; the paste is the way through until then.
 
 Two things follow from that, and both are worth knowing before they surprise you: the code is
 the *only* way in **once the template carries it** (the password alone never opens the vault —
@@ -102,11 +120,12 @@ SUPABASE_ACCESS_TOKEN=sbp_xxxx npm run setup:auth
 The token is a **personal access token** from *Account → Access Tokens*
 (`https://supabase.com/dashboard/account/tokens`), not the project's publishable key: it is an
 account credential, so it belongs in the shell for one command and never in this repository. The
-script (`tools/supabase-auth.mjs`) writes the Magic Link body with `{{ .Token }}`, the Site URL and
-the redirect allow-list, reads the config back to prove the write landed, and leaves every other
-field of the auth config alone. It is idempotent — run it again and it says everything already
-matches. `--dry-run` prints the diff and writes nothing, `--project <ref>` points it at a staging
-project, and `--help` lists the rest.
+script (`tools/supabase-auth.mjs`) writes the Magic Link body with `{{ .Token }}`, the Site URL,
+the redirect allow-list and, when it is given one, the project's own mail server — reads the
+config back to prove the write landed, and leaves every other field of the auth config alone.
+Run it again and it says everything already matches, bar the SMTP password, which Supabase never
+returns and which is therefore re-sent each time. `--dry-run` prints the diff and writes nothing,
+`--project <ref>` points it at a staging project, and `--help` lists the rest.
 
 ## 3. Give the app the two public values
 
