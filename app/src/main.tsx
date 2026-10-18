@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 import App from "./App"
+import { AuthProvider } from "./hooks/useAuth"
 import { rememberKeyFromUrl } from "./lib/hello"
 import { lockZoom } from "./lib/zoom"
 
@@ -19,6 +20,8 @@ lockZoom()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 )

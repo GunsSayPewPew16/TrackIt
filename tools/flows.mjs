@@ -515,6 +515,81 @@ async function addedRows(screen, before) {
   return (await screen.rows()).filter((row) => row.id.startsWith("manual-") && !ids.has(row.id))
 }
 
+/**
+ * Get past the portal, when this build has one.
+ *
+ * A cloud build opens on the login screen and nothing behind it is reachable without an account
+ * — that is the requirement, not an accident. The flows below are the signed-in app, so this
+ * signs in with a **test account** and says which of three things happened:
+ *
+ * - `"device"` — the build has no Supabase values, so there is no portal and the app is the
+ *   device-only tracker. The flows run exactly as they always have.
+ * - `"signed-in"` — the portal accepted `TRACKIT_TEST_EMAIL` / `TRACKIT_TEST_PASSWORD` and the
+ *   dashboard is up. The session lives in the browser profile for the rest of the run, so the
+ *   flows' own `open(APP_URL)` calls land on the dashboard rather than the portal again.
+ * - `"portal"` — the app gates and no test account was given. The portal's own checks still run,
+ *   and the script exits 2 ("cannot run") rather than pretending the signed-in app passed.
+ */
+async function enterApp(screen) {
+  await screen.open(APP_URL)
+  await sleep(1400)
+  const portal = await screen.cdp.evaluate(`document.querySelector('[aria-label="Email"]') !== null`)
+  if (!portal) return "device"
+
+  const email = process.env.TRACKIT_TEST_EMAIL
+  const password = process.env.TRACKIT_TEST_PASSWORD
+  if (!email || !password) return "portal"
+
+  await screen.press('[aria-label="Email"]')
+  await screen.cdp.send("Input.insertText", { text: email })
+  await screen.press('[aria-label="Password"]')
+  await screen.cdp.send("Input.insertText", { text: password })
+  await screen.press('button[type="submit"]')
+  await screen.until(
+    `document.querySelector('[aria-label="Add Record"]') !== null`,
+    "the dashboard after signing in",
+    25000,
+  )
+  return "signed-in"
+}
+
+/**
+ * The portal, checked on its own terms.
+ *
+ * What is assertable without an account: both fields exist by the names the screen gives them,
+ * the submit is refuse-to-press until both are filled, and switching to *Create an account*
+ * reveals the name field. Those are the three ways this form can silently rot.
+ */
+async function flowPortal(screen) {
+  await check("portal: a signed-out build asks for an email and a password", async () => {
+    const fields = await screen.cdp.evaluate(`(() => {
+      const email = document.querySelector('[aria-label="Email"]');
+      const password = document.querySelector('[aria-label="Password"]');
+      const submit = document.querySelector('button[type="submit"]');
+      return email && password && submit
+        ? { emailType: email.type, passwordType: password.type, disabled: submit.disabled }
+        : null;
+    })()`)
+    assert(fields, "no email/password portal on a signed-out build")
+    assertEqual(fields.emailType, "email", "the email field's type")
+    assertEqual(fields.passwordType, "password", "the password field's type")
+    assertEqual(fields.disabled, true, "the submit button before anything is typed")
+  })
+
+  await check("portal: creating an account reveals the name, and the button stays refused", async () => {
+    await screen.pressText("form", "Create an account")
+    const revealed = await screen.until(
+      `document.querySelector('[aria-label="Your name"]') !== null`,
+      "the name field on the create-account form",
+    )
+    const disabled = await screen.cdp.evaluate(
+      `document.querySelector('button[type="submit"]')?.disabled`,
+    )
+    assert(revealed, "the name field did not appear")
+    assertEqual(disabled, true, "the submit button before anything is typed")
+  })
+}
+
 async function flowAddRecordSwitch(screen) {
   await check("add-record: the dashboard's pill opens the sheet, on Expense", async () => {
     await screen.open(APP_URL)
@@ -839,9 +914,16 @@ async function main() {
     const screen = new Screen(cdp)
 
     console.log(`\nTrackIt flows — ${APP_URL} in ${browser.split("/").at(-1)}\n`)
-    await flowAddRecordSwitch(screen)
-    await flowFriendsPill(screen)
-    await flowDateCard(screen)
+    const entry = await enterApp(screen)
+    // A gated build with no test account cannot run the signed-in flows. That is a "cannot
+    // run", not a pass: the summary says so and the exit code is 2.
+    const blocked = entry === "portal"
+    if (entry === "portal") await flowPortal(screen)
+    else {
+      await flowAddRecordSwitch(screen)
+      await flowFriendsPill(screen)
+      await flowDateCard(screen)
+    }
 
     if (cdp.exceptions.length > 0) {
       results.push({ name: "the page threw nothing", ok: false, detail: cdp.exceptions.join("; ") })
@@ -853,13 +935,20 @@ async function main() {
 
     const failed = results.filter((result) => !result.ok)
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
+    if (blocked) {
+      console.log(
+        "\nThe signed-in flows did not run: this build gates the app and no test account was\n" +
+          "given. Set TRACKIT_TEST_EMAIL and TRACKIT_TEST_PASSWORD to an account in the project\n" +
+          "(with email confirmation off), or build the device-only app with VITE_CLOUD=off.",
+      )
+    }
     for (const note of notes) console.log(`note: ${note}`)
     console.log(
       "\nNot covered here, on purpose: the iOS-only paths (the switch-click haptics, the platform's\n" +
         "own time wheel) need a real phone, and the dashboard's figures are `lib/derive.ts`'s business\n" +
         "rather than a gesture's — INSTRUCTIONS.md says what each change is worth checking by hand.",
     )
-    process.exitCode = failed.length > 0 ? 1 : 0
+    process.exitCode = failed.length > 0 ? 1 : blocked ? 2 : 0
   } finally {
     cdp?.close()
     stop(chrome?.child)

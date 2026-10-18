@@ -46,6 +46,13 @@ jobs:
         run: npm run build
         env:
           PAGES_BASE: /TrackIt/
+          # The two public Supabase values, from the repository's Actions *variables* (Settings →
+          # Secrets and variables → Actions). Left unset, the build is the device-only app: no
+          # gate, no network, which is a complete app rather than a broken one. They are public
+          # by design — they ship inside the bundle — so a variable is the right place for them,
+          # not a secret; see `supabase/README.md`.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
 
       - uses: actions/configure-pages@v5
 

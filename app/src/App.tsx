@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
+import { LoginScreen } from "@/components/LoginScreen"
+import { useAuth } from "@/hooks/useAuth"
 // Types only, and that is what keeps the two screens below out of the entry chunk: an
 // `import type` is erased, so nothing here fetches them until a tap does.
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
@@ -127,7 +129,7 @@ type Arrived = {
   scan?: ComponentType<ScanProps>
   stats?: ComponentType<StatsProps>
 }
-export default function App() {
+function TrackIt() {
   const { theme, toggleTheme } = useTheme()
   /**
    * The moment this open is drawn on. The dashboard's figures are "this month", so they need
@@ -450,4 +452,28 @@ export default function App() {
       )}
     </>
   )
+}
+
+/**
+ * The gate, and the reason the ledger above is a component rather than the default export.
+ *
+ * Three builds come out of one source:
+ *
+ * - **No Supabase values** (`mode === "device"`) — the tracker this app has always been. Nothing
+ *   is fetched, nothing is gated, and `TrackIt` mounts on the first frame.
+ * - **A project and no session** — the portal, because the account is what the ledger is filed
+ *   under; there is nothing on this screen for somebody who is not signed in.
+ * - **A project and a session** — `TrackIt`, reading the account's cache (which may be empty on a
+ *   brand-new account, and is the last thing this device saw when the network is gone).
+ *
+ * The wait between boot and that decision is a bare canvas, not a splash: the session is read
+ * from `localStorage` synchronously enough that a returning owner never sees it, and a logo held
+ * for one frame is a promise the app cannot keep any faster than painting.
+ */
+export default function App() {
+  const { mode, ready, user } = useAuth()
+
+  if (mode === "device") return <TrackIt />
+  if (!ready) return <div className="h-dvh w-full bg-canvas" aria-busy="true" />
+  return user ? <TrackIt /> : <LoginScreen />
 }

@@ -360,6 +360,37 @@ greeting down to the app's own fifty, which is a graceful way for a greeting to 
 reason there is no rate limiter in front of it. (The rate limiter in `app/api/greeting.ts`
 belongs to the *parked* model route, where what it protects is a key's quota.)
 
+## Accounts, and the cloud half
+
+One source builds two apps. With no Supabase values it is the tracker it has always been: no
+account, no network, every screen reading `localStorage`. With a project URL and its public key
+in the environment it is the same tracker **behind a portal** — the ledger belongs to an account,
+and the account is what makes it follow you between devices.
+
+**The portal** (`components/LoginScreen.tsx`) is the app's own paper rather than a second design:
+the canvas is the palette's, the fields are the entry sheet's journal lines (a 1px rule, no box,
+the placeholder in the editorial serif italic, the typed value in the upright sans), and the
+confirm is the same sage capsule as *Add Record*. The header splits the way the owner asked:
+*Access your financial* in the reading serif's italic at 60%, **Vault** in the display face at
+100%. It offers email and password, a create-account switch and a reset link; a refusal is a
+sentence under the fields, never a spinner. A third factor — the "secret code" — has a place
+between the password and the button when its meaning is decided.
+
+**The device is still the cache, and the account is the truth.** A signed-in app reads the
+account's own cache (`trackit-ledger:u:<uuid>`, so two people on one phone never see each
+other's money), writes through to Postgres, and keeps a queue of writes that have not landed yet.
+A phone with no signal opens on the last thing it saw, logs normally, and pushes when it can.
+A brand-new account starts empty rather than importing whatever the phone happened to hold.
+
+**The money crosses the boundary once**, in `lib/cloud.ts`: integer paise in the app,
+`numeric(12,2)` rupees in the table. Rows keep the app's own ids as `client_id`, so a replay, a
+second import of the same backup or a flush after a reload all upsert onto the same row.
+
+**The database is the security boundary.** `supabase/schema.sql` creates `profiles`, `ledgers`
+and `budgets`, enables row-level security on each and names `auth.uid()` on both sides of every
+policy, so the public key in the bundle can only ever see the account that is signed in. Setup,
+the two env values and the checks that prove the fence are in [`supabase/README.md`](supabase/README.md).
+
 ## Layout
 
 ```
@@ -377,12 +408,15 @@ app/                    the whole product — one Vite app
       DataSheet         import / export / start over
       ScanScreen        Scan to pay: the camera in its frame, and the manual row
       RowIcon           a card's glyph: a Lucide face, or a category's marker
+      LoginScreen       the portal a signed-out cloud build opens on
     features/upi/       the UPI link builder, and what a read code becomes (logScan)
-    hooks/              useTheme, useLedger, useGreeting, useTick
+    hooks/              useTheme, useLedger, useGreeting, useTick, useAuth
     lib/
       index.css         the ten roles, both palettes, the two faces
       theme.ts          reading and writing the theme
-      ledger.ts         the rows, in localStorage
+      ledger.ts         the rows, in localStorage (one cache per account)
+      cloud.ts          the mirror of that ledger in Supabase, and its retry queue
+      supabase.ts       the client, loaded only when a project is configured
       history.ts        reading a Wallet export / JSON / CSV out
       derive.ts         rows → both screens' models
       demo.ts           the artboards' own content, before an import
@@ -396,6 +430,7 @@ app/                    the whole product — one Vite app
       category-icons.tsx, accounts.ts, owner.ts (whose name the greeting says)
   design/               see above
 backend/                Worker + D1: the Shortcut's endpoint, and POST /api/greeting
+supabase/               the cloud half: schema.sql (tables + RLS) and the setup steps
 tools/                  wallet-import.py, lucide-icons.py, make-icons.py, the two font converters
 ```
 

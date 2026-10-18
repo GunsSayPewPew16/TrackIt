@@ -29,6 +29,18 @@ export type LedgerSnapshot = {
 
 const STORAGE_KEY = "trackit-ledger"
 
+/**
+ * Whose cache this is: `null` for the device's own ledger, an account id once signed in.
+ *
+ * The key carries it (`trackit-ledger:u:<uuid>`) rather than every account sharing one, so two
+ * people using the same phone cannot see each other's money, and signing out hands the device
+ * back the ledger it had before. Nothing is deleted by a sign-out: the account's cache is still
+ * at its own key the next time it signs in with no network.
+ */
+let owner: string | null = null
+
+const storageKey = (): string => (owner === null ? STORAGE_KEY : `${STORAGE_KEY}:u:${owner}`)
+
 /** An import of a year of history is a few hundred rows; this is many years. */
 const LIMIT = 5000
 
@@ -91,8 +103,11 @@ function bundled(): LedgerSnapshot {
 /** Whatever is stored, read once and validated. */
 function read(): LedgerSnapshot {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return bundled()
+    const raw = window.localStorage.getItem(storageKey())
+    // A signed-in account with nothing stored is **empty**, not the bundled sheet: the account
+    // is the truth once there is one, and showing the owner's demo rows under somebody else's
+    // login would be money that is not theirs.
+    if (!raw) return owner === null ? bundled() : EMPTY_LEDGER
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return bundled()
     const store = parsed as Record<string, unknown>
@@ -108,7 +123,7 @@ function read(): LedgerSnapshot {
     const snapshot: LedgerSnapshot = { rows: newestFirst(rows), budgets }
     if (changed > 0) {
       try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...snapshot }))
+        window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, ...snapshot }))
       } catch {
         // A refused write costs the owner nothing but the wait: the read is re-filed
         // anyway, so this session and every later one still show the new tree.
@@ -177,12 +192,16 @@ export function appendToLedger(next: { rows?: Row[]; budgets?: Budget[] }): {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...merged }))
+    window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, ...merged }))
   } catch {
     // Storage is a convenience here, not the point of the screen: carry on with
     // the snapshot in memory so this session still shows what was imported.
   }
   commit(merged)
+  // The cloud copy is written *from this same call*, so a screen never has to remember to sync:
+  // a sink is how `lib/cloud.ts` hears about an import, a manual row, a scanned payment or a
+  // payment's edit without any of those call sites knowing it exists.
+  sink?.upsert(fresh, freshBudgets)
   return { added: fresh.length, skipped }
 }
 
@@ -206,11 +225,12 @@ export function removeFromLedger(id: string): boolean {
 
   const next: LedgerSnapshot = { rows, budgets: current.budgets }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, ...next }))
+    window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, ...next }))
   } catch {
     // A refused write still removes it for this session, which is better than nothing.
   }
   commit(next)
+  sink?.remove(id)
   return true
 }
 
@@ -223,12 +243,63 @@ export function removeFromLedger(id: string): boolean {
 export function clearLedger(): number {
   const rows = ledgerSnapshot().rows.length
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, rows: [], budgets: [] }))
+    window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, rows: [], budgets: [] }))
   } catch {
     // Nothing to do about a refusal; the caller reports the rows either way.
   }
   commit(EMPTY_LEDGER)
+  sink?.clear()
   return rows
+}
+
+/**
+ * Point the store at an account's cache, or back at the device's own.
+ *
+ * The cache is dropped rather than copied: the next `ledgerSnapshot()` reads the new key, and
+ * every subscriber is told to look again. `lib/cloud.ts` calls this on the way in and out of a
+ * session, so no screen has to know which ledger it is reading.
+ */
+export function setLedgerOwner(userId: string | null): void {
+  if (owner === userId) return
+  owner = userId
+  cache = null
+  for (const listener of listeners) listener()
+}
+
+/**
+ * Write a whole snapshot over the cache, without telling the cloud.
+ *
+ * This is what a pull from Postgres lands on, and it must not echo back out as an upload — which
+ * is why it takes no sink. The rows are sorted newest first like every other write, so the
+ * screens cannot tell a pulled ledger from a typed one.
+ */
+export function replaceLedger(next: LedgerSnapshot): void {
+  const snapshot: LedgerSnapshot = { rows: newestFirst(next.rows), budgets: next.budgets }
+  try {
+    window.localStorage.setItem(storageKey(), JSON.stringify({ v: 1, ...snapshot }))
+  } catch {
+    // Memory still carries it, which is what the screens read.
+  }
+  commit(snapshot)
+}
+
+/**
+ * The cloud's ear on this store: one call per kind of change, none of them required.
+ *
+ * A sink is registered only while an account is signed in (`lib/cloud.ts`), so the device-only
+ * build has `null` here and every call below is a no-op rather than a branch at each call site.
+ */
+export type LedgerSink = {
+  upsert: (rows: Row[], budgets: Budget[]) => void
+  remove: (id: string) => void
+  clear: () => void
+}
+
+let sink: LedgerSink | null = null
+
+/** Watch this store, or stop watching it with `null`. */
+export function setLedgerSink(next: LedgerSink | null): void {
+  sink = next
 }
 
 /** Watch the store. The returned function stops watching. */
