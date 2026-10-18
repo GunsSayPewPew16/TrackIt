@@ -56,8 +56,9 @@ same command configures both, because the mail server is what unlocks the templa
 
 ```bash
 npm run setup:auth -- \
-  --smtp-host smtp.resend.com --smtp-port 465 --smtp-user resend \
-  --smtp-from onboarding@resend.dev --smtp-pass-file ~/.trackit-smtp
+  --smtp-host smtp.gmail.com --smtp-port 465 \
+  --smtp-user priyanshdhoot0611@gmail.com \
+  --smtp-from priyanshdhoot0611@gmail.com --smtp-pass-file ~/.trackit-smtp
 ```
 
 **The code's width is the project's setting, not the app's.** `mailer_otp_length` is set to six
@@ -66,13 +67,24 @@ below, and the portal's field takes six to eight and sends whatever arrived: thi
 code that is otherwise perfectly good — which is a sign-in that fails with nothing on screen to
 explain it.
 
-`~/.trackit-smtp` holds the SMTP password on one line (Resend's is an API key; the file is read
-and never printed, which keeps it out of the shell's history). The SMTP settings are written
-first and the template in the same pass, so one command is the whole thing. **Resend without a
-verified domain can only mail the address its account was made with** ([their
-note](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain)) — which is exactly
-this app's one recipient, so `onboarding@resend.dev` as the sender is enough. A Gmail account
-works too (`smtp.gmail.com`, 465, an app password, your own address as the sender).
+`~/.trackit-smtp` holds the SMTP password on one line — today a **Gmail app password**, which
+Google only offers once **2-Step Verification** is on for the sending account (Security →
+2-Step Verification → App passwords; it is 16 letters and Google shows it exactly once). The file
+is read and never printed, which keeps it out of the shell's history. The SMTP settings are
+written first and the template in the same pass, so one command is the whole thing.
+
+**Why Gmail, and not Resend.** Resend without a verified domain can only mail **the address its
+account was made with** ([their
+note](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain)); the API key answers
+`403 You can only send testing emails to your own email address (…)` for anyone else. One
+recipient is exactly the shape a single-account vault has, and it stops being true the moment
+there is a second account: Supabase keeps **one** SMTP configuration for the whole project, so
+the mail server has to reach every address, and no arrangement of a single Resend account can
+mail two. That is what moved this project to Gmail — an app password has no recipient rule.
+(Brevo and Mailjet are the other domain-free route: both let you verify one *sender* address and
+then mail anybody.) A verified domain is still the better answer the day this holds more than a
+household: a `@gmail.com` From cannot be DKIM-aligned by whoever relaying it, so a copy of the
+code can land in spam.
 
 Until a mail server is there, the **link** is how a desk signs in: it comes back to this app's
 own address, which adopts the session it carries (see below). Inside an installed iOS web app
@@ -238,18 +250,25 @@ and what to do when one has to be replaced:
 | Secret | Where it lives | Where it comes from |
 | --- | --- | --- |
 | **Personal access token** (`sbp_…`) | Nowhere. It is typed into the shell for one command (`SUPABASE_ACCESS_TOKEN=… npm run setup:auth`) and never written to a file. | Account → **Access Tokens** |
-| **Mail server password** (Resend's is an API key, `re_…`) | `~/.trackit-smtp`, one line, mode `600`, outside the repository — the file `--smtp-pass-file` reads. Supabase also holds a copy as its `smtp_pass`, server-side. | The provider's dashboard (**API Keys**) |
+| **Mail server password** — a Gmail **app password** today | `~/.trackit-smtp`, one line, mode `600`, outside the repository — the file `--smtp-pass-file` reads. Supabase also holds a copy as its `smtp_pass`, server-side. | Google Account → **Security → App passwords** (needs 2-Step Verification on) |
 | **Project URL + publishable key** | In the source (`app/src/lib/supabase-config.ts`) and in `app/.env.local` (git-ignored). Public by design: they ship inside every bundle, and RLS is what protects the rows. | Settings → **API** |
 | **`service_role` key** | Never here — not in this repository, not in the app, and not in the built bundle. A test harness may fetch it into memory for one run (to mint a link) and drop it; it is never written or printed. | Settings → **API** (do not copy it into anything that ships) |
 | **The portal account's password** (`TRACKIT_TEST_EMAIL` / `TRACKIT_TEST_PASSWORD`) | Nowhere. Exported for one `npm run check:flows` run and gone with the shell. With neither set the suite checks the portal's own screens and exits **2**, never 0, rather than reporting a sign-in it did not do. | The account itself, made in the dashboard |
 
-**Replacing one.** A new mail password: save it to `~/.trackit-smtp` and re-run `npm run
-setup:auth` with the same `--smtp-*` arguments — the password is written on every run precisely
-because Supabase never reads it back, so rotating is that one command. A new personal access
-token: nothing to update, it is only ever typed. A new account password: change it in the dashboard
-and export the new one next time — nothing in the tree remembers the old one. **A leaked one should be revoked where it was
-issued** (Supabase: Account → Access Tokens; Resend: API Keys), not here: revoking is the only
-thing that actually stops it.
+**Replacing one.** A new mail password: create another app password at Google (delete the spent
+one in the same screen), save it to `~/.trackit-smtp`, and re-run `npm run setup:auth` with the
+same `--smtp-*` arguments — the password is written on every run precisely because Supabase never
+reads it back, so rotating is that one command. A new personal access token: nothing to update, it
+is only ever typed. A new account password: change it in the dashboard and export the new one next
+time — nothing in the tree remembers the old one.
+
+**The Resend key this project used before Gmail is dead weight now** — nothing configures it any
+more, and the copy in `~/.trackit-smtp` was overwritten in place. Revoke it in Resend's dashboard
+(**API Keys**) so a key nobody can use stops existing.
+
+**A leaked credential is revoked where it was issued** — Supabase: Account → Access Tokens;
+Google: Security → App passwords; Resend: API Keys — and nothing in this repository can do that
+for you. Revoking is the only thing that actually stops it working.
 
 **What keeps them out.** `.gitignore` covers `*.local`, `.dev.vars` and `.wrangler`, and now
 `.trackit-smtp` as well — belt and braces, because the file these docs tell you to write lives in
