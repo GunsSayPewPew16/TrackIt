@@ -111,16 +111,20 @@ export type DashboardModel = {
     caption: string
   }
   envelope: {
+    /** `F&B Budget` — the one budget the app carries, see `lib/budget.ts`. */
     title: string
-    /** What has been spent against it, `₹240`. */
+    /** What Food & Beverages has taken this month, `₹1,624`. */
     spent: string
-    /** What it allows, `₹600`. */
+    /** What it allows, `₹5,000`. */
     limit: string
-    /** `40% USED`. */
+    /** `32% USED`. */
     badge: string
     /** 0–100: the gauge's filled segments and the marker's position. */
     pct: number
-    /** The other envelopes, as the artboard's little pills say them. */
+    /**
+     * The dimension's subcategories, biggest first, as the artboard's little pills say them:
+     * `Groceries: 37% of spend` — each one's share of what food has cost this month.
+     */
     chips: string[]
   }
   /**

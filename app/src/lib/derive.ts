@@ -15,15 +15,17 @@
  *   biggest rows with the clay accent, so a row is `alt` when it is at least a
  *   tenth of that month's spending — which is what makes the treatment mean the
  *   same thing in a month of ₹5,000 and a month of ₹50,000.
- * - **The little bar on a card measures a budget where one exists** (the same
- *   envelope the gauge uses) **and the category's share of the month otherwise**,
- *   and it says which, because "62%" with no noun is not a fact.
- * - **The dashboard's own budget is the only figure not derived from rows.** If
- *   the Wallet export carried no `Budget` document, the gauge measures the month's
- *   biggest category against `MONTHLY_BUDGET_CENTS` and says so.
+ * - **The little bar on a card measures a budget where one exists** (the envelope
+ *   the export carried for that category) **and the category's share of the month
+ *   otherwise**, and it says which, because "62%" with no noun is not a fact.
+ * - **The dashboard's envelope is the one budget the app carries**: Food &
+ *   Beverages, against `lib/budget.ts`. It is not the export's own `Budget`
+ *   documents — those stay on the ledger's per-row bars — and it counts the whole
+ *   dimension, not the month, so a taxi can never make the food budget look full.
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
+import { BUDGET_CENTS, BUDGET_TITLE, budgetSpent, isBudgetCategory } from "./budget"
 import { categoryFor } from "./categories"
 // The name a person reads, which is the new tree's where it renamed an envelope: see
 // `lib/refile.ts`. The table itself is still the source of the id and the icon.
@@ -46,12 +48,6 @@ import {
 import type { Budget, Row } from "./types"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
-/**
- * What the gauge measures against when the Wallet export brought no budget of its
- * own: ₹1,500 a month, the figure the previous app carried for the same reason.
- */
-export const MONTHLY_BUDGET_CENTS = 150000
-
 /** The sparkline's own box, from the artboard: points are written into 174×56. */
 const SPARK = { width: 174, height: 56, steps: 15, top: 8, bottom: 48 }
 
@@ -64,15 +60,6 @@ const inWindow = (rows: Row[], from: number, to: number) => rows.filter((row) =>
 /** Everything the owner spent in a window, which is what every total means. */
 const spentBetween = (rows: Row[], from: number, to: number) =>
   sum(inWindow(rows.filter(isExpense), from, to))
-
-/** The spend a budget has seen since its own period began. */
-function spentUnderBudget(rows: Row[], budget: Budget): number {
-  return sum(
-    rows.filter(
-      (row) => isExpense(row) && row.at >= budget.startDate && budget.categoryIds.includes(row.category),
-    ),
-  )
-}
 
 /** A percentage, whole, and never above 100 on a bar that cannot pass its end. */
 const pctOf = (part: number, whole: number): number =>
@@ -287,60 +274,48 @@ function sparkline(rows: Row[], now: number): string {
     .join(" ")
 }
 
-/** The gauge, from the export's own budgets where there are any. */
-function envelope(rows: Row[], budgets: Budget[], monthSpend: number, now: number): DashboardModel["envelope"] {
+/**
+ * The Food & Beverages envelope: what the dimension has taken this month, how much of the
+ * ₹5,000 that is, and where it went.
+ *
+ * Both figures are the month's (`lib/budget.ts` owns the limit), and the chips are the
+ * dimension's own subcategories — Groceries, Restaurants, Bar & Café and the parent row —
+ * each as its share of what has been spent on food. They are shares of the food spend and
+ * not of the limit on purpose: a chip sums with its siblings to the whole of what went
+ * out, which is the question the card's left-hand figure raises.
+ */
+function envelope(rows: Row[], now: number): DashboardModel["envelope"] {
   const monthStart = startOfMonth(now)
   const monthRows = inWindow(rows.filter(isExpense), monthStart, startOfNextMonth(now))
+  const spent = budgetSpent(rows, monthStart, startOfNextMonth(now))
 
-  if (budgets.length > 0) {
-    // The envelope the owner is furthest into is the one worth showing.
-    const measured = budgets
-      .map((budget) => {
-        const spent = sum(monthRows.filter((row) => budget.categoryIds.includes(row.category)))
-        const used = spentUnderBudget(rows, budget) || spent
-        return { budget, spent, used, pct: pctOf(used, budget.limitCents) }
-      })
-      .sort((a, b) => b.pct - a.pct)
-    const lead = measured[0]
-    return {
-      title: lead.budget.name,
-      // The gauge's own two figures are headlines, so they carry no paise — the
-      // same reason the artboard writes `$240 / $600` and not `$240.00 / $600.00`.
-      spent: wholeMoney(lead.used),
-      limit: wholeMoney(lead.budget.limitCents),
-      badge: `${lead.pct}% USED`,
-      pct: lead.pct,
-      chips: measured.slice(1, 4).map((entry) => `${entry.budget.name}: ${entry.pct}% full`),
-    }
-  }
-
-  // No budget in the export: the month's own biggest category, against the app's
-  // standing figure, and the chips name the next three by share.
   const byCategory = new Map<string, number>()
   for (const row of monthRows) {
+    if (!isBudgetCategory(row.category)) continue
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amountCents)
   }
   const ranked = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
-  const pct = pctOf(monthSpend, MONTHLY_BUDGET_CENTS)
+  const pct = pctOf(spent, BUDGET_CENTS)
+
   return {
-    title: "Monthly budget",
-    spent: wholeMoney(monthSpend),
-    limit: wholeMoney(MONTHLY_BUDGET_CENTS),
+    title: BUDGET_TITLE,
+    // The gauge's own two figures are headlines, so they carry no paise — the
+    // same reason the artboard writes `$240 / $600` and not `$240.00 / $600.00`.
+    spent: wholeMoney(spent),
+    limit: wholeMoney(BUDGET_CENTS),
     badge: `${pct}% USED`,
     pct,
-    chips: ranked
-      .slice(1, 4)
-      .map(([id, spent]) => `${filedName(id)}: ${pctOf(spent, monthSpend)}% of spend`),
+    chips: ranked.map(([id, cents]) => `${filedName(id)}: ${pctOf(cents, spent)}% of spend`),
   }
 }
 
 /**
  * Everything the dashboard draws, from rows: the balance both accounts add up to,
  * this month's flow, the pace of the last week against the month behind it, the
- * category the money is actually going to, the envelope that is furthest into its
- * limit, and what just happened.
+ * category the money is actually going to, the Food & Beverages budget, and what just
+ * happened.
  */
-export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number = Date.now()): DashboardModel {
+export function dashboardModel(rows: Row[], now: number = Date.now()): DashboardModel {
   const expenses = rows.filter(isExpense)
 
   const monthStart = startOfMonth(now)
@@ -410,7 +385,7 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
-    envelope: envelope(rows, budgets, monthSpent, now),
+    envelope: envelope(rows, now),
     recent: {
       title: "Recent transactions",
       rows: recent.map((row) => ({

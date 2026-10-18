@@ -214,11 +214,16 @@ export function DashboardScreen({
       </div>
 
       {/*
-        The envelope: what is spent, what it allows, and where the line sits.
+        The envelope — the F&B budget: what food has taken, what it allows, and where the line
+        sits.
 
-        The artboard splits this card `2fr 3fr`, which is a ratio drawn around its own
+        **This card is the Food & Beverages budget** (`lib/budget.ts`): the dimension's own
+        spend this month, out of ₹5,000, and the chips below the bar are its subcategories —
+        the figures come from `derive.ts`'s `envelope`, not from an imported Wallet budget.
+
+        The artboard splits the card `2fr 3fr`, which is a ratio drawn around its own
         `$240` and `/ $600`. A rupee figure carries a symbol and thousands separators, so
-        `/ ₹1,500` at the design's 40px is 135px — wider than the 124px track that ratio
+        `/ ₹5,000` at the design's 40px is 135px — wider than the 124px track that ratio
         gives it — and the line broke onto a third row, which the card's fixed 160px then
         clipped. Nothing about the type changes here: both money lines stay 40px on a 48px
         line, one under the other, and the column is simply sized by what it holds while

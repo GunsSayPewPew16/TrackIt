@@ -1,3 +1,5 @@
+import type { UpiPayee } from "@/features/upi/upi"
+
 /**
  * What the manual-entry sheet collects, and the shape the ledger takes it in.
  *
@@ -25,6 +27,15 @@ export type SheetProps = {
    * open, so closing and opening elsewhere never inherits the last one.
    */
   category?: string | null
+  /**
+   * The merchant a scanned code named, when the sheet was opened from the scanner rather
+   * than from the dashboard. It turns the sheet into the *payment* screen: the account tray
+   * gives its row to a small box with the payee's name and address, the keypad starts on the
+   * code's own amount when it carried one, the confirm reads **pay and log transaction**, and
+   * pressing it logs the row and then hands the payment to Google Pay for exactly the amount
+   * on screen. `null` is the ordinary blank entry.
+   */
+  payee?: UpiPayee | null
   onClose: () => void
   /** Called with the entry after the confirm key. The sheet closes itself afterwards. */
   onSubmit?: (entry: ManualEntry) => void

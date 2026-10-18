@@ -3,9 +3,7 @@ import type { IDetectedBarcode, IScannerError, ScannerErrorKind } from "@yudiel/
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
 
-import { PaySheet } from "@/components/PaySheet"
 import { ThemeToggle } from "@/components/ThemeToggle"
-import type { PaidDraft } from "@/features/upi/logScan"
 import { parseUpiCode, UPI_PARSE_MESSAGE, type UpiPayee } from "@/features/upi/upi"
 import type { Theme } from "@/lib/theme"
 
@@ -39,10 +37,15 @@ import type { Theme } from "@/lib/theme"
  *   one would be this app's taste rather than the artboard's. It carries
  *   `role="status"` so the words are announced as well as drawn.
  *
- * - **The money screen** (`components/PaySheet.tsx`), which most scanned codes need: a
- *   merchant's code usually carries no amount, because the amount is the merchant's to ask
- *   for and the owner's to choose. Those codes open it rather than being refused — the one
- *   number this app will not guess is the money.
+ * - **Every code it reads opens the payment screen, which is the manual entry.** A merchant's
+ *   code is the payee and nothing else — most carry no amount, and even the ones that do leave
+ *   the category and the owner's own note to fill in. So a read code opens
+ *   `features/manual-entry` with the payee handed in — see `SheetProps.payee` — where the
+ *   amount (prefilled when the code printed one, empty otherwise), the category and the
+ *   merchant and note lines are the same fields a hand-typed row uses, with a small box naming
+ *   who is being paid and a confirm that reads **pay and log transaction**. Pressing it writes
+ *   the row and hands the same amount to Google Pay; the one number this app will not guess is
+ *   the money.
  *
  * The artboard's scrim — a full-bleed mask with a square hole punched where the
  * camera is — composites to `--canvas` at 87% over `--card`, which is the canvas to
@@ -50,10 +53,9 @@ import type { Theme } from "@/lib/theme"
  * (the body's own background) and the frame is drawn `bg-card` on it. Nothing else
  * in the artboard's stack of layers has to be reproduced to get the same pixels.
  *
- * What a read code becomes is `features/upi/logScan.ts`: a code that carries an amount logs
- * a row under **Wallet - OneClick record** on the spot, a code without one opens the money
- * screen and is logged when the owner confirms it, and `features/upi/upi.ts` holds the
- * `upi://` builders both halves hand to another app.
+ * What a read code becomes is `features/upi/logScan.ts`: the sheet's confirm writes the row
+ * through `logPaidPayee`, and `features/upi/upi.ts` holds the `upi://` builders the handoff
+ * uses. The screen itself never touches the ledger.
  *
  * One thing the screen does not control: the decoder's own WASM. On a phone without
  * a native `BarcodeDetector` — an iPhone — the library fetches that file from the
@@ -75,17 +77,13 @@ export type Props = {
   /** Back to the dashboard — the header's circle. */
   onBack: () => void
   /**
-   * A valid UPI code was read **with its amount in it**, and its answer is what the status
-   * line shows: `logScannedPayee` logs the row and returns the sentence, so the screen never
-   * has to know whether a row was written or why it was not.
+   * A valid UPI code was read: open the manual entry as a payment screen for this payee. It
+   * resolves with the sentence the status line should show — `logPaidPayee`'s answer once the
+   * row is written — or `null` if the owner closed the sheet without paying, which puts the
+   * artboard's own hint back. It is a promise rather than a callback because the answer arrives
+   * whenever the sheet closes, and the scanner is the one place it belongs.
    */
-  onPayee: (payee: UpiPayee) => string
-  /**
-   * What the money screen collected, when a code arrived without an amount: `logPaidPayee`
-   * writes the row and returns the sentence, which the status line shows once the screen is
-   * closed — the scanner is where the answer to "what did that do?" belongs.
-   */
-  onPaid: (payee: UpiPayee, draft: PaidDraft) => string
+  onOpenEntry: (payee: UpiPayee) => Promise<string | null>
 }
 
 /**
@@ -110,16 +108,9 @@ const CAMERA_MESSAGE: Record<ScannerErrorKind, string> = {
 /** The artboard's own hint, which is what the status line says until something happens. */
 const HINT = "Point the camera at the merchant’s UPI QR code."
 
-export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Props) {
+export function ScanScreen({ theme, onToggleTheme, onBack, onOpenEntry }: Props) {
   const [status, setStatus] = useState<string | null>(null)
   const [manual, setManual] = useState("")
-  /**
-   * The payee the money screen is open for, if any. A code with no amount in it comes here
-   * rather than being refused, because the amount is the owner's to type.
-   */
-  const [paying, setPaying] = useState<UpiPayee | null>(null)
-  /** What that screen's row was logged as, so the status line can say it on the way out. */
-  const wrote = useRef<string | null>(null)
   /**
    * The last value the camera handed over, so a code held in front of it is one read
    * rather than dozens a second. Resetting on a *different* value is what lets the
@@ -130,15 +121,36 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
    */
   const lastRead = useRef<string | null>(null)
   /**
-   * Whether the money screen is open, for `accept` to see. It is a `useCallback` whose only
-   * dependency is `onPayee`, so it cannot read the state above without being rebuilt on
-   * every render — a ref is what answers the same question for it.
+   * Whether the payment screen is open, for `accept` to see. It is a `useCallback` whose
+   * dependencies are stable, so it cannot read state without being rebuilt on every render — a
+   * ref is what answers the same question for it.
    */
   const sheetOpen = useRef(false)
 
+  /**
+   * Open the manual entry as the payment screen, and say what it did when it closes.
+   *
+   * The camera keeps running underneath, which is why `sheetOpen` is raised for the whole of
+   * the wait: a second code in the frame must not rewrite the payee the owner is halfway
+   * through paying. A closed sheet resolves with `null`, and `null` is the artboard's hint
+   * again — nothing happened, and the screen says so by saying nothing.
+   */
+  const openPayment = useCallback(
+    async (payee: UpiPayee) => {
+      sheetOpen.current = true
+      setStatus(null)
+      try {
+        setStatus(await onOpenEntry(payee))
+      } finally {
+        sheetOpen.current = false
+      }
+    },
+    [onOpenEntry],
+  )
+
   const accept = useCallback(
     (raw: string) => {
-      // A code read *behind* the money screen must not change what is on it: the camera runs
+      // A code read *behind* the payment screen must not change what is on it: the camera runs
       // on under the sheet, and a second code in the frame would otherwise rewrite the payee
       // the owner is halfway through paying for.
       if (sheetOpen.current) return
@@ -151,19 +163,11 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
         return
       }
 
-      // A code that carried its amount is logged on the spot — the merchant printed it.
-      // A code that did not opens the money screen, which is the whole reason it is here.
-      if (result.payee.amountCents === null) {
-        wrote.current = null
-        sheetOpen.current = true
-        setStatus(null)
-        setPaying(result.payee)
-        return
-      }
-
-      setStatus(onPayee(result.payee))
+      // Every code goes to the payment screen: the amount is the owner's to confirm (a
+      // printed one arrives prefilled), and so are the category and the note.
+      void openPayment(result.payee)
     },
-    [onPayee],
+    [openPayment],
   )
 
   const handleScan = useCallback(
@@ -181,9 +185,8 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
   }, [])
 
   /**
-   * The manual row is not gated the way the camera is: it is one deliberate press
-   * with one value in it, so pressing **Use it** twice is worth answering twice —
-   * the second answer being that the row was already there.
+   * The manual row is not gated the way the camera is: it is one deliberate press with one
+   * value in it, and a UPI ID or a whole `upi://` link goes through the same parser.
    */
   const submitManual = useCallback(
     (event: React.FormEvent) => {
@@ -320,25 +323,6 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onPayee, onPaid }: Pr
         </form>
       </div>
 
-      {/*
-        The money screen, over everything, for a code that carried no amount. The status
-        line tells the story once it closes: what the row was logged as, or — if the owner
-        left without paying — the artboard's own hint again, because nothing happened.
-      */}
-      {paying !== null && (
-        <PaySheet
-          payee={paying}
-          onPay={(draft) => {
-            wrote.current = onPaid(paying, draft)
-            return wrote.current
-          }}
-          onClose={() => {
-            sheetOpen.current = false
-            setPaying(null)
-            setStatus(wrote.current)
-          }}
-        />
-      )}
     </div>
   )
 }

@@ -75,10 +75,21 @@ knows which producer filled them:
   what the owner sees before their own money is in.
 - `app/src/lib/derive.ts` — the same models computed from the owner's rows. Every
   decision a figure needs lives here rather than in a component: money in is never
-  spending, `High expense` is a share of the month rather than a threshold, a card's
-  little bar measures a budget where one exists and the category's share otherwise
-  (and says which), and the gauge measures the export's own envelope where it carried
-  one. If a figure is wrong, it is wrong in this file.
+  spending, `High expense` is a share of the month rather than a threshold, and a card's
+  little bar measures a budget where one exists and the category's share otherwise (and
+  says which). If a figure is wrong, it is wrong in this file.
+- `app/src/lib/budget.ts` — the one budget the app carries, **Food & Beverages, ₹5,000 a
+  month**, and the gate every figure about it goes through (`isBudgetCategory` is
+  `categoryFor(id).group === "food-drinks"`; `budgetSpent` counts expenses inside a window).
+  The dashboard's envelope card and the stats screen's gauge both read it, so the two can never
+  disagree about the limit or the scope. It deliberately ignores the export's own `Budget`
+  documents: those still drive the per-row bars on the ledger, which is a different question —
+  what one category has used up. The card is titled **F&B Budget** and its chips are the
+  dimension's own subcategories, biggest first, each as a share of the food spend (they add up
+  to 100%, not to the pill); the gauge's label is *F&B this month* / *F&B last month* so a
+  ₹5,000 denominator is never read as the whole month's spending. The chips live in the card's
+  sideways tray, so four subcategories are a scroll, not a clipped row — that is the design's
+  tray, not an overflow bug.
 
 **The rows are re-filed to the new tree on the way in.** `app/src/lib/refile.ts` is the one
 place that knows both vocabularies: an envelope the six dimensions cannot offer is re-homed
@@ -128,7 +139,7 @@ left out and why.
   model hands it three — the demo content always did, which is why five of them only
   showed once real rows existed (`lib/derive.ts`). The envelope's money column is sized by
   the figure it holds (`grid-cols-[auto_1fr]` with `whitespace-nowrap`) because
-  `/ ₹1,500` at the design's 40px is 135px and the artboard's `2fr 3fr` track is 124px of
+  `/ ₹5,000` at the design's 40px is 135px and the artboard's `2fr 3fr` track is 124px of
   a card whose own example, `/ $600`, is 105: the wider line wrapped onto a third row,
   which the card's 160px then clipped. Neither change moves a type size, a line height or
   a height — keep it that way if either is revisited.
@@ -266,7 +277,11 @@ left out and why.
   the add-record pill opens it — and the pill hands in `null`, because a blank entry is what *it*
   means. The screen unmounts with the sheet, which is why the seed cannot outlive one open. The
   sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up
-  from the 15px captions the same face sets elsewhere.
+  from the 15px captions the same face sets elsewhere. **The same sheet is the scanner's payment
+  screen** (see the UPI bullet below): the tray gives its 56px to a box naming the payee, the
+  keypad may arrive prefilled with the code's own amount, and the confirm reads *pay and log
+  transaction* — a payment to a UPI address is from the UPI account, so an account control
+  there could only be a lie.
   **The mosaic is one surface whose height animates** — the row and the open panel are the
   same element, 56px closed and the sheet's measured room open — and the shape of that
   animation is a decision, not an implementation detail. It used to be two elements sharing
@@ -346,21 +361,26 @@ left out and why.
   mounts it, because the owner is placing it themselves. `useLedger` still exposes
   `importHistory` and `clear`; do not delete either as dead code, and do not "fix" the
   missing entry point by inventing a new one without asking.
-- **The UPI scanner logs a row; the money screen is what fills in an amount.** A code
-  that carries an amount is logged on the spot under **Wallet - OneClick record**; one
-  without opens `components/PaySheet.tsx` — **the retired app's `UpiPaySheet.tsx` brought
-  back at the owner's request**, whose structure and wording are therefore not this design's
-  to re-imagine, and which the owner is restyling themselves. Two of its details are load
-  bearing: **the row is logged before any payment is handed off** (the handoff is one-way, so
-  a row written afterwards is a row a crash can lose), and the handoff happens only where
-  something can take it (`canHandOffToUpiApp` — a phone), because on a desktop the generic
-  `upi://` link is a scheme nothing claims. `features/upi/logScan.ts` is the only thing that
-  writes either row and returns the sentence the status line shows; keep the id the payee
-  plus the amount, so re-reading a code is the same row rather than a second one. The scanner
-  itself is the second artboard, so keep it at that geometry: the frame is 358×358 at 224px
-  plus `--safe-top` (the hint is the one absolute one, and carries it in its `top`)
-  and the manual row 724px down, and the frame holds the live camera where the artboard
-  paints a code.
+- **The UPI scanner's payment screen is the manual entry, at the owner's request.** Every
+  code it reads opens `features/manual-entry` as a payment screen (the owner's ask: the same
+  add-record screen, with the money and the category filled in): the payee's box takes the
+  account tray's 56px, the keypad is prefilled when the code carried an amount, the confirm
+  reads **pay and log transaction**, and everything else — the mosaic, the journal lines, the
+  drag, the 18px serif title — is the sheet the pill opens. Three details are load bearing:
+  **the row is logged before any payment is handed off** (the handoff is one-way, so a row
+  written afterwards is a row a crash can lose), **the amount handed over is the one on
+  screen** (same paise, no re-derivation), and the handoff happens only where something can
+  take it (`handOffToUpiApp` — a phone), because on a desktop there is nothing to open. The
+  link names Google Pay (`gpay://` on iOS, an `intent://` pinned to its package on Android)
+  and falls back to the generic `upi://` link on an iPhone that stays on screen, because a
+  custom scheme nothing claims is ignored silently. `features/upi/logScan.ts` is the only thing
+  that writes a scanned row and returns the sentence the status line shows; keep the id the
+  payee plus the amount, so re-paying a code is the same row rather than a second one. Do not
+  reinstate an instant log for codes that carry an amount: the owner wants the screen. The
+  scanner itself is the second artboard, so keep it at that geometry: the frame is 358×358 at
+  224px plus `--safe-top` (the hint is the one absolute one, and carries it in its `top`) and
+  the manual row 724px down, and the frame holds the live camera where the artboard paints a
+  code.
 - **`backend/` is the Shortcut's endpoint and the greeting's server, and the app calls
   exactly one of its routes.** That one is `POST /api/greeting`, which draws a random row
   out of `greetings`; every expense route is the Shortcut's, stays token-guarded, and is
@@ -387,9 +407,10 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
+| The F&B budget | the card reads **F&B Budget** with ₹5,000 as its limit and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it); the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips; and the stats dial shows the same figure and limit, with *F&B last month* on its toggle |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
-| The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, a hand-typed `pa=name@bank&am=12.50` logging exactly one row under Wallet - OneClick record, and the camera's failure copy where there is no camera (a desktop) |
-| The money screen | a hand-typed code with **no** `am` must open it, with the amount empty and the category guessed from the merchant's name (`Swiggy` → restaurant, `Blinkit` → groceries); typing `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals); the row must be in `trackit-ledger` **before** any handoff; on a desktop nothing must navigate away, and the generic `upi://` link plus the payee's UPI id must be on screen; a code **with** an `am` must still log with no screen at all; and a code read while the screen is open must not change the payee under it |
+| The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
+| The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading *pay and log transaction* (not *add record*), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
 | The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
 | The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
 | The parked model route | still, if it is ever woken up: `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set and ask it a Request. Vercel is a deploy target, not a thing to install — the handler is a plain `fetch`, so Node is enough. 200 and `{ greeting }`, same-origin with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one 403, `OPTIONS` → 204, `GET` → 405, an unusable answer 502, and no key 503 without a call upstream |

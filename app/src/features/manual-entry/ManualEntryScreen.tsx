@@ -1,14 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { X } from "lucide-react"
+import { Wallet, X } from "lucide-react"
 import { useLayoutEffect, useRef, useState, type PointerEventHandler } from "react"
 
+import { handOffToUpiApp, type UpiPayee } from "@/features/upi/upi"
 import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
 import { heavyThud, lightTap } from "@/lib/haptics"
 import { CategoryMatrix } from "./CategoryMatrix"
 import { Keypad } from "./Keypad"
 import type { ManualEntry } from "./types"
-import { formatRaw, useAmountInput } from "./useAmountInput"
+import { formatRaw, rawFromCents, useAmountInput } from "./useAmountInput"
 
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const
 
@@ -25,6 +26,12 @@ interface ManualEntryScreenProps {
    * so a preset `restaurant` opens the closed row on *Food & Beverages • Restaurants*.
    */
   initialCategory?: string | null
+  /**
+   * The merchant a scanned code named, when the sheet came from the scanner: see
+   * `SheetProps.payee`. It swaps the account tray for the payee's own box and the confirm
+   * for **pay and log transaction**; everything else about the screen is unchanged.
+   */
+  payee?: UpiPayee | null
   onClose: () => void
   onSubmit?: (entry: ManualEntry) => void
   /** Wired by the sheet so a drag that starts on the header can dismiss it. */
@@ -89,11 +96,16 @@ function JournalLine({
  */
 export function ManualEntryScreen({
   initialCategory = null,
+  payee = null,
   onClose,
   onSubmit,
   onHeaderPointerDown,
 }: ManualEntryScreenProps) {
-  const { raw, value, press, reset } = useAmountInput()
+  const { raw, value, press, reset } = useAmountInput(
+    // A code that carried its amount starts on that figure: the merchant printed it, and
+    // the owner still confirms it — see `SheetProps.payee`.
+    payee?.amountCents != null ? rawFromCents(payee.amountCents) : "",
+  )
   const [account, setAccount] = useState(ACCOUNTS[0].id)
   const [merchant, setMerchant] = useState("")
   const [note, setNote] = useState("")
@@ -107,14 +119,19 @@ export function ManualEntryScreen({
    */
   const [panelRoom, setPanelRoom] = useState(0)
   const column = useRef<HTMLDivElement>(null)
-  const tray = useRef<HTMLDivElement>(null)
+  /**
+   * The 56px card that opens the column — the account tray, or the payee's box when this
+   * is a payment. One ref for both, because it is the same measurement: whatever sits
+   * there is the room the mosaic must not be given.
+   */
+  const topCard = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const el = column.current
     if (!el) return
     const measure = () => {
-      const trayHeight = tray.current?.offsetHeight ?? 0
-      setPanelRoom(Math.max(0, el.clientHeight - trayHeight - 8))
+      const topHeight = topCard.current?.offsetHeight ?? 0
+      setPanelRoom(Math.max(0, el.clientHeight - topHeight - 8))
     }
     measure()
     const observer = new ResizeObserver(measure)
@@ -128,7 +145,30 @@ export function ManualEntryScreen({
   const confirm = () => {
     if (value <= 0) return
     heavyThud() // 45ms, and only here
-    onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: note.trim(), category })
+    const written = note.trim()
+    const amountCents = Math.round(value * 100)
+    onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: written, category })
+    /*
+      **Logged first, handed to Google Pay second**, in that order and for a reason: the
+      handoff is one-way, so a row written afterwards is a row that a crash, a back-swipe or a
+      cancelled payment can lose. `onSubmit` above writes to the device synchronously, so by the
+      time the app switch happens the money is on the ledger — a logged expense the owner
+      decided not to pay is a row they can delete, and a payment with no row is the thing this
+      app exists to prevent.
+
+      The amount handed over is the one on screen, to the paise, and the note is the owner's
+      own words; `features/upi/upi.ts` builds the link and decides what this device can open
+      (nothing, on a desktop). `handOffToUpiApp` also covers the iPhone where Google Pay is
+      not installed, where a custom scheme is silently ignored.
+    */
+    if (payee !== null) {
+      handOffToUpiApp({
+        pa: payee.pa,
+        pn: payee.pn,
+        amountCents,
+        note: written,
+      })
+    }
     reset()
     setMerchant("")
     setNote("")
@@ -192,9 +232,35 @@ export function ManualEntryScreen({
       </section>
 
       <div ref={column} className="relative flex min-h-0 flex-1 flex-col gap-2 px-4">
-        {/* The account tray: one segmented control, the same 48px row on every phone. */}
+        {/*
+          The payee's box, when a scanned code sent us here.
+
+          It takes the account tray's own 56px rather than being added above it: the column
+          is exactly full when the sheet is closed (tray, two journal lines, the category
+          row and the keypad are 536px of 536 on a 390×844 phone), so a box of its own would
+          push the keypad off the bottom. It is also the honest swap — a payment to a UPI
+          address is from the UPI account, and `logScan.rowFor` writes exactly that, so an
+          account control here could only be a lie.
+        */}
+        {payee !== null ? (
+          <div
+            ref={topCard}
+            className="flex h-14 shrink-0 items-center gap-3 rounded-[20px] border border-line bg-card px-4"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-2xl bg-sage text-on-sage">
+              <Wallet className="size-4" strokeWidth={1.5} aria-hidden="true" />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-display text-[13px] leading-4 font-medium tracking-[-0.01em]">
+                {payee.pn}
+              </span>
+              <span className="truncate text-[11px] leading-4 text-ink2">{payee.pa}</span>
+            </span>
+          </div>
+        ) : (
+        /* The account tray: one segmented control, the same 48px row on every phone. */
         <div
-          ref={tray}
+          ref={topCard}
           role="radiogroup"
           aria-label="Account"
           className="grid shrink-0 grid-cols-2 gap-0 rounded-[20px] border border-line bg-card p-1"
@@ -228,6 +294,7 @@ export function ManualEntryScreen({
             )
           })}
         </div>
+        )}
 
         {/*
           The journal lines, hidden while the mosaic needs their room.
@@ -286,10 +353,10 @@ export function ManualEntryScreen({
                 type="button"
                 onClick={confirm}
                 disabled={value <= 0}
-                className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
-              >
-                add record
-              </button>
+              className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
+            >
+              {payee === null ? "add record" : "pay and log transaction"}
+            </button>
             </motion.div>
           )}
         </AnimatePresence>

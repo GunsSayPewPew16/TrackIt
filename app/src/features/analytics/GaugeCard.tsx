@@ -55,8 +55,10 @@ export function GaugeCard({ rows, now }: { rows: Row[]; now: number }) {
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          {/* The dial is the F&B budget, so it says so: a bare "spent this month" over
+              five thousand rupees would be read as all the month's spending. */}
           <p className="w-[88px] text-[10px] leading-3 tracking-[0.01em] text-ink2">
-            {lastMonth ? "Spent last month" : "Spent this month"}
+            {lastMonth ? "F&B last month" : "F&B this month"}
           </p>
           <CountUp
             cents={spent}

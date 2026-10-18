@@ -11,7 +11,8 @@ import type { Props as StatsProps } from "@/components/AnalyticsScreen"
 // The sheet's types only. The component itself is fetched the first time the pill is
 // pressed, so the entry chunk does not pay for a keypad most opens never open.
 import type { ManualEntry, SheetProps } from "@/features/manual-entry"
-import { logPaidPayee, logScannedPayee } from "@/features/upi/logScan"
+import { logPaidPayee } from "@/features/upi/logScan"
+import type { UpiPayee } from "@/features/upi/upi"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
@@ -60,9 +61,9 @@ import { appendToLedger } from "@/lib/ledger"
  * only way in — the dock has no Create — and it wears the second artboard's design
  * (`components/ScanScreen.tsx`) rather than the dialog the previous app opened: it
  * has its own header and its own way back, and the cross-fade carries the change like
- * the other two. What a read code becomes — one row, or a refusal — is
- * `features/upi/logScan.ts`, handed in as the screen's `onPayee` so that the screen
- * itself never touches the ledger.
+ * the other two. A read code opens the sheet as a payment — the scanner's
+ * `onOpenEntry` — and what the confirm writes is `features/upi/logScan.ts`, so the
+ * screen itself never touches the ledger.
  *
  * **The ledger is opened from the dock**, whose Ledger tab is also the way back to it
  * from the scanner; the dashboard's header circle that used to do this is gone.
@@ -148,6 +149,20 @@ export default function App() {
    * from the add-record pill: `null` for a blank entry, which is what the pill means.
    */
   const [entryCategory, setEntryCategory] = useState<string | null>(null)
+  /**
+   * The merchant a scanned code named, when the scanner opened the sheet: that turns it into
+   * the payment screen (`SheetProps.payee`), seeds the keypad when the code carried an amount,
+   * and makes the confirm **pay and log transaction**. The row it writes is the payee's rather
+   * than a hand-typed one's — `logPaidPayee` builds it, so a scanned payment keeps its own id,
+   * its own `source: "upi"` and the VPA in its note.
+   */
+  const [entryPayee, setEntryPayee] = useState<UpiPayee | null>(null)
+  /**
+   * Where the scanner's answer goes. A scanned code hands the sheet a promise, and the sentence
+   * is what that promise resolves with once the owner confirms or gives up — the scanner's own
+   * status line is the one place "what did that do?" is answered.
+   */
+  const settleScan = useRef<((sentence: string | null) => void) | null>(null)
 
   /**
    * After the first screen is painted, the other two are fetched in the background, so a tap
@@ -199,16 +214,23 @@ export default function App() {
    * so a hand-typed row can always be told from an imported or scanned one.
    */
   const openEntry = useCallback(
-    async (category: string | null = null) => {
-      // Set before the sheet opens, and before any await: the category is what the sheet
-      // starts on, and a chip tap that fetched the module first would otherwise open a
+    async (category: string | null = null, payee: UpiPayee | null = null): Promise<string | null> => {
+      // Set before the sheet opens, and before any await: the category and the payee are what
+      // the sheet starts on, and a tap that fetched the module first would otherwise open a
       // blank entry and only then be told what it was for.
       setEntryCategory(category)
+      setEntryPayee(payee)
+      const answer = payee === null
+        ? null
+        : new Promise<string | null>((resolve) => {
+            settleScan.current = resolve
+          })
       if (!EntrySheet) {
         const module = await import("@/features/manual-entry")
         setEntrySheet(() => module.ManualEntrySheet)
       }
       setEntryOpen(true)
+      return answer
     },
     [EntrySheet],
   )
@@ -234,14 +256,49 @@ export default function App() {
   }, [])
 
   /**
+   * The sheet's confirm.
+   *
+   * One screen, two rows: a hand-typed entry is `addEntry`'s (`source: "manual"`, an id no
+   * import can collide with), and an entry opened from a scanned code is the *payee's* —
+   * `logPaidPayee` writes it through `logScan.ts`'s `rowFor`, so
+   * the two ways into a scanned row cannot disagree about what one is. It also hands the
+   * scanner its sentence, which is what the status line shows when the sheet closes.
+   */
+  const submitEntry = useCallback(
+    (entry: ManualEntry) => {
+      if (entryPayee === null) {
+        addEntry(entry)
+        return
+      }
+      settleScan.current?.(
+        logPaidPayee(entryPayee, {
+          amountCents: Math.round(entry.amount * 100),
+          category: entry.category ?? DEFAULT_CATEGORY,
+          note: entry.note,
+          title: entry.merchant,
+        }),
+      )
+      settleScan.current = null
+    },
+    [addEntry, entryPayee],
+  )
+
+  /** Closing without confirming is an answer too: the scanner's hint comes back. */
+  const closeEntry = useCallback(() => {
+    setEntryOpen(false)
+    settleScan.current?.(null)
+    settleScan.current = null
+  }, [])
+
+  /**
    * Both models are rebuilt when the ledger changes and not on every render: the
    * derivation walks every row, and a screen that re-renders for a hover must not
    * make it do that.
    */
   const imported = hasHistory(rows)
   const dashboard = useMemo(
-    () => (imported ? dashboardModel(rows, budgets) : DEMO_DASHBOARD),
-    [imported, rows, budgets],
+    () => (imported ? dashboardModel(rows) : DEMO_DASHBOARD),
+    [imported, rows],
   )
   const ledger = useMemo(
     () => (imported ? ledgerModel(rows, budgets, anchor) : DEMO_LEDGER),
@@ -286,11 +343,10 @@ export default function App() {
               theme={theme}
               onToggleTheme={toggleTheme}
               onBack={() => void goTo("dashboard")}
-              // Two ways a scanned code becomes a row, and both are handed in here so the
-              // screen itself never touches the ledger: a code that carried its amount, and
-              // what the money screen collected for one that did not.
-              onPayee={logScannedPayee}
-              onPaid={logPaidPayee}
+              // A scanned code opens the same sheet the dashboard's pill opens, as a payment
+              // screen for this merchant — and its answer is the status line's sentence, so the
+              // screen itself never touches the ledger.
+              onOpenEntry={(payee) => openEntry(null, payee)}
             />
           ) : null}
         </motion.div>
@@ -310,8 +366,9 @@ export default function App() {
         <EntrySheet
           isOpen={entryOpen}
           category={entryCategory}
-          onClose={() => setEntryOpen(false)}
-          onSubmit={addEntry}
+          payee={entryPayee}
+          onClose={closeEntry}
+          onSubmit={submitEntry}
         />
       )}
     </>

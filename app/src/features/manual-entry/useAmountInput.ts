@@ -7,9 +7,12 @@ import { useCallback, useState } from "react"
  * raw string so the display can show what is still being typed (`1,250.` keeps its
  * point). The conversion to the app's integer paise happens once, in the sheet's
  * `onSubmit`.
+ *
+ * `initialRaw` is how a scanned code that carried its own amount arrives: the merchant has
+ * already named the figure, so the keypad starts on it rather than on an empty canvas.
  */
-export function useAmountInput(maxInt = 9) {
-  const [raw, setRaw] = useState("")
+export function useAmountInput(initialRaw = "", maxInt = 9) {
+  const [raw, setRaw] = useState(initialRaw)
 
   const press = useCallback(
     (key: string) => {
@@ -26,6 +29,14 @@ export function useAmountInput(maxInt = 9) {
 
   const value = raw === "" || raw === "." ? 0 : Number(raw)
   return { raw, value, press, reset: () => setRaw("") }
+}
+
+/**
+ * `20900` paise → `209`, `1250` → `12.50` — the keypad's own raw string, without the
+ * trailing zeros a printed amount carries when it is a whole number of rupees.
+ */
+export function rawFromCents(cents: number): string {
+  return (cents / 100).toFixed(2).replace(/\.00$/, "")
 }
 
 /** `1234567.5` → `12,34,567.5` — Indian grouping, keeping the digits after the point. */

@@ -191,12 +191,16 @@ export const DEMO_DASHBOARD: DashboardModel = {
     caption: "26% of spending",
   },
   envelope: {
-    title: "Envelope limit",
+    // The app's one budget is Food & Beverages, ₹5,000 a month — `lib/budget.ts`, which the
+    // derived card reads too. The artboard's sample envelope (`$240 / $600`) is replaced by
+    // the same shape at the owner's own figures; the chips are the dimension's subcategories,
+    // as the derived card ranks them.
+    title: "F&B Budget",
     spent: wholeMoney(paise(240)),
-    limit: wholeMoney(paise(600)),
-    badge: "40% USED",
-    pct: 40,
-    chips: ["Groceries: 80% full", "Dining: 62% full", "Transit: 35% full"],
+    limit: wholeMoney(paise(5000)),
+    badge: "5% USED",
+    pct: 5,
+    chips: ["Restaurants: 42% of spend", "Groceries: 35% of spend", "Bar, cafe: 23% of spend"],
   },
   recent: { title: "Recent transactions", rows: DEMO_RECENT },
 }

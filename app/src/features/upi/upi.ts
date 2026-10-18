@@ -187,7 +187,6 @@ export function buildUpiUri(payment: UpiPayment, currency = 'INR'): string {
 }
 
 /**
-/**
  * Which phone this is, as far as the handoff cares.
  *
  * Only used to pick a link shape: the two phones do not agree on how a page
@@ -254,3 +253,45 @@ export function buildGooglePayUri(payment: UpiPayment, currency = 'INR'): string
   }
   return buildUpiUri(payment, currency)
 }
+
+/**
+ * Hand a confirmed payment to Google Pay, and cover the one case the link cannot.
+ *
+ * Android is already covered by the `intent://` fallback and a desktop has nothing to hand
+ * the payment to, so both are one assignment. **iOS is the gap**: a custom scheme cannot be
+ * checked from a page (`canOpenURL` is an app's API), and a scheme no installed app claims is
+ * ignored without so much as a console line — the owner would press **pay and log
+ * transaction**, the sheet would close, the row would be logged, and nothing would open.
+ *
+ * So iOS gets one retry: if the page is still on screen shortly after the handoff, Google Pay
+ * did not take it, and the generic `upi://pay` link is handed to whatever UPI app the phone
+ * has instead. A page that *did* leave (`visibilitychange` to `hidden`) is a page whose app
+ * opened, and there the timer is cancelled — no second handoff, no second prompt.
+ */
+export function handOffToUpiApp(payment: UpiPayment, currency = 'INR'): void {
+  if (!canHandOffToUpiApp()) return
+  window.location.href = buildGooglePayUri(payment, currency)
+  if (!isIos()) return
+
+  const retry = window.setTimeout(() => {
+    if (document.visibilityState === 'visible') {
+      window.location.href = buildUpiUri(payment, currency)
+    }
+  }, GOOGLE_PAY_GRACE_MS)
+
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.visibilityState === 'hidden') window.clearTimeout(retry)
+    },
+    { once: true },
+  )
+}
+
+/**
+ * How long Google Pay gets to take the handoff before the generic link is tried.
+ *
+ * Long enough for a cold app launch on an old phone (the switch usually takes well under a
+ * second), short enough that a phone without Google Pay is not left looking at nothing.
+ */
+const GOOGLE_PAY_GRACE_MS = 1500

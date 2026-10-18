@@ -23,7 +23,7 @@ import type { SheetProps } from "./types"
 const SPRING = { type: "spring", stiffness: 380, damping: 32, mass: 0.8 } as const
 const DISMISS_DISTANCE = 150
 
-export function ManualEntrySheet({ isOpen, category, onClose, onSubmit }: SheetProps) {
+export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }: SheetProps) {
   const controls = useDragControls()
 
   useEffect(() => {
@@ -61,7 +61,8 @@ export function ManualEntrySheet({ isOpen, category, onClose, onSubmit }: SheetP
             key="sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Manual expense entry"
+            // The same sheet, named for what it does: a scanned code's open is a payment.
+            aria-label={payee ? "Pay and log transaction" : "Manual expense entry"}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -85,6 +86,10 @@ export function ManualEntrySheet({ isOpen, category, onClose, onSubmit }: SheetP
               // Seeded per open: the screen unmounts with the sheet, so a chip's category
               // is what the next open starts on and the add-record pill's `null` clears it.
               initialCategory={category ?? null}
+              // A scanned payee turns the same screen into the payment screen — see
+              // `SheetProps.payee`. It also seeds the keypad when the code carried an
+              // amount, so a printed figure is confirmed rather than retyped.
+              payee={payee ?? null}
               onClose={onClose}
               onSubmit={onSubmit}
               onHeaderPointerDown={(event) => controls.start(event)}

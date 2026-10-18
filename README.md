@@ -37,8 +37,9 @@ the newer artboard drew in place of the single balance box — pull the front ca
 and it goes to the back of the stack, with the "Add card" pill pinned where it was; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
-side, the envelope gauge (twenty segments and a needle at the same percentage as
-the pill above it), and the recent rows. The ledger is opened from the header's
+side, the **F&B budget** (what Food & Beverages has taken this month out of ₹5,000, twenty
+segments and a needle at the same percentage as the pill above it, with the dimension's own
+subcategories as the chips under the bar), and the recent rows. The ledger is opened from the header's
 second circle, beside the theme toggle; the artboard's own "See all" button is gone
 from the recent card, where it would have been a second door to the same room.
 
@@ -190,18 +191,18 @@ will not scan — a UPI ID or a whole `upi://` link, through exactly the same pa
 camera's reads go through. Decoding is `@yudiel/react-qr-scanner`: the browser's own
 `BarcodeDetector` where there is one, a WASM ZXing build where there is not.
 
-A code that already carries an amount logs **one row** under **Wallet - OneClick
-record** (`src/features/upi/logScan.ts`), newest first, so it is what the dashboard's
-recent list shows next; scanning the same code twice is the same row, and the status
-line says so. **A code that carries no amount opens the money screen**
-(`src/components/PaySheet.tsx`, the retired app's pay sheet brought back), because the
-amount is the one number this app will not guess: the amount, a category guessed from the
-merchant's own name (`Swiggy` → restaurant, `Blinkit` → groceries) and a note in the
-owner's words. Paying **logs the row first and hands the payment to Google Pay second**,
-in that order and for a reason — the handoff tells this app nothing about what was paid, so
-a row written afterwards is a row a crash or a cancelled payment can lose. On a device that
-cannot open a UPI app at all (a desktop), and after any handoff, the generic `upi://` link
-and the payee's own UPI ID stay on screen to pay from by hand.
+**Every code it reads opens the add-record sheet as a payment screen**
+(`src/features/manual-entry/`): a small box names the payee and their UPI address where the
+account tray sits, the keypad holds the amount — prefilled when the code printed one, empty
+when it did not — and the mosaic files the row, so the amount and the category are always the
+owner's. The confirm reads **pay and log transaction**: it writes the row first and hands the
+same amount to Google Pay second, in that order and for a reason — the handoff tells this app
+nothing about what was paid, so a row written afterwards is a row a crash or a cancelled
+payment can lose. The handoff names Google Pay rather than leaving it to `upi://` (which
+belongs to whichever app asked for the scheme last), and on an iPhone without Google Pay it
+falls back to the generic link once the page is still on screen. A desktop has nothing to
+hand the payment to, so nothing navigates. Scanning the same code and amount twice is the
+same row (`src/features/upi/logScan.ts`), and the status line says so.
 
 The artboard paints a stylised code inside the viewfinder, because a mockup cannot hold
 a camera; **this screen holds the camera instead**, and keeps the frame's chrome over
@@ -302,7 +303,6 @@ app/                    the whole product — one Vite app
       DateWheel         the date container: the arc, the drag, the snap and the tick
       ThemeToggle       the 48px circle that hands the sun to the moon
       DataSheet         import / export / start over
-      PaySheet          the money screen a scanned code with no amount opens
       ScanScreen        Scan to pay: the camera in its frame, and the manual row
       RowIcon           a card's glyph: a Lucide face, or a category's marker
     features/upi/       the UPI link builder, and what a read code becomes (logScan)
@@ -332,8 +332,8 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 Working: all three screens in both themes, the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
 the month menu that reaches the months past the one the wheel holds, the Wallet import and
-both exports, the scanner (camera and manual entry, the money screen for a code with no
-amount, and one row per code), the greeting in a different language every open, and the
+both exports, the scanner (camera and manual entry, the payment screen as the add-record
+screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
 exists on the account yet**, so the live site greets from the fifty in its own bundle

@@ -1,6 +1,6 @@
 import { OPENING_BALANCE_CENTS } from "./accounts"
+import { BUDGET_CENTS, budgetSpent } from "./budget"
 import { categoryFor, groupLabel } from "./categories"
-import { MONTHLY_BUDGET_CENTS } from "./derive"
 import { addDays, localDayKey, startOfDay, startOfMonth, startOfNextMonth } from "./format"
 import type { Row } from "./types"
 
@@ -96,9 +96,10 @@ export interface AllocationModel {
 }
 
 export interface GaugeModel {
+  /** Food & Beverages this month and last, in paise — see `lib/budget.ts`. */
   thisMonth: number
   lastMonth: number
-  /** What the gauge measures against: the budget the rest of the app uses. */
+  /** What the gauge measures against: the ₹5,000 the dashboard's card carries. */
   target: number
 }
 
@@ -116,15 +117,6 @@ function spendByDay(rows: Row[]): Map<string, number> {
     byDay.set(key, (byDay.get(key) ?? 0) + row.amountCents)
   }
   return byDay
-}
-
-/** Spend between two instants, half-open, which is how every window in the app is cut. */
-function spentBetween(rows: Row[], from: number, to: number): number {
-  let total = 0
-  for (const row of rows) {
-    if (isExpense(row) && row.at >= from && row.at < to) total += row.amountCents
-  }
-  return total
 }
 
 /** Midnight of the Monday on or before a moment. */
@@ -256,12 +248,18 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
   return { months, segments }
 }
 
+/**
+ * The dial: what the month has taken out of the Food & Beverages budget, and the same for the
+ * month before it. It is the dashboard's envelope card with a longer memory, so the two read
+ * one figure and one limit (`lib/budget.ts`) — a dial that counted every category while the
+ * card counted food would disagree with the card on the very same screen's data.
+ */
 export function gaugeModel(rows: Row[], now: number): GaugeModel {
   const thisMonth = startOfMonth(now)
   const lastMonth = startOfMonth(addDays(thisMonth, -1))
   return {
-    thisMonth: spentBetween(rows, thisMonth, startOfNextMonth(now)),
-    lastMonth: spentBetween(rows, lastMonth, thisMonth),
-    target: MONTHLY_BUDGET_CENTS,
+    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now)),
+    lastMonth: budgetSpent(rows, lastMonth, thisMonth),
+    target: BUDGET_CENTS,
   }
 }
