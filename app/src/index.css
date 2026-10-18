@@ -201,6 +201,13 @@
    */
   --tint-bg: 14%;
   --tint-border: 35%;
+  /*
+   * A sub-category pill's selected state: a deeper wash of the parent's colour than the
+   * tile behind it (20% against 14%), a solid border, and white ink on top — which is the
+   * only place in the matrix where text changes colour rather than weight.
+   */
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
   color-scheme: dark;
 }
 
@@ -224,6 +231,9 @@
   --data-indigo: #2c3e50;
   --tint-bg: 10%;
   --tint-border: 35%;
+  --tint-pill: 12%;
+  /* On a 12% wash over white a white label would vanish, so the lit pill keeps the ink. */
+  --tint-pill-ink: var(--ink);
   color-scheme: light;
 }
 

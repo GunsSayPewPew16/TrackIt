@@ -222,7 +222,15 @@ left out and why.
   Grotesk Display Bold with a 24px clay rupee superscript, the UPI/Cash tray, two journal
   lines whose placeholder is Anthropic Serif Text italic and whose typed value is upright
   sans, and the six Wallet parent dimensions as a bento matrix (14% colour wash in dark, 10%
-  in light, 35% border; the chosen tile scales to 0.97 and the rest fade to 0.4). Haptics are
+  in light, 35% border; the chosen tile scales to 0.97 and the rest fade to 0.4). **A parent
+  tile both selects that parent and opens its tray** of sub-category pills — Lucide icons in
+  a 20% (dark) / 12% (light) wash with a solid border and white ink on the one chosen, and
+  every pill files under a real `lib/categories.ts` id rather than an invented leaf: where
+  Wallet has one envelope for two intents (`bar-cafe` is the cafe and the bar, `tv-streaming`
+  is Spotify and everything else you subscribe to) two pills share the id and are told apart
+  by key. The closed row reads `Parent • Sub` — sans, bullet, editorial serif italic at 60% —
+  a pick folds the panel after 250ms, and `Done` in the panel's own header folds it with the
+  parent alone, which is the only other way to bring the keypad back. Haptics are
   weighted in `lib/haptics.ts` — 8ms digits, 20ms backspace/decimal, 45ms confirm — which on
   iOS are one/two/three clicks of the root switch, because the platform has no length to
   vary. A confirm converts the sheet's rupees to integer paise once and appends one
