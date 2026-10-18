@@ -44,6 +44,7 @@ export function DashboardScreen({
   theme,
   onToggleTheme,
   onScan,
+  onAddRecord,
 }: {
   model: DashboardModel
   /**
@@ -55,6 +56,8 @@ export function DashboardScreen({
   theme: Theme
   onToggleTheme: () => void
   onScan: () => void
+  /** The add-record pill on the account stack opens the manual entry sheet. */
+  onAddRecord: () => void
 }) {
   /** The artboard's small letterspaced label, which every chip and pill wears. */
   const pill = "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
@@ -107,7 +110,7 @@ export function DashboardScreen({
       </div>
 
       {/* The accounts, as the newer artboard's stack of cards. */}
-      <BalanceCards cards={model.cards} />
+      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} />
 
       {/* The scan square and the tray of things the owner probably just did. */}
       <div className="grid h-[104px] grid-cols-[104px_1fr] gap-2">
@@ -173,7 +176,8 @@ export function DashboardScreen({
           </div>
           <div className="relative">
             <div className={`${figure} text-ink`}>{model.velocity.value}</div>
-            <div className="text-ink2">{model.velocity.caption}</div>
+            {/* The soft line under a hero figure: editorial serif, italic, quiet. */}
+            <div className="font-editorial text-xs leading-4 italic text-ink2">{model.velocity.caption}</div>
           </div>
         </section>
 
@@ -187,7 +191,7 @@ export function DashboardScreen({
           </div>
           <div>
             <div className={`${figure} text-ink`}>{model.topCategory.value}</div>
-            <div className="text-ink2">{model.topCategory.caption}</div>
+            <div className="font-editorial text-xs leading-4 italic text-ink2">{model.topCategory.caption}</div>
           </div>
         </section>
       </div>
@@ -240,11 +244,23 @@ export function DashboardScreen({
             />
           </div>
           <div className="hide-scrollbar flex gap-2 overflow-x-auto">
-            {model.envelope.chips.map((chip) => (
-              <button key={chip} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
-                <span className={`${pill} bg-line text-ink`}>{chip}</span>
-              </button>
-            ))}
+            {model.envelope.chips.map((chip) => {
+              // `Groceries: 80% full` — the envelope's name in the structural sans,
+              // the running figure after it in the editorial serif's italic.
+              const cut = chip.lastIndexOf(": ")
+              const name = cut > 0 ? chip.slice(0, cut) : chip
+              const detail = cut > 0 ? chip.slice(cut + 2) : ""
+              return (
+                <button key={chip} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
+                  <span className="inline-flex h-6 items-center gap-1 rounded-xl bg-line px-2 whitespace-nowrap">
+                    <span className="font-sans text-[11px] leading-4 text-ink">{name}</span>
+                    {detail && (
+                      <span className="font-editorial text-[11px] leading-4 italic text-ink2">{detail}</span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -263,7 +279,18 @@ export function DashboardScreen({
           <div key={row.id} className="flex h-16 items-center justify-between border-t border-line">
             <div className="min-w-0">
               <div className="truncate font-bold text-ink">{row.title}</div>
-              <div className="truncate text-ink2">{row.sub}</div>
+              {/* Category in the sans, the clock after it in the editorial serif. */}
+              <div className="truncate whitespace-nowrap text-ink2">
+                <span className="font-sans">{row.sub}</span>
+                {row.subNote && (
+                  <>
+                    <span aria-hidden="true" className="mx-1 opacity-60">
+                      ·
+                    </span>
+                    <span className="font-editorial italic opacity-70">{row.subNote}</span>
+                  </>
+                )}
+              </div>
             </div>
             <div className="shrink-0 text-ink tabular-nums">{row.amount}</div>
           </div>

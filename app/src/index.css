@@ -117,6 +117,38 @@
 }
 
 /*
+ * Anthropic Serif **Text**, the editorial cut.
+ *
+ * The app has two serif roles and they are two optical sizes rather than two moods:
+ * **Display** (above) for the greeting and the screen titles, which are drawn at 24px
+ * and up, and **Text** (here) for everything that is read at a caption's size — the
+ * note after a transaction's bullet, an input placeholder, the soft line under a
+ * figure. A display cut at 12px is thin in the stem and wide in the aperture, which is
+ * what makes small italic type read as decoration instead of a note.
+ *
+ * Regular and Regular Italic only: the editorial role is never bold and never sets a
+ * figure. Each rule names one file, one weight and one style, so no browser synthesises
+ * a slant or a bold that was never drawn. Converted from the owner's fontiko OTFs by
+ * `tools/vendor-anthropic-serif-text.py`; the notice beside them records that no licence
+ * came with the files.
+ */
+@font-face {
+  font-family: "Anthropic Serif Text";
+  src: url("./assets/fonts/anthropic-serif-text-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Anthropic Serif Text";
+  src: url("./assets/fonts/anthropic-serif-text-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/*
  * What the phone reserves at the top, plus the 8px the owner asked for on top of the
  * artboards' own rhythm. Zero on anything that is not a notched phone, so a desktop
  * keeps the design's coordinates to the pixel. The scanner needs it in a `top` as well
@@ -161,6 +193,14 @@
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
   --data-indigo: #2c3e50;
+  /*
+   * How much of a data colour a category tile carries: a 14% wash in dark, layered on
+   * the card's own #1A221E, and 10% on white where the same wash would read heavier.
+   * The border is a third of the colour in both themes. These are the manual-entry
+   * matrix's two numbers, and they live beside the colours they tint.
+   */
+  --tint-bg: 14%;
+  --tint-border: 35%;
   color-scheme: dark;
 }
 
@@ -182,6 +222,8 @@
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
   --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
   color-scheme: light;
 }
 
@@ -223,8 +265,24 @@
   --font-sans: "Neue Haas Grotesk Text", "Neue Haas Grotesk Text Pro", Helvetica, Arial, sans-serif;
   /* Headings and the money figures. Its two cuts are Medium and Bold. */
   --font-display: "Neue Haas Grotesk Display", "Neue Haas Grotesk Display Pro", Helvetica, Arial, sans-serif;
-  /* The greeting, and nothing else: one family, two static cuts, Medium each. */
-  --font-serif: "Anthropic Serif Display", Didot, "Times New Roman", Georgia, serif;
+  /* The greeting and the screen titles: one family, two static cuts, Medium each. */
+  --font-serif: "Anthropic Serif Display", "Anthropic Serif Text", Didot, "Times New Roman", Georgia, serif;
+  /*
+   * The editorial serif: notes, placeholders and the quiet line under a figure. It is a
+   * different optical size of the same face (Anthropic Serif Text), never a third family,
+   * and it is deliberately not `font-serif`: the two roles must not drift into one
+   * another, and a component that sets 12px should have to say so.
+   */
+  --font-editorial: "Anthropic Serif Text", "Anthropic Serif Display", Georgia, serif;
+
+  /*
+   * The tracking ladder, from the owner's typography brief. `tight-hero` is the one the
+   * money carries (a 56px figure needs its letters pulled in), `tight-title` the one every
+   * 20–28px title wears, and `wide-tag` the one the small letterspaced pills wear.
+   */
+  --tracking-tight-hero: -0.04em;
+  --tracking-tight-title: -0.01em;
+  --tracking-wide-tag: 0.03em;
 }
 
 /*

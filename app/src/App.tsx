@@ -8,12 +8,17 @@ import { DashboardScreen } from "@/components/DashboardScreen"
 import type { Props as LedgerProps } from "@/components/LedgerScreen"
 import type { Props as ScanProps } from "@/components/ScanScreen"
 import type { Props as StatsProps } from "@/components/AnalyticsScreen"
+// The sheet's types only. The component itself is fetched the first time the pill is
+// pressed, so the entry chunk does not pay for a keypad most opens never open.
+import type { ManualEntry, SheetProps } from "@/features/manual-entry"
 import { logPaidPayee, logScannedPayee } from "@/features/upi/logScan"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
 import { useTheme } from "@/hooks/useTheme"
 import { DEMO_DASHBOARD, DEMO_LEDGER } from "@/lib/demo"
+import { categoryFor, DEFAULT_CATEGORY } from "@/lib/categories"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
+import { appendToLedger } from "@/lib/ledger"
 
 /**
  * The app: three screens, and the state that decides what they show.
@@ -129,6 +134,14 @@ export default function App() {
   const wanted = useRef<View>("dashboard")
   /** The day the wheel's window ends on; `undefined` means "the newest row". */
   const [anchor, setAnchor] = useState<number | undefined>(undefined)
+  /**
+   * The manual-entry sheet, fetched on its first use. It is a modal rather than a screen,
+   * but the same rule applies: nothing in the entry chunk should pay for a keypad most
+   * opens never open. The module is warmed idly with the other two, so in practice the
+   * first press is a sheet rather than a wait.
+   */
+  const [EntrySheet, setEntrySheet] = useState<ComponentType<SheetProps> | null>(null)
+  const [entryOpen, setEntryOpen] = useState(false)
 
   /**
    * After the first screen is painted, the other two are fetched in the background, so a tap
@@ -141,6 +154,7 @@ export default function App() {
       void screens.ledger()
       void screens.scan()
       void screens.stats()
+      void import("@/features/manual-entry")
     }
     if (typeof window.requestIdleCallback === "function") {
       const idle = window.requestIdleCallback(warm, { timeout: 2000 })
@@ -167,6 +181,43 @@ export default function App() {
     if (wanted.current !== next) return
     setView(next)
     window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+  }, [])
+
+  /**
+   * Open the sheet, fetching its module first if this is the first press.
+   *
+   * The amount arrives as **rupees** because that is what the keypad types; this is the
+   * one boundary where it becomes the app's integer paise. Everything else about the row
+   * is the ledger's own shape: an id no import can collide with, the merchant as the
+   * title (or the category's name when the merchant was left empty), and `source: manual`
+   * so a hand-typed row can always be told from an imported or scanned one.
+   */
+  const openEntry = useCallback(async () => {
+    if (!EntrySheet) {
+      const module = await import("@/features/manual-entry")
+      setEntrySheet(() => module.ManualEntrySheet)
+    }
+    setEntryOpen(true)
+  }, [EntrySheet])
+
+  const addEntry = useCallback((entry: ManualEntry) => {
+    const at = Date.now()
+    const category = entry.category ?? DEFAULT_CATEGORY
+    appendToLedger({
+      rows: [
+        {
+          id: `manual-${at}-${Math.random().toString(36).slice(2, 8)}`,
+          title: entry.merchant || categoryFor(category).label,
+          category,
+          account: entry.account,
+          amountCents: Math.round(entry.amount * 100),
+          kind: "expense",
+          at,
+          ...(entry.note ? { note: entry.note } : {}),
+          source: "manual",
+        },
+      ],
+    })
   }, [])
 
   /**
@@ -205,6 +256,7 @@ export default function App() {
               theme={theme}
               onToggleTheme={toggleTheme}
               onScan={() => void goTo("scan")}
+              onAddRecord={() => void openEntry()}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger
@@ -238,6 +290,11 @@ export default function App() {
         active={view === "scan" ? null : view}
         onChange={(tab) => void goTo(tab)}
       />
+
+      {/* The one modal in the app: over the dock, and fetched on first use. */}
+      {EntrySheet && (
+        <EntrySheet isOpen={entryOpen} onClose={() => setEntryOpen(false)} onSubmit={addEntry} />
+      )}
     </>
   )
 }

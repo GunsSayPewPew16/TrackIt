@@ -135,7 +135,8 @@ function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, nu
     id: row.id,
     title: row.title || category.label,
     // The artboard's subtitle is the category, then the note: `Coffee · Morning run`.
-    sub: row.note ? `${category.label} · ${row.note}` : category.label,
+    sub: category.label,
+    ...(row.note ? { subNote: row.note } : {}),
     tag: row.tag ?? tagOf(row, style),
     amount: signedMoney(row.amountCents, row.kind),
     time: clock(row.at),
@@ -290,7 +291,7 @@ function envelope(rows: Row[], budgets: Budget[], monthSpend: number, now: numbe
       limit: wholeMoney(lead.budget.limitCents),
       badge: `${lead.pct}% USED`,
       pct: lead.pct,
-      chips: measured.slice(1, 4).map((entry) => `${entry.budget.name.toUpperCase()}: ${entry.pct}% FULL`),
+      chips: measured.slice(1, 4).map((entry) => `${entry.budget.name}: ${entry.pct}% full`),
     }
   }
 
@@ -310,7 +311,7 @@ function envelope(rows: Row[], budgets: Budget[], monthSpend: number, now: numbe
     pct,
     chips: ranked
       .slice(1, 4)
-      .map(([id, spent]) => `${categoryFor(id).label.toUpperCase()}: ${pctOf(spent, monthSpend)}% OF SPEND`),
+      .map(([id, spent]) => `${categoryFor(id).label}: ${pctOf(spent, monthSpend)}% of spend`),
   }
 }
 
@@ -397,7 +398,8 @@ export function dashboardModel(rows: Row[], budgets: Budget[] = [], now: number 
       rows: recent.map((row) => ({
         id: row.id,
         title: row.title || categoryFor(row.category).label,
-        sub: `${categoryFor(row.category).label} · ${whenLabel(row.at, now)}`,
+        sub: categoryFor(row.category).label,
+        subNote: whenLabel(row.at, now),
         amount: signedMoney(row.amountCents, row.kind),
       })),
     },

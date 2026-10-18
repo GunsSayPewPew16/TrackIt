@@ -18,8 +18,13 @@ export type LedgerCard = {
   id: string
   /** The merchant or the source — what the row *is*. */
   title: string
-  /** The line under it: the category, then the note when there is one. */
+  /** The line under it: the category, in the structural sans. */
   sub: string
+  /**
+   * The note after the bullet, drawn in the editorial serif's italic — the app's way of
+   * saying "this part is context, not data". Absent when the row has no note.
+   */
+  subNote?: string
   /** The pill above the card's notch: the category, `Income`, or `High expense`. */
   tag: string
   /** Already signed and in rupees: `−₹5.50`, `+₹3,210.00`. */
@@ -121,7 +126,8 @@ export type DashboardModel = {
    */
   recent: {
     title: string
-    rows: { id: string; title: string; sub: string; amount: string }[]
+    /** `sub` is the category; `subNote` is the clock that follows it, in serif italic. */
+    rows: { id: string; title: string; sub: string; subNote?: string; amount: string }[]
   }
 }
 

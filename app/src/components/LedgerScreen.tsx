@@ -141,7 +141,23 @@ function Card({ card, index }: { card: LedgerCard; index: number }) {
           </span>
           <div className={`min-w-0 ${skin.fg}`}>
             <div className="truncate text-base font-bold leading-6">{card.title}</div>
-            <div className="truncate">{card.sub}</div>
+            {/*
+              The split-font metadata row: the category stays in the structural sans,
+              and the note after the bullet becomes the editorial serif's italic. It is
+              one line, not two, so the card's 128px holds; `truncate` on the row and
+              `whitespace-nowrap` inside keep a long note from wrapping the card.
+            */}
+            <div className="truncate whitespace-nowrap">
+              <span className="font-sans">{card.sub}</span>
+              {card.subNote && (
+                <>
+                  <span aria-hidden="true" className="mx-1 opacity-60">
+                    ·
+                  </span>
+                  <span className="font-editorial italic opacity-70">{card.subNote}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className={`ml-4 flex-none text-right ${skin.fg}`}>
@@ -257,7 +273,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props
             <button
               type="button"
               aria-label={`Month: ${monthLabel(day.at)}. Choose another month`}
-              className="relative mx-auto mt-4 flex h-10 items-center justify-center gap-2 border-0 bg-transparent p-0 font-display text-xl font-bold leading-7 tracking-[-0.01em]"
+              className="relative mx-auto mt-4 flex h-10 items-center justify-center gap-2 border-0 bg-transparent p-0 font-serif text-2xl leading-8 font-normal tracking-wide"
             >
               {monthLabel(day.at)}
               <ChevronDown className="size-5 text-sage" strokeWidth={1.5} aria-hidden="true" />

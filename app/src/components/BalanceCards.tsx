@@ -31,11 +31,12 @@ import type { BalanceCard } from "@/lib/view"
  * travel with it, and the only thing a seat still decides is depth — `y`, the z-order,
  * and which card the thumb can grab.
  *
- * **The Add card pill stays put.** In the artboard each card draws its own pill in the
- * notch at its bottom-right, so the pill travels with the card. The owner asked for the
- * opposite: the cards move, the pill does not — so it is one element, pinned to the
- * band at the artboard's own 8px inset, above the cards. It is drawn where the artboard
- * draws it and has no flow behind it yet.
+ * **The pill stays put, and it is now the way in.** In the artboard each card draws its
+ * own pill in the notch at its bottom-right, so the pill travels with the card. The owner
+ * asked for the opposite: the cards move, the pill does not — so it is one element,
+ * pinned to the band at the artboard's own 8px inset, above the cards. It reads
+ * **add record** and opens the manual-entry sheet, which is the first action the design's
+ * pill has ever had.
  *
  * **Nothing is ever drawn below the band.** The artboard's own cycle drops the front
  * card 160px over the quick-log row and only re-indexes 300ms later, which reads as the
@@ -116,7 +117,7 @@ const STACK = { duration: 0.55, ease: [0.34, 1.3, 0.5, 1] } as const
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))
 
-export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
+export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onAddRecord?: () => void }) {
   const count = cards.length
   const [index, setIndex] = useState(0)
   /** The card drawn in front. Guarded, because the list can shrink under the stack. */
@@ -296,20 +297,25 @@ export function BalanceCards({ cards }: { cards: BalanceCard[] }) {
       })}
 
       {/*
-        The Add card pill, pinned: the same 8px inset and 128×48 the artboard gives the
+        The add-record pill, pinned: the same 8px inset and 128×48 the artboard gives the
         one it draws inside the card, but outside every card so a drag cannot carry it.
-        It has no flow behind it yet — the artboard draws it, nothing has been asked of
-        it — so it is the design's control, waiting.
+        It was the design's control with no action behind it; it now opens the manual
+        entry sheet (`features/manual-entry`), which is the one place a row can be typed
+        rather than imported or scanned.
       */}
       <button
         type="button"
-        aria-label="Add card"
-        className="absolute right-2 bottom-2 z-[6] flex h-12 w-32 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-2 text-[13px] leading-4 font-medium text-ink"
+        aria-label="add record"
+        onClick={() => {
+          tick()
+          onAddRecord?.()
+        }}
+        className="absolute right-2 bottom-2 z-[6] flex h-12 min-w-32 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-2 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
       >
         <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
           <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />
         </span>
-        Add card
+        add record
       </button>
 
       {/* The artboard's tap strip above the cards, which shows the card behind. */}

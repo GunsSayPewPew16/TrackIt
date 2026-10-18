@@ -107,10 +107,14 @@ const kindOf = (style: CardStyle): Kind => (style === "inc" ? "income" : "expens
 /** One sample as the card the ledger draws. */
 function cardFor(sample: Sample, day: number, index: number): LedgerCard {
   const kind = kindOf(sample.style)
+  // The artboard writes the line as `Category · note`; the model keeps the two apart so
+  // the note can be set in the editorial serif without splitting a string at render.
+  const [sub, subNote] = sample.sub.split(" · ")
   return {
     id: `demo-${day}-${index}`,
     title: sample.title,
-    sub: sample.sub,
+    sub,
+    ...(subNote ? { subNote } : {}),
     tag: sample.tag,
     amount: signedMoney(paise(sample.rupees), kind),
     time: sample.time,
@@ -146,9 +150,9 @@ export const DEMO_LEDGER: LedgerModel = {
 
 /** The three rows the dashboard's recent list shows, verbatim from the artboard. */
 const DEMO_RECENT = [
-  { id: "demo-recent-transit", title: "City Transit", sub: "Transit · 7:42 AM", amount: signedMoney(paise(2.75), "expense") },
-  { id: "demo-recent-coffee", title: "Blue Bottle Coffee", sub: "Coffee · 8:05 AM", amount: signedMoney(paise(5.5), "expense") },
-  { id: "demo-recent-groceries", title: "Whole Foods Market", sub: "Groceries · Yesterday", amount: signedMoney(paise(64.2), "expense") },
+  { id: "demo-recent-transit", title: "City Transit", sub: "Transit", subNote: "7:42 AM", amount: signedMoney(paise(2.75), "expense") },
+  { id: "demo-recent-coffee", title: "Blue Bottle Coffee", sub: "Coffee", subNote: "8:05 AM", amount: signedMoney(paise(5.5), "expense") },
+  { id: "demo-recent-groceries", title: "Whole Foods Market", sub: "Groceries", subNote: "Yesterday", amount: signedMoney(paise(64.2), "expense") },
 ]
 
 /** Every figure the dashboard draws before the owner has imported anything. */
@@ -189,7 +193,7 @@ export const DEMO_DASHBOARD: DashboardModel = {
     limit: wholeMoney(paise(600)),
     badge: "40% USED",
     pct: 40,
-    chips: ["GROCERIES: 80% FULL", "DINING: 62% FULL", "TRANSIT: 35% FULL"],
+    chips: ["Groceries: 80% full", "Dining: 62% full", "Transit: 35% full"],
   },
   recent: { title: "Recent transactions", rows: DEMO_RECENT },
 }

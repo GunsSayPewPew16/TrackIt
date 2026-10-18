@@ -1,0 +1,17 @@
+Anthropic Serif Text — the app's editorial serif, as supplied by the owner.
+
+Provenance: the owner supplied the full Anthropic Serif family (Display and Text,
+all weights) directly. These two cuts were converted to woff2 by
+`tools/vendor-anthropic-serif-text.py`; do not hand-edit the font files.
+
+Terms: **no licence document was supplied with the files, and this repository
+carries none.** Anthropic Serif is a proprietary typeface, not an open one, so
+unlike an OFL face there is nothing that travels with it. Whether these files may
+be served to the public is the owner's decision, recorded in the same place as the
+display cut's (`anthropic-serif-display-NOTICE.txt`). Obtain a licence, or drop both
+files and their `@font-face` rules in `app/src/index.css`, before this site is
+shared widely.
+
+Converted from:
+    anthropic-serif-text-400.woff2  (AnthropicSerif-Text-Regular-Static.otf, CSS 400 normal)
+    anthropic-serif-text-400-italic.woff2  (AnthropicSerif-Text-RegularItalic-Static.otf, CSS 400 italic)

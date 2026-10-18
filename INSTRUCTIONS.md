@@ -203,6 +203,31 @@ left out and why.
   read as Helvetica on a Mac. The trial's EULA forbids web embedding; the owner has
   chosen to ship it on their personal site anyway, and the licence travels beside the
   files. `tools/vendor-neue-haas.py` is what converts them.
+- **The serif has two optical sizes, and they are not interchangeable.** Anthropic Serif
+  **Display** (the greeting, the screen titles, the ledger's month) is drawn for 24px and up;
+  Anthropic Serif **Text** (`font-editorial` — Regular and Regular Italic, converted by
+  `tools/vendor-anthropic-serif-text.py`) is the reading cut for everything under that: the
+  note after a transaction's bullet, an input placeholder, the quiet line beneath a dashboard
+  figure. `font-serif` is the display cut and `font-editorial` the text one, so a component
+  that sets 12px has to ask for the serif it means and the two roles cannot drift into each
+  other. The month above the wheel and the split transaction subheaders (category in the
+  sans, note or clock after `·` in the text serif's italic) are the owner's newer typography.
+  The `tracking-tight-hero` / `tight-title` / `wide-tag` ladder lives in `index.css`'s
+  `@theme`, which is this project's tailwind config — there is no `tailwind.config.js` under
+  Tailwind v4, and Helvetica Neue stays out of the sans stack for the reason below.
+- **The add-record pill is the manual entry's door.** The dashboard's pinned pill (over the
+  account stack, where the artboard drew "Add card") reads **add record** and opens
+  `features/manual-entry` — a full-screen spring sheet (380/32/0.8) that slides up, drags
+  down from its header, and dismisses past 150px. Inside: the amount at 56px Neue Haas
+  Grotesk Display Bold with a 24px clay rupee superscript, the UPI/Cash tray, two journal
+  lines whose placeholder is Anthropic Serif Text italic and whose typed value is upright
+  sans, and the six Wallet parent dimensions as a bento matrix (14% colour wash in dark, 10%
+  in light, 35% border; the chosen tile scales to 0.97 and the rest fade to 0.4). Haptics are
+  weighted in `lib/haptics.ts` — 8ms digits, 20ms backspace/decimal, 45ms confirm — which on
+  iOS are one/two/three clicks of the root switch, because the platform has no length to
+  vary. A confirm converts the sheet's rupees to integer paise once and appends one
+  `source: "manual"` row; the sheet's module is fetched on the first press, so it is not in
+  the entry chunk.
 - **The greeting is Anthropic Serif Display, in two styles of one family.** The owner
   chose the face and supplied the two static Medium cuts; `"Hello,"` is the Medium
   Italic and the name the Medium roman, both registered in `index.css` with an explicit
