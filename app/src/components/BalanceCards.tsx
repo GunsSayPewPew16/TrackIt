@@ -301,50 +301,55 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
               The card's bottom row: the money that has gone out of this account on the left,
               and the Add Record capsule's own slot on the right.
 
-              It is a flex row rather than a text block because the two belong to one line — the
-              metrics and the pill share the band at the card's bottom (both are centred at the
-              card's 160th pixel), and the row is what makes that structural instead of
-              coincidental. The figures take what is left (`flex-1 min-w-0`, capped at
-              `max-w-[62%]`) and truncate with an ellipsis rather than running under the capsule;
-              the slot is `flex-shrink-0`, so no length of figures can squeeze, wrap or push the
-              capsule down. The two figures are bold and the connector between them is the
-              editorial serif italic at 60%: the money is the content, the words are the
-              sentence.
+              It is a flex row rather than a text block because the two belong to one line — and
+              it is `flex-nowrap`, so that line cannot become two: `items-center` puts both on
+              the same baseline whatever the figures do, and neither half may wrap under the
+              other. The two frames are explicit. The **left frame** takes the room that is left
+              (`flex-1 min-w-0`) but is capped at `max-w-[60%]`, and its text truncates with an
+              ellipsis: the figures cannot stretch out and push the capsule anywhere. The
+              **right frame** is `flex-shrink-0`, so no length of figures can squish, compress or
+              wrap the capsule, at any viewport width. The connector between the two figures is
+              the editorial serif italic at 60%: the money is the content, the words between it
+              are the sentence. The figures themselves stay at the reading face's own weight —
+              bold ones measure 2px wider than the room the restored capsule leaves them, and a
+              marked-up sentence that ellipsises its own balance is worse than a quiet one.
 
               The slot is *reserved*, not drawn: the capsule is pinned to the band instead of to
               this card (the owner's rule — a drag must not carry it), and a row that ignored it
-              would let the figures grow underneath it. Its 128px is the pill's own minimum and
-              its 44px is the pill's height, which is what puts `items-center` — and so the
-              metrics' baseline — on the capsule's centre line rather than on the card's last
-              pixel.
+              would let the figures grow underneath it. Its 136px is the pill's 128 minimum plus
+              the 8px inset the pill keeps from the card's right edge, and it carries the pill's
+              own 48px so the row is the pill's height: that is what puts `items-center` — and so
+              the metrics — on the capsule's centre line rather than on the card's last pixel.
             */}
             <div
-              className={`absolute inset-x-0 bottom-0 flex w-full items-center justify-between gap-3 px-4 ${skin.foot}`}
+              className={`absolute inset-x-0 bottom-0 flex w-full flex-nowrap items-center justify-between gap-3 px-4 ${skin.foot}`}
             >
-              <div className="flex max-w-[62%] min-w-0 flex-1 items-baseline justify-start select-none">
-                <p className="truncate font-sans text-[13px] leading-4 tracking-normal">
-                  <span className="font-bold">{card.spent}</span>{" "}
+              <div className="flex max-w-[60%] min-w-0 flex-1 items-baseline justify-start select-none">
+                <p className="truncate font-sans text-[13px] leading-4">
+                  {card.spent}{" "}
+                  {/* The connector is the editorial serif at 60%: the figures are the content
+                      and the words between them are the sentence. */}
                   <span className="font-serif italic opacity-60">spent out of</span>{" "}
-                  <span className="font-bold">{card.balance}</span>
+                  {card.balance}
                 </p>
               </div>
-              <span aria-hidden="true" className="h-11 w-32 shrink-0" />
+              <div className="flex flex-shrink-0 items-center">
+                <span aria-hidden="true" className="h-12 w-[8.5rem]" />
+              </div>
             </div>
           </motion.div>
         )
       })}
 
       {/*
-        The add-record pill, pinned: 128×44, outside every card so a drag cannot carry it, and
-        **on** the card's bottom edge — `bottom-0` of a band that is the card's own height —
-        rather than hanging under the stack. Its 8px right inset is the artboard's and is what
-        keeps it inside the notch, whose step begins at the card's 120th pixel; the extra 4px
-        on its left is what keeps the plus from sitting against that step. The capsule is
-        `flex-shrink-0` with a 128px floor of its own, so no length of figures beside it can
-        compress it, and its label is the sans at 12px bold, uppercased and tracked — the
-        capsule is a control rather than a caption. It was the design's control with no action
-        behind it; it now opens the manual entry sheet (`features/manual-entry`), which is the
-        one place a row can be typed rather than imported or scanned.
+        The add-record pill, pinned: 128×48 as the artboard draws it, outside every card so
+        a drag cannot carry it, and **on** the card's bottom edge — `bottom-0` of a band that
+        is the card's own height — rather than hanging under the stack. Its 8px right inset
+        is the artboard's and is what keeps it inside the notch, whose step begins at the
+        card's 120th pixel; the extra 4px on its left is what keeps the plus from sitting
+        against that step. It was the design's control with no action behind it; it now opens
+        the manual entry sheet (`features/manual-entry`), which is the one place a row can be
+        typed rather than imported or scanned.
       */}
       <button
         type="button"
@@ -353,14 +358,12 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
           tick()
           onAddRecord?.()
         }}
-        className="absolute right-2 bottom-0 z-[6] flex h-11 min-w-32 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-pill px-3 text-ink transition-transform duration-150 select-none active:scale-[0.98]"
+        className="absolute right-2 bottom-0 z-[6] flex h-12 min-w-32 shrink-0 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-3 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
       >
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-sage text-on-sage">
-          <Plus className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
+        <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
+          <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />
         </span>
-        <span className="font-sans text-xs leading-none font-bold tracking-wide whitespace-nowrap uppercase">
-          Add Record
-        </span>
+        Add Record
       </button>
 
       {/* The artboard's tap strip above the cards, which shows the card behind. */}
