@@ -137,6 +137,8 @@ type Arrived = {
 }
 function TrackIt() {
   const { theme, toggleTheme } = useTheme()
+  /** A cloud build has an account behind the greeting; a device build only has this browser. */
+  const { mode } = useAuth()
   /**
    * The moment this open is drawn on. The dashboard's figures are "this month", so they need
    * a clock, and taking it once here rather than on every derivation is also what keeps the
@@ -489,6 +491,7 @@ function TrackIt() {
               onQuickLog={(category) => void openEntry(category)}
               onSetBudget={() => void editBudget("food")}
               onOpenAccount={() => setAccountOpen(true)}
+              hasAccount={mode === "cloud"}
               onEditBalance={(accountId) => void editBalance(accountId)}
             />
           ) : view === "ledger" && Ledger ? (

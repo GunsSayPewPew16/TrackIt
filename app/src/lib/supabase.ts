@@ -36,10 +36,13 @@ let loading: Promise<SupabaseClient | null> | null = null
  * The client, fetched on first use and shared after that.
  *
  * `storageKey` is deliberately its own (`trackit-auth`, not the library's default) so the session
- * cannot be confused with the app's ledger keys, `persistSession` is what lets an installed app
- * open on a phone with no signal and still know who is signed in (the session is read from
- * `localStorage` before any network call), and `detectSessionInUrl` is off because nothing in
- * this app arrives as an auth callback: no magic links, no OAuth, no email redirect.
+ * cannot be confused with the app's ledger keys, and `persistSession` is what lets an installed
+ * app open on a phone with no signal and still know who is signed in (the session is read from
+ * `localStorage` before any network call). `detectSessionInUrl` is **on** for one reason: the
+ * mailed code is the portal's own step, but Supabase's stock Magic Link template mails a link,
+ * and `emailRedirectTo` sends that link back here — so a session can arrive in the URL hash and
+ * has to be adopted rather than ignored. `hooks/useAuth.tsx` marks such a session verified (a
+ * clicked link proves the same mailbox the digits do) and then clears the hash.
  */
 export function loadSupabase(): Promise<SupabaseClient | null> {
   if (!hasCloud) return Promise.resolve(null)
@@ -49,7 +52,7 @@ export function loadSupabase(): Promise<SupabaseClient | null> {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: true,
         storageKey: "trackit-auth",
       },
     })

@@ -26,7 +26,43 @@
 /** Whether the portal offers a way to create an account. Closed unless the build says so. */
 export const SIGNUPS_OPEN = import.meta.env.VITE_SIGNUP?.trim() === "on"
 
+/**
+ * The session epoch.
+ *
+ * **Bumping this number signs every device out once.** A session that was adopted under an
+ * older epoch is not trusted: `hooks/useAuth.tsx` drops it on the next boot, before any screen
+ * is drawn, and records that this device is on the new epoch. After that one pass the rule is
+ * the ordinary one — a session lasts until the owner signs out.
+ *
+ * It exists because a release can change what a session *means* (a different project, a fixed
+ * portal, a sign-in flow that used to leave something behind). Deleting a stale session is the
+ * only honest way to ship that: leaving it in place would keep the old state alive on the one
+ * device that matters, and asking the owner to sign out is exactly the button that was not
+ * working. The number is a plain string so the pass is a comparison and nothing else.
+ */
+export const SESSION_EPOCH = "2"
+
 const VERIFIED_KEY = "trackit-portal:verified"
+const EPOCH_KEY = "trackit-portal:epoch"
+
+/** Whether this device has already been through the current epoch's one-time sign-out. */
+export function epochSettled(): boolean {
+  try {
+    return window.localStorage.getItem(EPOCH_KEY) === SESSION_EPOCH
+  } catch {
+    // A private window cannot keep a session either, so there is nothing to retire.
+    return true
+  }
+}
+
+/** Record that this device is on the current epoch, so the next boot trusts its session. */
+export function settleEpoch(): void {
+  try {
+    window.localStorage.setItem(EPOCH_KEY, SESSION_EPOCH)
+  } catch {
+    /* Nothing to record; the next boot repeats the pass, which costs a sign-in. */
+  }
+}
 
 /** Record that this device signed `userId` in through both steps. */
 export function markVerified(userId: string): void {

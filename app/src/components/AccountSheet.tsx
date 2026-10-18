@@ -30,6 +30,11 @@ import { mediumClick } from "@/lib/haptics"
  * The count is live (`subscribeSync`), so a queue that drains while the panel is open
  * stops saying it is waiting. Nothing here is a spinner: a number and a sentence.
  *
+ * **A build with no account draws no door.** `mode` is `"device"` when this build has no
+ * Supabase project (or `VITE_CLOUD=off`): there is no session to end, so the panel says what
+ * this ledger is instead of offering a Sign out that could only do nothing — which is exactly
+ * how a dead button looks like a broken app on a deployment that never had the gate.
+ *
  * The surface is the budget editor's (`features/budget/BudgetSheet.tsx`) — same 28px top
  * radius, same 380/32/0.8 spring, same dim layer, same 48px confirm — because it is the
  * same kind of thing, a panel that rose from the bottom of the screen. The sign-out
@@ -46,8 +51,10 @@ function useWaitingWrites(): number {
 }
 
 export function AccountSheet({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { name, email, signOut } = useAuth()
+  const { mode, name, email, signOut } = useAuth()
   const waiting = useWaitingWrites()
+  /** No project, no session: this ledger belongs to the device and there is nothing to leave. */
+  const deviceOnly = mode === "device"
 
   useEffect(() => {
     if (!isOpen) return
@@ -104,15 +111,22 @@ export function AccountSheet({ isOpen, onClose }: { isOpen: boolean; onClose: ()
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[10px] leading-4 font-bold tracking-[0.03em] text-ink2 uppercase">
-                  Signed in as
+                  {deviceOnly ? "On this device" : "Signed in as"}
                 </p>
                 {/* The app's split header, one size down: the sentence, then the noun. */}
                 <h2 className="mt-1 text-[22px] leading-7 text-ink">
                   <span className="font-display font-bold tracking-tight-title">
-                    {name ?? "This vault"}
+                    {deviceOnly ? "No account" : (name ?? "This vault")}
                   </span>
                 </h2>
-                {email && <p className="mt-1 truncate text-[12px] leading-4 text-ink2">{email}</p>}
+                {deviceOnly ? (
+                  <p className="mt-1 max-w-[30ch] text-[12px] leading-4 text-ink2">
+                    The ledger is kept in this browser. There is no account to sign out of in this
+                    build.
+                  </p>
+                ) : (
+                  email && <p className="mt-1 truncate text-[12px] leading-4 text-ink2">{email}</p>
+                )}
               </div>
               <button
                 type="button"
@@ -132,30 +146,34 @@ export function AccountSheet({ isOpen, onClose }: { isOpen: boolean; onClose: ()
               rule rather than a card, so it reads as a line in a ledger and not as a
               second panel inside this one.
             */}
-            <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-line pt-3">
-              <span className="text-[10px] leading-4 font-bold tracking-[0.03em] text-ink2 uppercase">
-                Sync
-              </span>
-              <span className="text-right text-[13px] leading-5 text-ink" aria-live="polite">
-                {waiting === 0
-                  ? "Everything is on the server"
-                  : `${waiting} ${waiting === 1 ? "change" : "changes"} waiting`}
-              </span>
-            </div>
-            <p className="mt-1 font-editorial text-[12px] leading-5 italic text-ink2">
-              {waiting === 0
-                ? "This phone also keeps a copy, so the ledger opens without a signal."
-                : "They stay on this phone and go up the next time you sign in — signing out now loses nothing."}
-            </p>
+            {!deviceOnly && (
+              <>
+                <div className="mt-4 flex items-baseline justify-between gap-3 border-t border-line pt-3">
+                  <span className="text-[10px] leading-4 font-bold tracking-[0.03em] text-ink2 uppercase">
+                    Sync
+                  </span>
+                  <span className="text-right text-[13px] leading-5 text-ink" aria-live="polite">
+                    {waiting === 0
+                      ? "Everything is on the server"
+                      : `${waiting} ${waiting === 1 ? "change" : "changes"} waiting`}
+                  </span>
+                </div>
+                <p className="mt-1 font-editorial text-[12px] leading-5 italic text-ink2">
+                  {waiting === 0
+                    ? "This phone also keeps a copy, so the ledger opens without a signal."
+                    : "They stay on this phone and go up the next time you sign in — signing out now loses nothing."}
+                </p>
 
-            <button
-              type="button"
-              onClick={leave}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-line bg-transparent px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ink"
-            >
-              <LogOut className="size-4" strokeWidth={1.5} aria-hidden="true" />
-              Sign out
-            </button>
+                <button
+                  type="button"
+                  onClick={leave}
+                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-line bg-transparent px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  <LogOut className="size-4" strokeWidth={1.5} aria-hidden="true" />
+                  Sign out
+                </button>
+              </>
+            )}
           </motion.div>
         </>
       )}

@@ -54,16 +54,29 @@ away), and Supabase's built-in mailer is rate-limited to a handful of messages a
 testing the portal repeatedly will stop sending. Connect custom SMTP
 (**Authentication → Emails → SMTP Settings**) if that becomes the limit rather than the guard.
 
-Nothing else is needed for sign-in: the app has no redirect URLs to configure, because the
-session is established on the device that typed the password (no OAuth, no magic links). The
-app's second step is checked with `verifyOtp({ type: "email" })`, so the **only** thing that has
-to be true for a code to exist is that template edit — with the stock template the mail arrives
-with a link and no digits, and the portal waits for six numbers that cannot be typed.
+The app's second step is checked with `verifyOtp({ type: "email" })`, so the **only** thing that
+has to be true for a code to exist is that template edit. **With the stock template the mail
+arrives with a link and no digits, and the portal waits for six numbers that cannot be typed** —
+that is the state to check first when a sign-in goes quiet after the password.
 
-The one exception is **Forgot password?**. Supabase mails a link whose target comes from
-**Authentication → URL Configuration → Site URL**, so set that to the origin people actually use
-(`https://track-it-pwa.vercel.app/` or the Pages URL). Left at `localhost:3000` the mail arrives
-but its link goes nowhere, and the portal's own copy promises only that the link was sent.
+### The link, as the fallback
+
+The link the stock template sends is not wasted: the app asks Supabase to send it back to its own
+address (`emailRedirectTo`, `hooks/useAuth.tsx`), and a session that arrives in the URL hash is
+adopted and marked as having proved the mailbox — the same proof the digits give. So either half
+of the mail opens the vault, and a template that has not been edited yet is not a dead end.
+
+That only works for an origin Supabase is allowed to redirect to. **Authentication → URL
+Configuration**:
+
+- **Site URL** — the address people actually open: `https://track-it-pwa.vercel.app/`.
+- **Redirect URLs** — add both live origins, exactly, with the trailing slash:
+  `https://track-it-pwa.vercel.app/` and `https://gunssaypewpew16.github.io/TrackIt/`. Anything
+  not on this list is replaced with the Site URL, which is how a mailed link ends up pointing at
+  `localhost:3000` on a phone that cannot open it.
+
+**Forgot password?** mails a link whose target is that same Site URL, so the two settings fix it
+together.
 
 ## 3. Give the app the two public values
 
@@ -93,10 +106,12 @@ Vite only exposes `VITE_`-prefixed names, and only at build time — so each hos
   gh variable list -R <owner>/<repo>                                                       # the two names
   ```
 
-- **Vercel** → Project → Settings → Environment Variables: add both for *Production* (and
-  *Preview* if you want previews signed in), then redeploy. **Nothing can set these from the
-  repository** — a `vercel.json` only describes the build, and the values are per project — so a
-  Vercel deployment that still opens on the dashboard is missing them, not broken.
+- **Vercel**, the default site: `app/vercel.json` carries both under `env`, so the deployment is
+  built with them and needs no dashboard step. Vercel still lets a project's *Settings →
+  Environment Variables* override them for *Preview* builds if those should point elsewhere. A
+  deployment that opens straight on the dashboard with no portal did not get this file — check
+  the project's **Root Directory** is `app` (that is where `vercel.json` is read from) and that
+  the deploy came from this repository.
 
 ## 4. Check the fence
 

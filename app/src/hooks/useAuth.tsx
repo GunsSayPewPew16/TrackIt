@@ -24,13 +24,37 @@
  * Postgres is best-effort (`hydrate` leaves the cache alone when it fails) and the queue keeps
  * every write until the network comes back. The only thing that needs a connection is signing
  * in, and the screen says so in words rather than a spinner.
+ *
+ * **Two ways out, and neither waits for the network.** `signOut` clears this device's session
+ * *before* it asks the server to revoke anything, and it caps the flush it does first at a few
+ * seconds: a request that hangs must cost the owner their pending writes' *timing*, never the
+ * button. The queue is on disk and per account (`trackit-cloud-queue:<id>`), so the next
+ * sign-in drains it.
+ *
+ * **A session that arrives in the URL is a mailbox proof.** The mailed code is the app's own
+ * second step, but Supabase's stock Magic Link mail carries a link instead of digits — and a
+ * link the owner actually clicked is the same proof of the same mailbox. `emailRedirectTo`
+ * points that link back at this app, and a session found in the URL hash is marked verified on
+ * boot, so the door opens either way. Nothing else about the portal changes.
+ *
+ * **A session from an older release is not a session.** `SESSION_EPOCH` in `lib/portal.ts` is
+ * checked on boot: when the number moves, the stored session is dropped once — with the verified
+ * mark — and this device records that it is on the new epoch. That is what signs everybody out
+ * after a release instead of leaving one stale login alive on somebody's phone.
  */
 
 import type { Session, User } from "@supabase/supabase-js"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import { attach, claimDeviceLedger, detach, flush } from "@/lib/cloud"
-import { forgetVerified, isVerified, markVerified, SIGNUPS_OPEN } from "@/lib/portal"
+import {
+  epochSettled,
+  forgetVerified,
+  isVerified,
+  markVerified,
+  settleEpoch,
+  SIGNUPS_OPEN,
+} from "@/lib/portal"
 import { displayName, nameFromAccount } from "@/lib/profile"
 import { hasCloud, loadSupabase } from "@/lib/supabase"
 
@@ -70,6 +94,20 @@ export type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+/**
+ * The app's own address, which is where a mailed link comes back to.
+ *
+ * It is `BASE_URL` resolved on this origin rather than `location.href`, so a build served from a
+ * sub-path (GitHub Pages' `/TrackIt/`) lands inside the app and a link carrying a hash cannot
+ * fold a previous session's tokens into the next one. Read once at module load: the origin and
+ * the base never change for a page, and a value that did would change the meaning of every
+ * callback below.
+ */
+const PORTAL_REDIRECT =
+  typeof window === "undefined"
+    ? undefined
+    : new URL(import.meta.env.BASE_URL, window.location.origin).href
 
 /**
  * Supabase's errors, said the way the screen would say them.
@@ -121,6 +159,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const holding = useRef(false)
 
+  /**
+   * Whether this page load was opened by the mailed link rather than typed into.
+   *
+   * Read **once, at mount, before the client exists**: `detectSessionInUrl` consumes the hash as
+   * soon as the client is created for a cloud build, so by the time the session is read there is
+   * nothing left in the URL to look at.
+   */
+  const arrivedByLink = useRef(
+    typeof window !== "undefined" && /(^|[#&])access_token=/.test(window.location.hash),
+  )
+
   useEffect(() => {
     if (!hasCloud) return
     let alive = true
@@ -131,13 +180,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // enters this branch at all.
     void loadSupabase().then((client) => {
       if (!alive || !client) return
-      void client.auth.getSession().then(async ({ data }) => {
+
+      /** A session the URL brought: the link was clicked, so the mailbox is already proven. */
+      const adoptLinkSession = (userId: string) => {
+        if (!arrivedByLink.current) return false
+        markVerified(userId)
+        arrivedByLink.current = false
+        // The tokens have been read; leaving them in the address bar puts a session in a
+        // screenshot and in the browser's history.
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`)
+        return true
+      }
+
+      // The release pass: a session from an older epoch is retired here, before any screen is
+      // drawn, and this device is marked as being on the current one either way.
+      const retireOldEpoch = async () => {
+        if (epochSettled()) return false
+        settleEpoch()
+        forgetVerified()
+        // Not awaited on its own: `local` sign-out still asks the server, and a request that
+        // hangs must not keep the vault open. The stored session is removed by the library
+        // when it can, and by the `isVerified` gate below when it cannot.
+        void Promise.race([
+          client.auth.signOut({ scope: "local" }).catch(() => undefined),
+          new Promise((resolve) => window.setTimeout(resolve, 2000)),
+        ])
+        return true
+      }
+
+      void retireOldEpoch().then(async (retired) => {
+        if (!alive) return
+        if (retired) {
+          setSession(null)
+          setReady(true)
+          return
+        }
+        const { data } = await client.auth.getSession()
         if (!alive) return
         const stored = data.session ?? null
+        // A session that arrived in the URL was opened by the mailed link.
+        if (stored) adoptLinkSession(stored.user.id)
         // A session that never finished the code step is not a session: it is the password
         // half of one, left behind by a tab closed at the code screen.
         if (stored && !isVerified(stored.user.id)) {
-          await client.auth.signOut({ scope: "local" })
+          void client.auth.signOut({ scope: "local" }).catch(() => undefined)
           if (!alive) return
           setSession(null)
           setReady(true)
@@ -146,9 +232,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(stored)
         setReady(true)
       })
+
       const { data } = client.auth.onAuthStateChange((_event, next) => {
         if (!alive || holding.current) return
-        if (next && !isVerified(next.user.id)) return
+        if (next && !isVerified(next.user.id) && !adoptLinkSession(next.user.id)) return
         setSession(next)
         setReady(true)
         // A refresh that could not reach the server leaves the session in place: the ledger is
@@ -239,8 +326,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { error: mail } = await client.auth.signInWithOtp({
       email: email.trim(),
-      // Nobody is created here: a second factor belongs to an account that already exists.
-      options: { shouldCreateUser: false },
+      options: {
+        // Nobody is created here: a second factor belongs to an account that already exists.
+        shouldCreateUser: false,
+        // Where a mailed link lands. The code is the app's own step, but a stock Supabase
+        // template mails a link, and a link that points at localhost is a dead end — so it
+        // points here instead, and `detectSessionInUrl` adopts it if it is opened.
+        emailRedirectTo: PORTAL_REDIRECT,
+      },
     })
     holding.current = false
     if (mail) {
@@ -292,7 +385,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNotice(null)
     const { error: mail } = await client.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: false, emailRedirectTo: PORTAL_REDIRECT },
     })
     if (mail) {
       setError(said(mail.message))
@@ -370,18 +463,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const client = await loadSupabase()
-    if (!client) return
+
+    // Pending writes get a few seconds to go up, and no more: they stay on disk either way
+    // (`trackit-cloud-queue:<id>`, drained on the next sign-in). Waiting on them is what used
+    // to make this button look dead on a slow connection.
+    const sent = flush().catch(() => undefined)
+    await Promise.race([
+      sent,
+      new Promise((resolve) => window.setTimeout(resolve, 2500)),
+    ])
+
+    // The screen leaves the account now, whatever the network is doing. Clearing the verified
+    // mark is what makes a session that outlives this call (a failed local removal) fail the
+    // gate on the next boot instead of opening the vault again.
+    forgetVerified()
     setError(null)
     setNotice(null)
-    // Pending writes go out first: a row typed a moment ago should not be lost to the sign-out
-    // that follows it. A failure is fine — the queue keeps it for the next sign-in, which is
-    // what the account sheet says in words.
-    await flush().catch(() => undefined)
-    await client.auth.signOut()
-    forgetVerified()
     setStage("password")
     setChallengeEmail(null)
     setSession(null)
+
+    // The stored session goes now, not when a request finishes: the library's own sign-out asks
+    // the server *before* it removes anything, and a token that is still in `localStorage` is a
+    // token the next page load can find. The key is this app's own (`lib/supabase.ts`).
+    try {
+      window.localStorage.removeItem("trackit-auth")
+    } catch {
+      // A browser that refuses storage has no session to keep anyway.
+    }
+
+    // …and the token is revoked behind it, best effort. `local` is the scope that matters on
+    // this device; other devices keep their own sessions.
+    if (client) void client.auth.signOut({ scope: "local" }).catch(() => undefined)
   }, [])
 
   const dismiss = useCallback(() => {

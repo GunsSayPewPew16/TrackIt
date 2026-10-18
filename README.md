@@ -450,12 +450,14 @@ card, the editable account balances, the two editable budgets (the card's F&B on
 dial's total) and what each of them tracks, the add-record
 sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
-Pages deploy — **with the vault online there**: the deployment is built with the project's two
-public Supabase values (the repository's Actions variables), so the Pages URL opens on the
-portal, takes the password and then the six digits Supabase mails, and signs out from the
-account panel behind the greeting's name (`supabase/README.md` §3 has the check for whether a
-deploy carried them). The Vercel deployment is the same source without those two variables, so
-it is still the device-only tracker until they are added there. The greeting's table is written and driven end to end against local D1 — the route's
+Pages deploy. **The vault is online on both hosts**: the default site
+(`https://track-it-pwa.vercel.app/`) gets the project's two public Supabase values from
+`app/vercel.json`, and the Pages build gets them from the repository's Actions variables, so both
+open on the portal, take the password and then the six digits Supabase mails — or the mailed link,
+returned to the app — and sign out from the account panel behind the greeting's name
+(`supabase/README.md` §2–3 says which Supabase settings make the mail carry digits and where its
+link may return to). A sign-in is remembered on the device until that sign-out; a release can
+retire every older session once by bumping `SESSION_EPOCH` in `lib/portal.ts`. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
 exists on the account yet**, so the live site greets from the fifty in its own bundle
 (`data-greeting="pool"`), which is the same fifty the table is seeded with.

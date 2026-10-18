@@ -50,6 +50,7 @@ export function DashboardScreen({
   onQuickLog,
   onSetBudget,
   onOpenAccount,
+  hasAccount,
   onEditBalance,
 }: {
   model: DashboardModel
@@ -83,6 +84,11 @@ export function DashboardScreen({
    * extra circle in a header that has 28px of greeting and a 48px theme toggle in it.
    */
   onOpenAccount: () => void
+  /**
+   * Whether this build has an account behind the name. A device-only build has none, so the
+   * panel it opens has nothing to sign out of — and the name must not promise that it does.
+   */
+  hasAccount: boolean
   /**
    * A hold on the front account card opens that account's balance editor
    * (`features/balance/BalanceSheet.tsx`). The stack is a drag, a tap and a hold at once —
@@ -154,8 +160,12 @@ export function DashboardScreen({
               lightTap() // must run synchronously inside the tap for iOS
               onOpenAccount()
             }}
-            title="Your account"
-            aria-label={`${greeting.name} — account and sign out`}
+            title={hasAccount ? "Your account" : "This device's ledger"}
+            aria-label={
+              hasAccount
+                ? `${greeting.name} — account and sign out`
+                : `${greeting.name} — this device's ledger`
+            }
             className="-mx-1 inline rounded-lg px-1 text-left align-baseline"
           >
             {greeting.name}
