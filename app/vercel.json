@@ -9,9 +9,5 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "VITE_SUPABASE_URL": "https://tqlxdewhvsvkkoilgbpe.supabase.co",
-    "VITE_SUPABASE_ANON_KEY": "sb_publishable_qJQWe3CZme50cjlSFrpqAg_Jss0smrx"
-  }
+  ]
 }

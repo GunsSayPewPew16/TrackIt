@@ -451,9 +451,9 @@ dial's total) and what each of them tracks, the add-record
 sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. **The vault is online on both hosts**: the default site
-(`https://track-it-pwa.vercel.app/`) gets the project's two public Supabase values from
-`app/vercel.json`, and the Pages build gets them from the repository's Actions variables, so both
-open on the portal, take the password and then the six digits Supabase mails — or the mailed link,
+(`https://track-it-pwa.vercel.app/`) and the Pages URL read the project's two public Supabase
+values from the source (`lib/supabase-config.ts`, so no host needs configuring), and both open on
+the portal, take the password and then the six digits Supabase mails — or the mailed link,
 returned to the app — and sign out from the account panel behind the greeting's name
 (`supabase/README.md` §2–3 says which Supabase settings make the mail carry digits and where its
 link may return to). A sign-in is remembered on the device until that sign-out; a release can

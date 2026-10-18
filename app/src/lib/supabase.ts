@@ -13,17 +13,24 @@
  * import it is a chunk of its own, fetched once, only by a build with both values — and the gate
  * already has a frame to spare: it is waiting for the stored session anyway.
  *
- * **A build with no values is a complete app.** `hasCloud` is false, `loadSupabase()` resolves to
- * `null`, no chunk is fetched, and every screen behaves exactly as it did before this module
- * existed — which is what keeps the device-only build, the flows check and a fresh clone working
- * with no setup at all. `VITE_CLOUD=off` forces that mode even when the values are present, so a
- * machine with an `.env.local` can still run the signed-out checks.
+ * **The values have a committed default, and the environment overrides it.** `lib/supabase-config.ts`
+ * holds the project's own URL and publishable key — public by design, already inside every bundle —
+ * so a deployment is the online app without a dashboard step, which is what the Vercel build (no
+ * environment at all) needs. `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` win when a build sets
+ * both (the Pages workflow and `app/.env.local` do), so a staging project can point elsewhere
+ * without editing the source.
+ *
+ * **`VITE_CLOUD=off` is the device-only app.** `hasCloud` is false, `loadSupabase()` resolves to
+ * `null`, no chunk is fetched, and every screen behaves as before this module existed — which is
+ * what keeps the flows check and a signed-out demo build working.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-const url = import.meta.env.VITE_SUPABASE_URL?.trim() ?? ""
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? ""
+import { DEFAULT_SUPABASE_ANON_KEY, DEFAULT_SUPABASE_URL } from "./supabase-config"
+
+const url = import.meta.env.VITE_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || DEFAULT_SUPABASE_ANON_KEY
 const forcedOff = import.meta.env.VITE_CLOUD?.trim() === "off"
 
 /** Whether this build can talk to a project at all. Known before anything is fetched. */

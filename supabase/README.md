@@ -92,26 +92,33 @@ VITE_SUPABASE_URL=https://<project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<publishable or anon key>
 ```
 
-Vite only exposes `VITE_`-prefixed names, and only at build time — so each host needs them too:
+Vite only exposes `VITE_`-prefixed names, and only at build time. **The two values also live in
+the source** — `app/src/lib/supabase-config.ts` — and that is what every deployment uses unless it
+sets its own, so Vercel (the default site) and GitHub Pages are both the online app with no
+dashboard step. They are public: the key is in every bundle already, and RLS is what protects the
+rows. Override them per build with the same two `VITE_` names, or with `VITE_CLOUD=off` for a
+device-only build (`npm run check:flows` does the latter):
 
-- **GitHub Pages** → repo → Settings → Secrets and variables → **Actions → Variables**: add both
-  with the same names. `.github/workflows/deploy-pages.yml` passes them to the build. **Both are
-  set on this repository**, so `https://gunssaypewpew16.github.io/TrackIt/` is the online app:
-  the portal, the six digits, and the sign-out behind the greeting's name. Check that a deploy
-  really carried them — a device-only build has no portal at all:
+- **GitHub Pages** → repo → Settings → Secrets and variables → **Actions → Variables** also holds
+  both, and `.github/workflows/deploy-pages.yml` passes them to the build, so the Pages URL
+  (`https://gunssaypewpew16.github.io/TrackIt/`) is the online app: the portal, the six digits, and
+  the sign-out behind the greeting's name.
+- **Vercel** → nothing to set: the deployment builds from this source and picks up the committed
+  default. If a preview should point at another project, add the two names in *Settings →
+  Environment Variables* and they win.
 
-  ```bash
-  ASSET=$(curl -s https://gunssaypewpew16.github.io/TrackIt/ | grep -o '/TrackIt/assets/index-[^\"]*\.js' | head -1)
-  curl -s "https://gunssaypewpew16.github.io$ASSET" | grep -c '<project-ref>.supabase.co'   # → 1
-  gh variable list -R <owner>/<repo>                                                       # the two names
-  ```
+Check that a deploy really is the online app — a device-only build has no portal at all. The
+Supabase client is a **lazy chunk**, so look in every `assets/*.js`, not only the entry:
 
-- **Vercel**, the default site: `app/vercel.json` carries both under `env`, so the deployment is
-  built with them and needs no dashboard step. Vercel still lets a project's *Settings →
-  Environment Variables* override them for *Preview* builds if those should point elsewhere. A
-  deployment that opens straight on the dashboard with no portal did not get this file — check
-  the project's **Root Directory** is `app` (that is where `vercel.json` is read from) and that
-  the deploy came from this repository.
+```bash
+BASE=https://track-it-pwa.vercel.app          # or https://gunssaypewpew16.github.io/TrackIt
+curl -s -L "$BASE/" | grep -o 'assets/[A-Za-z0-9_.-]*\.js' | sort -u | \
+  while read -r f; do curl -s "$BASE/$f" | grep -lq '<project-ref>.supabase.co' && echo "$f"; done
+```
+
+The page itself is the simpler check: the default site must open on **Access your financial
+Vault**, and a wrong password there must answer *That email and password don't match.* — that
+string only arrives from Supabase.
 
 ## 4. Check the fence
 
