@@ -301,6 +301,17 @@ output (it builds the app first) *plus* `/api/greeting`. That route is why the g
 a table and not an array with a redeploy behind it — and why, on the Worker's own domain,
 the app needs no configuration to reach it at all.
 
+**Vercel builds the same thing, and now says so in the repo.** The config is
+`app/vercel.json`, because `app/` is the Vercel project's own root — the dashboard's
+**Root Directory is set to `app`**, the one setting that cannot move into the file and so
+the one thing to carry over when the project is recreated. Everything else that used to
+live only in the dashboard is now in the file: the Vite framework preset, `npm ci`,
+`npm run build`, `dist` as the output directory, and a rewrite that hands any non-`/api/`
+path to `index.html` (Vercel checks the filesystem first, so the built assets, the manifest
+and the icons are untouched by it).
+`app/api/greeting.ts` is still picked up as a function from that root, which is how the
+parked greeting route answers at `/api/greeting`.
+
 Pushing to `main` also publishes the same build to GitHub Pages via
 `.github/workflows/deploy-pages.yml`, built with `PAGES_BASE=/TrackIt/` so every
 asset URL resolves under the project's sub-path. `backend/` is a small

@@ -322,6 +322,16 @@ left out and why.
   the manifest). One run regenerates the whole set, so the geometry cannot drift between them;
   `index.html` and `manifest.webmanifest` hold the paths, and both are relative so the same
   files serve at a Pages sub-path and at a domain root.
+- **The card's bottom line belongs to the pill's capsule.** The account card's last row is a
+  flex row — a `px-4` band at the card's bottom, `w-full items-center justify-between gap-3` —
+  holding the figures on the left and the capsule's reserved 128×44 slot on the right. The
+  figures take what is left (`flex-1 min-w-0`, capped at `max-w-[62%]`) and **truncate with an
+  ellipsis** rather than growing under the capsule, so a seven-figure pair wraps nothing,
+  pushes nothing and shortens nothing — measured with `₹12,34,567.89` on both sides, the
+  figures stop 11px short of the capsule and the capsule does not move. The two figures are the sans at 13px **bold** and the connector between them is the
+  editorial serif *italic* at 60%, and the row is 44px — the pill's own height — so
+  `items-center` puts the metrics on the capsule's centre line (both are measured at the card's
+  160th pixel) rather than on the card's last pixel.
 - **The add-record pill is the manual entry's door.** The dashboard's pinned pill (over the
   account stack, where the artboard drew "Add card") reads **Add Record** and opens
   `features/manual-entry` — a full-screen spring sheet (400/34/0.8) that slides up, drags
