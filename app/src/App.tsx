@@ -46,7 +46,8 @@ import { appendToLedger } from "@/lib/ledger"
  * **The fade between the screens.** `mode="popLayout"` is what makes it a
  * cross-fade rather than a hand-over: the screen being left is taken out of the
  * layout and fades out in place while the new one fades in over it. The duration is
- * the design's own 0.35s, the constant its repaint uses.
+ * the design's own 0.35s for a screen, which is a slower movement than the 120ms
+ * repaint a theme change uses: one is the page arriving, the other a switch.
  *
  * **Where the ledger opens.** The wheel holds one month — the 1st through today, or a
  * past month's last day — so the month menu on the ledger screen is what reaches the
@@ -172,7 +173,7 @@ export default function App() {
   /**
    * The merchant a scanned code named, when the scanner opened the sheet: that turns it into
    * the payment screen (`SheetProps.payee`), seeds the keypad when the code carried an amount,
-   * and makes the confirm **pay and log transaction**. The row it writes is the payee's rather
+   * and makes the confirm **Pay and Log Transaction**. The row it writes is the payee's rather
    * than a hand-typed one's — `logPaidPayee` builds it, so a scanned payment keeps its own id,
    * its own `source: "upi"` and the VPA in its note.
    */
@@ -300,6 +301,8 @@ export default function App() {
           category: entry.category ?? DEFAULT_CATEGORY,
           note: entry.note,
           title: entry.merchant,
+          // The payment screen's own moment, which starts on now and can be moved back.
+          at: entry.at,
         }),
       )
       settleScan.current = null

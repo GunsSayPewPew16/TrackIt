@@ -469,7 +469,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
                     }}
                     className="h-12 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
                   >
-                    keep it
+                    Keep It
                   </button>
                   <button
                     type="button"
@@ -480,7 +480,7 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
                     }}
                     className="h-12 rounded-2xl border-0 bg-clay font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-clay outline-none focus-visible:ring-2 focus-visible:ring-ink"
                   >
-                    delete
+                    Delete
                   </button>
                 </div>
               </motion.div>

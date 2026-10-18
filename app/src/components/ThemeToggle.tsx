@@ -21,12 +21,14 @@ import type { Theme } from "@/lib/theme"
 
 /**
  * The one speed a theme change moves at, shared with every text colour on the page.
- * The page's colours fade over `0.35s ease` (the artboard's repaint constant, set in
- * `index.css`), and the icon swap uses the same duration and curve, so the mark and the
- * words change together rather than one lagging the other. Written as CSS `ease`'s own
+ *
+ * The page's colours switch over `120ms ease` (`index.css`, where the colour tokens —
+ * not the elements — are what transitions), and the icon swap uses the same duration and
+ * curve, so the mark and the words land together rather than one lagging the other. It is
+ * under 150ms on purpose: the switch should read as a switch. Written as CSS `ease`'s own
  * bezier, which is what that `ease` resolves to.
  */
-const THEME = { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }
+const THEME = { duration: 0.12, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }
 
 export function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const isLight = theme === "light"

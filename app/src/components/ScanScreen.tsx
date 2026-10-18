@@ -43,9 +43,10 @@ import type { Theme } from "@/lib/theme"
  *   `features/manual-entry` with the payee handed in — see `SheetProps.payee` — where the
  *   amount (prefilled when the code printed one, empty otherwise), the category and the
  *   merchant and note lines are the same fields a hand-typed row uses, with a small box naming
- *   who is being paid and a confirm that reads **pay and log transaction**. Pressing it writes
- *   the row and hands the same amount to Google Pay; the one number this app will not guess is
- *   the money.
+ *   who is being paid, the same **date and time pill** the hand-typed sheet wears (a receipt is
+ *   often typed up after the fact, so it starts on the current moment and can be moved back),
+ *   and a confirm that reads **Pay and Log Transaction**. Pressing it writes the row and hands
+ *   the same amount to Google Pay; the one number this app will not guess is the money.
  *
  * The artboard's scrim — a full-bleed mask with a square hole punched where the
  * camera is — composites to `--canvas` at 87% over `--card`, which is the canvas to

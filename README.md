@@ -60,12 +60,14 @@ names it before it goes, which is the only way to take an entry back.
 
 **The add-record sheet** is where a row is typed: the amount at 56px with a clay rupee
 above it, the UPI/Cash tray, two journal lines, the six Wallet dimensions as a mosaic, and
-the keypad. A small **date pill** in the amount canvas's top-right reads `Today` and opens
-a month grid, so an expense remembered too late is filed on the day it happened — today at
-the clock time the sheet was opened, or an earlier day at that same time, never midnight
-and never the day it was remembered. The pill is on the canvas rather than in the column
-because the closed column is exactly full on a 390×844 phone; a scanned **payment** hides
-it, since that money is leaving now.
+the keypad. A small **date and time pill** in the amount canvas's top-right reads
+`Today · 2:14 PM` and opens a month grid with a clock under it, so an expense remembered too
+late is filed on the day **and at the hour** it happened — it starts on the current moment,
+a tapped day keeps the time, the field sets the time on that day, and `now` puts both halves
+back. Nothing is written at midnight because nothing defaults to midnight. The pill is on
+the canvas rather than in the column because the closed column is exactly full on a 390×844
+phone, and the **scanned payment screen** wears the same pill: a receipt is often typed up
+after the fact, so it too starts on the current moment and can be moved back.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
@@ -136,9 +138,16 @@ Dark is the default (`#0A0F0D` canvas, `#1A221E` cards, `#28332E` hairlines,
 `#F4F0EA` ink, `#D4A373` clay, `#A3B19B` sage); light is `#F8F6F2` / `#FFFFFF` /
 `#E2DDD5` / `#1A221E` / `#C58B54` / `#6B7F64`. No component knows which theme it is
 drawn in — it says `bg-card` and `text-ink2` and gets the right pair — and every
-surface repaints over the design's own 0.35s. The choice is remembered, and a boot
-script in `app/index.html` puts it on the document before the first paint so a light
-screen never flashes dark.
+surface repaints over the same 120ms.
+
+The repaint is **one clock for the whole page**. The colour roles are registered with
+`@property` as `<color>` and the *tokens* — not the elements — are what transition, so
+every label, figure, placeholder and hairline switches together and is done inside
+150ms. An earlier version put the transition on each element's `color`; because colour
+is inherited, each nesting level chased the one above it, and a word two levels down
+finished its repaint long after the root had. `app/src/index.css` explains it at the
+root transition. The choice is remembered, and a boot script in `app/index.html` puts
+it on the document before the first paint so a light screen never flashes dark.
 
 ## Importing, and where the rows live
 
@@ -206,7 +215,7 @@ camera's reads go through. Decoding is `@yudiel/react-qr-scanner`: the browser's
 (`src/features/manual-entry/`): a small box names the payee and their UPI address where the
 account tray sits, the keypad holds the amount — prefilled when the code printed one, empty
 when it did not — and the mosaic files the row, so the amount and the category are always the
-owner's. The confirm reads **pay and log transaction**: it writes the row first and hands the
+owner's. The confirm reads **Pay and Log Transaction**: it writes the row first and hands the
 same amount to Google Pay second, in that order and for a reason — the handoff tells this app
 nothing about what was paid, so a row written afterwards is a row a crash or a cancelled
 payment can lose. The handoff names Google Pay rather than leaving it to `upi://` (which

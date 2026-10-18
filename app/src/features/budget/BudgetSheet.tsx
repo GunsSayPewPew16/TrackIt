@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { Keypad } from "@/features/manual-entry/Keypad"
 import { formatRaw, rawFromCents, useAmountInput } from "@/features/manual-entry/useAmountInput"
 import { BUDGET_COPY, type BudgetScope } from "@/lib/budget"
-import { heavyThud, mediumClick } from "@/lib/haptics"
+import { heavyThud, mediumClick, primeHaptics } from "@/lib/haptics"
 
 /**
  * The budget editor, as the app's second sheet.
@@ -53,6 +53,14 @@ export function BudgetSheet({ isOpen, scope, limitCents, onClose, onSave }: Budg
 
   useEffect(() => {
     if (!isOpen) return
+    /*
+     * Have the haptic switch laid out before the first key is pressed. iOS only plays a
+     * tick for a control the document has actually laid out, and this panel is opened by a
+     * long press rather than by a control the owner touches next — so the one frame the
+     * switch would have cost is spent here, inside the gesture, rather than on the first
+     * digit.
+     */
+    primeHaptics()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
     }
@@ -131,6 +139,7 @@ export function BudgetSheet({ isOpen, scope, limitCents, onClose, onSave }: Budg
               <Keypad onKey={press} />
             </div>
 
+            {/* `transition-opacity` for the disabled state; the ink switches with the page. */}
             <button
               type="button"
               onClick={save}

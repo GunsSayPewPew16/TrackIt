@@ -242,7 +242,7 @@ left out and why.
   the same accepted fallback as everywhere else.
 - **A ledger row is deleted by holding it, through a confirm.** `components/LedgerScreen.tsx`
   arms the row (`Delete this entry?`, naming its title, category, time and amount), and only
-  that panel's **delete** writes: `lib/ledger.ts`'s `removeFromLedger` rewrites the store minus
+  that panel's **Delete** writes: `lib/ledger.ts`'s `removeFromLedger` rewrites the store minus
   the one id — budgets untouched — so every screen subscribed redraws and the row stays gone
   after a reload. Three things are deliberate: **it is a confirm, not an instant delete**,
   because a hold is easy to do by accident and a row cannot be recovered from a list; **the
@@ -284,7 +284,7 @@ left out and why.
   `@theme`, which is this project's tailwind config — there is no `tailwind.config.js` under
   Tailwind v4, and Helvetica Neue stays out of the sans stack for the reason below.
 - **The add-record pill is the manual entry's door.** The dashboard's pinned pill (over the
-  account stack, where the artboard drew "Add card") reads **add record** and opens
+  account stack, where the artboard drew "Add card") reads **Add Record** and opens
   `features/manual-entry` — a full-screen spring sheet (380/32/0.8) that slides up, drags
   down from its header, and dismisses past 150px. Inside: the amount at 56px Neue Haas
   Grotesk Display Bold with a 24px clay rupee superscript, the UPI/Cash tray, two journal
@@ -312,21 +312,28 @@ left out and why.
   sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up
   from the 15px captions the same face sets elsewhere. **The same sheet is the scanner's payment
   screen** (see the UPI bullet below): the tray gives its 56px to a box naming the payee, the
-  keypad may arrive prefilled with the code's own amount, and the confirm reads *pay and log
-  transaction* — a payment to a UPI address is from the UPI account, so an account control
+  keypad may arrive prefilled with the code's own amount, and the confirm reads **Pay and Log
+  Transaction** — a payment to a UPI address is from the UPI account, so an account control
   there could only be a lie.
-  **The sheet carries the day.** A 36px pill on the amount canvas's free top-right — under
-  the header, opposite the figures — reads `Today` / `Yesterday` / `Oct 12, 2026` and opens
-  `DateDialog` (`features/manual-entry/DateDialog.tsx`), a Monday-first month grid of 36px
-  days. It is on the **canvas** deliberately: the closed column is exactly full on a
-  390×844 phone, so a date row in it would push the keypad off the bottom; the canvas's
-  top-right is the one corner nothing else owns. The dialog cannot reach forward — the next
-  chevron and every day after today are disabled — and unlimited back. A picked day is
-  handed in as `ManualEntry.at`: that day at the clock time the sheet was opened, so a
-  forgotten expense lands on the day it happened with an ordinary time on its row. Today is
-  therefore the moment itself. **A scanned payment has no pill**: `payee !== null` hides it
-  and `App.tsx` keeps using the moment of payment, because money leaving now is not a
-  memory to place.
+  **The sheet carries the moment.** A 36px pill on the amount canvas's free top-right — under
+  the header, opposite the figures — reads `Today · 2:14 PM` / `Yesterday · 9:05 AM` /
+  `Oct 12, 2026 · 9:40 PM` and opens `DateDialog`
+  (`features/manual-entry/DateDialog.tsx`), a Monday-first month grid of 36px days with a
+  native `time` field, a `now` button and a `done` button under it. It is on the **canvas**
+  deliberately: the closed column is exactly full on a 390×844 phone, so a date row in it
+  would push the keypad off the bottom; the canvas's top-right is the one corner nothing else
+  owns. Both halves are the owner's: a day tap moves the selection and leaves the card open
+  (the time is usually the next thing wanted), the field sets the time on that day, `now`
+  resets both, and only `done` hands the moment back — the ✕, the scrim and Escape throw the
+  draft away. The dialog cannot reach forward — the next chevron and every day after today
+  are disabled — and unlimited back.
+  **It starts on the current moment**, which is the default the owner asked for, and
+  `ManualEntry.at` is a whole moment rather than a day: a backdated row carries the hour it
+  actually happened at, and two rows typed for the same forgotten day order the way they
+  happened rather than the way they were typed. **A scanned payment wears the same pill**
+  (it used to be hidden): a receipt is often typed up after the fact, and `logPaidPayee`
+  files the row at `PaidDraft.at` — the payment screen's own moment, untouched unless the
+  owner moves it.
   **The mosaic is one surface whose height animates** — the row and the open panel are the
   same element, 56px closed and the sheet's measured room open — and the shape of that
   animation is a decision, not an implementation detail. It used to be two elements sharing
@@ -410,7 +417,7 @@ left out and why.
   code it reads opens `features/manual-entry` as a payment screen (the owner's ask: the same
   add-record screen, with the money and the category filled in): the payee's box takes the
   account tray's 56px, the keypad is prefilled when the code carried an amount, the confirm
-  reads **pay and log transaction**, and everything else — the mosaic, the journal lines, the
+  reads **Pay and Log Transaction**, and everything else — the mosaic, the journal lines, the
   drag, the 18px serif title — is the sheet the pill opens. Three details are load bearing:
   **the row is logged before any payment is handed off** (the handoff is one-way, so a row
   written afterwards is a row a crash can lose), **the amount handed over is the one on
@@ -449,15 +456,15 @@ Then drive the app. What is worth exercising for a change in these areas:
 | Changed | Check |
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
-| The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload |
+| The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame from the toggle click, compare each element against its own final value, and repeat the flip several times (it is the *start* spread and the *last* change that matter; a token that is still moving at 200ms means a `color` transition has crept back onto an element). `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
-| The two budgets | with no stored limits: the dashboard card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on either opens the keypad editor on that card's own limit — Android `navigator.vibrate` 20ms, iOS two switch clicks — and saving rewrites `trackit-budgets` and redraws the card and the dial. The food limit must not move the dial's figure or the reverse; a limit changed while the ledger is empty still shows on the demo card; the total saved from the dial survives a reload |
-| Deleting a row | a hold on a ledger card (or Enter / right-click) opens **Delete this entry?** with that row's title, category, time and amount; a scroll cancels the hold; *keep it* leaves the store untouched, *delete* removes that id from `trackit-ledger`, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; Android vibrates 20ms on the hold and 45ms on the delete |
+| The two budgets | with no stored limits: the dashboard card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on either opens the keypad editor on that card's own limit — Android `navigator.vibrate` 20ms for the hold, then **8ms per digit and 20ms for `.`/backspace** exactly as the entry keypad does (both sheets render the same `Keypad`, which ticks on `pointerdown`), iOS the switch clicks — and saving rewrites `trackit-budgets` and redraws the card and the dial. The food limit must not move the dial's figure or the reverse; a limit changed while the ledger is empty still shows on the demo card; the total saved from the dial survives a reload |
+| Deleting a row | a hold on a ledger card (or Enter / right-click) opens **Delete this entry?** with that row's title, category, time and amount; a scroll cancels the hold; **Keep It** leaves the store untouched, **Delete** removes that id from `trackit-ledger`, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; Android vibrates 20ms on the hold and 45ms on the delete |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
-| The add-record date | the pill reads **Today** on the amount canvas's top-right and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected, the next chevron and every future day disabled, and *today* selecting today; a previous month's chevron works and is unbounded backwards; picking the 12th closes the dialog and relabels the pill `Oct 12, 2026`; confirming writes a row whose `at` is that day at the sheet's own clock time (not midnight, and not now), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment shows no pill and still logs at the moment of payment |
-| The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading *pay and log transaction* (not *add record*), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
+| The add-record date and time | the pill reads `Today · 2:14 PM` on the amount canvas's top-right (the sheet's own clock) and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected and the time on the current minute; the next chevron and every future day are disabled, *now* puts day and time back on the current moment, and a previous month's chevron works and is unbounded backwards; tapping the 12th **leaves the card open** and selects the 12th; setting `09:40` and pressing **done** relabels the pill `Oct 12, 2026 · 9:40 AM`; confirming writes a row whose `at` is that day at 09:40 (not midnight, not now, and in that day's order), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment wears the same pill and logs at the moment it shows |
+| The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading **Pay and Log Transaction** (not **Add Record**), the date and time pill present and starting on the current moment (`at` on the logged row follows it), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
 | The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
 | The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
 | The parked model route | still, if it is ever woken up: `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set and ask it a Request. Vercel is a deploy target, not a thing to install — the handler is a plain `fetch`, so Node is enough. 200 and `{ greeting }`, same-origin with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one 403, `OPTIONS` → 204, `GET` → 405, an unusable answer 502, and no key 503 without a call upstream |

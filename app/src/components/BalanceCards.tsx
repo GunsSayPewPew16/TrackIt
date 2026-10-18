@@ -35,7 +35,7 @@ import type { BalanceCard } from "@/lib/view"
  * own pill in the notch at its bottom-right, so the pill travels with the card. The owner
  * asked for the opposite: the cards move, the pill does not — so it is one element,
  * pinned to the band at the artboard's own 8px inset, above the cards. It reads
- * **add record** and opens the manual-entry sheet, which is the first action the design's
+ * **Add Record** and opens the manual-entry sheet, which is the first action the design's
  * pill has ever had.
  *
  * **Nothing is ever drawn below the band.** The artboard's own cycle drops the front
@@ -305,7 +305,7 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
       */}
       <button
         type="button"
-        aria-label="add record"
+        aria-label="Add Record"
         onClick={() => {
           tick()
           onAddRecord?.()
@@ -315,7 +315,7 @@ export function BalanceCards({ cards, onAddRecord }: { cards: BalanceCard[]; onA
         <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
           <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />
         </span>
-        add record
+        Add Record
       </button>
 
       {/* The artboard's tap strip above the cards, which shows the card behind. */}

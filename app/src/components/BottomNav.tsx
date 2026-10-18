@@ -21,7 +21,7 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  * shape holds on every tab, through every slide and at every width the phone allows.
  *
  * **Icons, not labels.** Each slot is one 28px mark, its name kept as the button's
- * accessible name. The marks change ink on the same 0.35s ease as every other piece of text,
+ * accessible name. The marks change ink on the same 120ms ease as every other piece of text,
  * so a theme change repaints the whole page as one.
  *
  * **The tabs.** Home, Ledger, Stats and Profile, in that order. Profile has no screen yet,

@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState, type PointerEventHandler } from "rea
 import { handOffToUpiApp, type UpiPayee } from "@/features/upi/upi"
 import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
-import { dayLabel, startOfDay } from "@/lib/format"
+import { clock, dayLabel, minutesOfDay, momentOn, startOfDay } from "@/lib/format"
 import { heavyThud, lightTap } from "@/lib/haptics"
 import { CategoryMatrix } from "./CategoryMatrix"
 import { DateDialog } from "./DateDialog"
@@ -31,7 +31,7 @@ interface ManualEntryScreenProps {
   /**
    * The merchant a scanned code named, when the sheet came from the scanner: see
    * `SheetProps.payee`. It swaps the account tray for the payee's own box and the confirm
-   * for **pay and log transaction**; everything else about the screen is unchanged.
+   * for **Pay and Log Transaction**; everything else about the screen is unchanged.
    */
   payee?: UpiPayee | null
   onClose: () => void
@@ -96,13 +96,18 @@ function JournalLine({
  * mosaic brings them back. The amount stays on screen throughout, because it is the
  * thing being edited and the sheet is not a wizard.
  *
- * **The day lives on the amount canvas.** A small pill under the header says *Today* (or
- * the day, once it has been changed) and opens `DateDialog`, so a forgotten expense can be
- * filed on the day it happened. It is deliberately not a row in the column: the closed
- * column is exactly full on a 390×844 phone, and a date field that pushed the keypad off
- * the bottom would be a worse trade than the one this screen already makes. A scanned
- * payment hides it — that money is leaving now, and a backdated payment is not a thing the
- * scanner can make true.
+ * **The moment lives on the amount canvas.** A small pill under the header says *Today,
+ * 2:14 PM* (or the day, once it has been changed) and opens `DateDialog`, so a forgotten
+ * expense can be filed on the day — and at the hour — it happened. It is deliberately not a
+ * row in the column: the closed column is exactly full on a 390×844 phone, and a date field
+ * that pushed the keypad off the bottom would be a worse trade than the one this screen
+ * already makes.
+ *
+ * **A scanned payment carries it too.** The pill used to be hidden when the sheet was opened
+ * from a QR code, because the money was leaving *now*. It is not hidden any more: a receipt
+ * is often typed up after the fact, and the scan screen hands the same amount, category and
+ * moment here. It starts on the current moment either way — that is the default the owner
+ * asked for, and it is what `confirm` writes when the pill is never touched.
  */
 export function ManualEntryScreen({
   initialCategory = null,
@@ -116,16 +121,23 @@ export function ManualEntryScreen({
     // the owner still confirms it — see `SheetProps.payee`.
     payee?.amountCents != null ? rawFromCents(payee.amountCents) : "",
   )
-  /** The moment this sheet was opened: the latest day it may offer, and the clock time a
-   *  backdated row is filed at. Taking it once keeps the pill and that row in one frame. */
+  /** The moment this sheet was opened: the latest day the picker may offer, and the default
+   *  moment a new row is filed at. Taking it once keeps the pill and that row in one frame. */
   const [now] = useState(() => Date.now())
   const [account, setAccount] = useState(ACCOUNTS[0].id)
   const [merchant, setMerchant] = useState("")
   const [note, setNote] = useState("")
   const [category, setCategory] = useState<string | null>(initialCategory)
   const [expanded, setExpanded] = useState(false)
-  /** The day the row will be filed on, as local midnight — today unless it was changed. */
-  const [day, setDay] = useState(() => startOfDay(now))
+  /**
+   * The moment the row will be filed at — the current one unless the picker was used.
+   *
+   * It is a whole moment rather than a day plus "the time the sheet opened": the picker sets
+   * both halves now, so a backdated row carries the hour it actually happened at, and two
+   * rows typed for the same forgotten day sort the way they happened rather than the way
+   * they were typed.
+   */
+  const [at, setAt] = useState(() => momentOn(startOfDay(now), minutesOfDay(now)))
   const [dateOpen, setDateOpen] = useState(false)
   /**
    * How tall the category panel is allowed to be: the sheet's column, less the account
@@ -163,12 +175,7 @@ export function ManualEntryScreen({
     heavyThud() // 45ms, and only here
     const written = note.trim()
     const amountCents = Math.round(value * 100)
-    /*
-     * The chosen day at the clock time the sheet was opened. Today is therefore the moment
-     * itself; a day in the past keeps an ordinary time on its row rather than midnight, and
-     * two rows logged for the same forgotten day still sort the way they were typed.
-     */
-    const at = day + (now - startOfDay(now))
+    // The picker's moment, to the minute. Untouched, that is the moment the sheet opened.
     onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: written, category, at })
     /*
       **Logged first, handed to Google Pay second**, in that order and for a reason: the
@@ -253,24 +260,29 @@ export function ManualEntryScreen({
         </p>
 
         {/*
-          The day this row belongs to, on the amount canvas's free top-right: the header is
-          its own strip and the amount owns the bottom-left, so this is the one corner that
-          costs the column nothing. A payment has no pill — see the header.
+          When this row belongs, on the amount canvas's free top-right: the header is its own
+          strip and the amount owns the bottom-left, so this is the one corner that costs the
+          column nothing. A scanned payment wears it too, now that a receipt can be typed up
+          after the fact.
         */}
-        {payee === null && (
-          <button
-            type="button"
-            aria-label={`Date: ${dayLabel(day, now)}. Change the date`}
-            onClick={() => {
-              lightTap()
-              setDateOpen(true)
-            }}
-            className="absolute right-4 top-16 inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-card px-3 text-[12px] leading-4 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
-          >
-            <CalendarDays strokeWidth={1.5} className="size-4 text-ink2" aria-hidden="true" />
-            {dayLabel(day, now)}
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label={`Date and time: ${dayLabel(at, now)} at ${clock(at)}. Change`}
+          onClick={() => {
+            lightTap()
+            setDateOpen(true)
+          }}
+          className="absolute right-4 top-16 inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-card px-3 font-sans text-[12px] leading-4 tabular-nums text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+        >
+          <CalendarDays strokeWidth={1.5} className="size-4 text-ink2" aria-hidden="true" />
+          {/* The dot is a separator, not a caption: it keeps the day and the clock one
+              phrase without a second label taking room on a 36px pill. */}
+          {dayLabel(at, now)}{" "}
+          <span aria-hidden="true" className="text-ink2">
+            ·
+          </span>{" "}
+          {clock(at)}
+        </button>
       </section>
 
       <div ref={column} className="relative flex min-h-0 flex-1 flex-col gap-2 px-4">
@@ -391,14 +403,18 @@ export function ManualEntryScreen({
               className="mt-auto flex shrink-0 flex-col gap-2"
             >
               <Keypad onKey={press} />
+              {/*
+                `transition-opacity` for the disabled state only: the button's ink is a
+                token like the rest of the page's (`index.css`), so it switches with it.
+              */}
               <button
                 type="button"
                 onClick={confirm}
                 disabled={value <= 0}
-              className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
-            >
-              {payee === null ? "add record" : "pay and log transaction"}
-            </button>
+                className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
+              >
+                {payee === null ? "Add Record" : "Pay and Log Transaction"}
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -406,11 +422,11 @@ export function ManualEntryScreen({
 
       <DateDialog
         isOpen={dateOpen}
-        value={day}
+        value={at}
         now={now}
         onClose={() => setDateOpen(false)}
         onPick={(picked) => {
-          setDay(picked)
+          setAt(picked)
           setDateOpen(false)
         }}
       />

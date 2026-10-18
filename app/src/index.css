@@ -6,9 +6,9 @@
  * `Main.dc.html` (the bento dashboard) and `Ledger.dc.html` (the spinning date
  * wheel) each carry the same `<helmet><style>` block, and every value below is
  * copied out of it rather than invented: the ten colour roles, the two typefaces,
- * the 0.35s repaint, the focus ring, the hidden scrollbar on the horizontal trays
- * and the 8px rhythm the whole layout is built on. Where this file says more than
- * the artboards did, it is only to explain where a value comes from.
+ * the repaint, the focus ring, the hidden scrollbar on the horizontal trays and the
+ * 8px rhythm the whole layout is built on. Where this file says more than the
+ * artboards did, it is only to explain where a value comes from.
  *
  * Light and dark are the same ten roles with different values, so no component
  * ever needs to know which theme it is drawn in: it says `bg-card` and `text-ink2`
@@ -239,11 +239,13 @@
 
 /*
  * Every `transition-*` utility takes the page's one speed. Tailwind's defaults are 150ms and
- * its own curve, and a utility outranks the reset above, so without these a utility-driven
- * colour would finish before the rest of the page had started.
+ * its own curve, and a utility outranks the reset below, so without these a utility-driven
+ * change would move at a second speed. `120ms` is the whole page's repaint — see the token
+ * transition under `@layer base` — and it is deliberately under 150ms: a theme change is
+ * meant to read as a switch, not as a fade the owner waits out.
  */
 @theme {
-  --default-transition-duration: 350ms;
+  --default-transition-duration: 120ms;
   --default-transition-timing-function: ease;
 }
 
@@ -296,6 +298,116 @@
 }
 
 /*
+ * The colour roles, registered as colours.
+ *
+ * A plain custom property is an untyped string, and CSS cannot interpolate a string —
+ * so `--ink` used to jump from one value to the other the instant `data-theme`
+ * changed. `@property` gives each role a type and an initial value, which makes it
+ * animatable: the root transitions the tokens (see `@layer base`) and every element
+ * that reads one sees the value move.
+ *
+ * **This is what keeps the page in lockstep.** The alternative — a transition on each
+ * element's `color` — chains, because colour is inherited: a word two levels down chases
+ * its parent's already-moving ink and finishes its repaint long after the root has. With
+ * the token animating, there is one clock and no chaser, so every label, figure and
+ * placeholder on screen starts and ends on the same frame.
+ *
+ * `initial-value` repeats the dark table below. It is not a second source of truth so
+ * much as the value a registered property must have before any selector sets it; the
+ * tokens are read from `:root`, never from this default.
+ */
+@property --canvas {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0a0f0d;
+}
+@property --card {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1a221e;
+}
+@property --line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #28332e;
+}
+@property --ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f4f0ea;
+}
+@property --ink2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f4f0ea99;
+}
+@property --clay {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d4a373;
+}
+@property --sage {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a3b19b;
+}
+@property --on-clay {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0a0f0d;
+}
+@property --on-sage {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0a0f0d;
+}
+@property --pill {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1a221e;
+}
+@property --pill-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f4f0ea99;
+}
+@property --tint-pill-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --dock {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #222c27;
+}
+@property --dock-line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #33423b;
+}
+@property --data-red {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c95a49;
+}
+@property --data-gold {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d9a74a;
+}
+@property --data-teal {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a3b19b;
+}
+@property --data-indigo {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2c3e50;
+}
+
+/*
  * The top of every screen: the artboards' 24px, then 8px more, then whatever the
  * phone has reserved for itself.
  *
@@ -343,16 +455,61 @@
   *::before,
   *::after {
     box-sizing: border-box;
-    /* A theme change is a repaint of every surface at once; this is what keeps it
-       fluid instead of a flash. The artboard carries it, so the app does too. */
-    transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease,
-      stroke 0.35s ease, fill 0.35s ease;
+    /*
+     * Surfaces and rules move at the page's one speed. `color` is deliberately **not** in
+     * this list: ink is the animated *token* (`--ink`, `--ink2`, …) rather than a per-element
+     * transition, so every word on the page starts and finishes its repaint on the same
+     * frame — see the token transition below.
+     */
+    transition: background-color 120ms ease, border-color 120ms ease, stroke 120ms ease,
+      fill 120ms ease;
+  }
+
+  /*
+   * The page's repaint, and the reason all of it moves as one.
+   *
+   * The colour roles are **registered** as `<color>` above, which makes them
+   * interpolatable: this rule animates the tokens themselves on the root, and every
+   * descendant that says `color: var(--ink)` or `background: var(--card)` reads the value
+   * as it is at that instant. **Nothing transitions its own ink** any more. That is the fix
+   * for a page where some words switched instantly and others lagged: `color` is inherited,
+   * so a per-element transition made each nesting level chase the level above it, and a
+   * nested span finished its repaint two or three durations after the root did.
+   *
+   * 120ms, ease — the same duration and curve `ThemeToggle` hands its icon over at. It is
+   * under 150ms on purpose: a theme change should read as a switch with a little air in
+   * it, not as a fade the owner waits out.
+   *
+   * `::placeholder` needs no rule of its own: a prompt's colour is a `var(--ink2)` too, so
+   * it follows the token like the typed line over it.
+   */
+  :root {
+    transition:
+      --canvas 120ms ease,
+      --card 120ms ease,
+      --line 120ms ease,
+      --ink 120ms ease,
+      --ink2 120ms ease,
+      --clay 120ms ease,
+      --sage 120ms ease,
+      --on-clay 120ms ease,
+      --on-sage 120ms ease,
+      --pill 120ms ease,
+      --pill-ink 120ms ease,
+      --tint-pill-ink 120ms ease,
+      --dock 120ms ease,
+      --dock-line 120ms ease,
+      --data-red 120ms ease,
+      --data-gold 120ms ease,
+      --data-teal 120ms ease,
+      --data-indigo 120ms ease;
   }
 
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
-    *::after {
+    *::after,
+    *::placeholder {
       transition: none !important;
       animation: none !important;
     }

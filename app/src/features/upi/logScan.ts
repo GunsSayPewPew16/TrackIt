@@ -30,6 +30,11 @@ export type PaidDraft = {
   /** The owner's own words, empty when they wrote none. */
   note: string
   /**
+   * When the money left, as epoch ms. The payment screen's pill starts on the current moment
+   * and can be moved, so a receipt typed up later still lands at the hour it was paid.
+   */
+  at: number
+  /**
    * What the owner called the merchant, when they typed a name of their own. A scanned
    * row is the *payee's*, so this is only ever an override — the code's own `pn` is what
    * the row says otherwise.
@@ -52,7 +57,7 @@ function rowFor(payee: UpiPayee, draft: PaidDraft): Row {
     account: "upi",
     amountCents: draft.amountCents,
     kind: "expense",
-    at: Date.now(),
+    at: draft.at,
     note: draft.note.trim() || payee.pa,
     // Scanned money is the one row whose amount was confirmed against a payment the owner
     // was about to make, which is what `upi` marks.

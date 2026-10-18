@@ -100,9 +100,9 @@ export function GaugeCard({
             lightTap()
             setLastMonth(v)
           }}
-          className="relative h-4 w-7 shrink-0 rounded-full bg-line outline-none transition-[background-color] duration-[350ms] ease-[ease] focus-visible:ring-2 focus-visible:ring-ink data-[state=checked]:bg-sage"
+          className="relative h-4 w-7 shrink-0 rounded-full bg-line outline-none focus-visible:ring-2 focus-visible:ring-ink data-[state=checked]:bg-sage"
         >
-          <Switch.Thumb className="block size-3 translate-x-0.5 rounded-full bg-ink transition-[transform,background-color] duration-[350ms] ease-[ease] data-[state=checked]:translate-x-[14px] data-[state=checked]:bg-card" />
+          <Switch.Thumb className="block size-3 translate-x-0.5 rounded-full bg-ink transition-transform duration-[120ms] ease-[ease] data-[state=checked]:translate-x-[14px] data-[state=checked]:bg-card" />
         </Switch.Root>
       </label>
     </Tile>

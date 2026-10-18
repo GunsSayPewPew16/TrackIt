@@ -17,13 +17,13 @@ export type ManualEntry = {
   /** A category id from `lib/categories.ts`, or `null` when nothing was picked. */
   category: string | null
   /**
-   * When the money left, as epoch ms.
+   * When the money left, as epoch ms — a whole moment, day and time of day.
    *
-   * The sheet's date pill starts on today, and a day picked there is handed in at the clock
-   * time the entry was typed — so a forgotten expense lands on the day it happened without
-   * inventing a time for it, and two rows logged for the same day still order sensibly. A
-   * **scanned payment** always uses the moment of payment instead: `App.tsx` ignores this
-   * field on that path, because a payment being made now is not a memory to place.
+   * The sheet's pill starts on the current moment (the default the owner asked for) and
+   * opens a picker that sets both halves, so a forgotten expense lands on the day **and at
+   * the hour** it happened, and two rows typed for the same day order the way they happened.
+   * A **scanned payment** carries it too: a receipt is often typed up after the fact, so the
+   * payment screen's pill is the same control and `logPaidPayee` files the row at this moment.
    */
   at: number
 }
@@ -41,7 +41,7 @@ export type SheetProps = {
    * The merchant a scanned code named, when the sheet was opened from the scanner rather
    * than from the dashboard. It turns the sheet into the *payment* screen: the account tray
    * gives its row to a small box with the payee's name and address, the keypad starts on the
-   * code's own amount when it carried one, the confirm reads **pay and log transaction**, and
+   * code's own amount when it carried one, the confirm reads **Pay and Log Transaction**, and
    * pressing it logs the row and then hands the payment to Google Pay for exactly the amount
    * on screen. `null` is the ordinary blank entry.
    */

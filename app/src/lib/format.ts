@@ -151,6 +151,50 @@ export function whenLabel(at: number, now = Date.now()): string {
 }
 
 /**
+ * A moment on a given local day at a given time of day.
+ *
+ * The day is local midnight and the time is minutes since midnight, which is how the
+ * add-record sheet keeps them apart: its calendar moves the first, its time field the
+ * second, and the row is filed at the pair. Built through `Date`'s own setters rather
+ * than by adding milliseconds, so an hour that a daylight-saving change skips or repeats
+ * still lands where the owner asked for it.
+ */
+export function momentOn(day: number, minutes: number): number {
+  const when = new Date(day)
+  when.setHours(Math.floor(minutes / 60) % 24, minutes % 60, 0, 0)
+  return when.getTime()
+}
+
+/** How far into its own day a moment is, in minutes: `2:14 PM` → `854`. */
+export function minutesOfDay(at: number): number {
+  const when = new Date(at)
+  return when.getHours() * 60 + when.getMinutes()
+}
+
+/**
+ * The `HH:MM` a time field reads and writes, from minutes since midnight.
+ *
+ * A native time input speaks 24-hour ISO time whatever the device displays, so this is
+ * the one place the app's own 12-hour clock (`clock()`) and the field's value are
+ * translated into each other. `timeFieldValue` pads both halves; `parseTimeField`
+ * refuses anything that is not `H:MM` or `HH:MM` on a real clock.
+ */
+export function timeFieldValue(minutes: number): string {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`
+}
+
+/** The minutes a time field's `HH:MM` means, or `null` when it is not a time. */
+export function parseTimeField(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+/**
  * A whole day as a field writes it: `Today`, `Yesterday`, or `Oct 12, 2026`.
  *
  * The add-record sheet's date pill uses this rather than `whenLabel`, because a date

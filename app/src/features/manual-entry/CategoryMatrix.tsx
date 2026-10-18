@@ -393,6 +393,10 @@ export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, on
                   const chosenKey = picked ?? parent.children.find((entry) => entry.id === value)?.key
                   const lit = value !== null && chosenKey === child.key
                   const Icon = child.icon
+                  // The pill's colours are inline CSS variables, so its selection is the
+                  // page's own surface transition and its press is Framer's `whileTap`
+                  // rather than a CSS transition. Its *ink* is a token like everything
+                  // else's, so it switches with the page rather than on a clock of its own.
                   return (
                     <motion.button
                       key={child.key}
@@ -406,7 +410,7 @@ export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, on
                         borderColor: lit ? `var(--data-${parent.tone})` : "var(--line)",
                         color: lit ? "var(--tint-pill-ink)" : "var(--ink2)",
                       }}
-                      className="flex select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 font-sans text-[11px] leading-4 font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                      className="flex select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 font-sans text-[11px] leading-4 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ink"
                     >
                       <Icon strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden="true" />
                       {child.label}
