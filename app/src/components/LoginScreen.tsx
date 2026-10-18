@@ -31,6 +31,13 @@ import { SIGNUPS_OPEN } from "@/lib/portal"
  * sentence. The code line is set as a code (tabular figures, wide tracking, the numbers centred
  * in the line) because it is not prose.
  *
+ * **The paragraph names both halves of the mail, because one of them may be all there is.** The
+ * digits need the Magic Link body to carry `{{ .Token }}`, and a free-tier project on Supabase's
+ * built-in mailer cannot change its template at all (`supabase/README.md` §2) — there the mail
+ * carries the link and nothing else. The link opens the same vault (it comes back to this address
+ * and `hooks/useAuth.tsx` adopts the session), so the sentence offers it rather than leaving
+ * somebody waiting for six digits that were never sent.
+ *
  * **States are words, never spinners.** A refusal is a sentence under the fields ("That email and
  * password don't match.", "That code didn't match…"), the button only carries a turning mark
  * while the request is in flight — a login screen that leaves the button looking unchanged is the
@@ -203,8 +210,8 @@ export function LoginScreen() {
           {askingForCode ? (
             <>
               Six digits are on their way to{" "}
-              <span className="font-sans text-ink">{challengeEmail}</span>. Type them here to open
-              the vault.
+              <span className="font-sans text-ink">{challengeEmail}</span> — or open the link in that
+              mail here, which signs you in.
             </>
           ) : (
             <>Your ledger follows you between devices, and stays on this one when the network doesn&apos;t.</>

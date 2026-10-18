@@ -26,6 +26,16 @@
  * `app/src/lib/supabase-config.ts`, which is also where the app's public URL lives; pass
  * `--project <ref>` to point at a staging project instead.
  *
+ * ## What the project may refuse
+ *
+ * **A free-tier project with the built-in mail provider cannot change its mail template** — the
+ * API answers `400: Email template modification ... not available for free tier projects using the
+ * default email provider` — and it refuses the whole request that carries one. So the write is
+ * done in two groups, URLs first, and a refusal costs only its own group: the Site URL and the
+ * redirect allow-list land, the mail settings are reported as what the project would not take,
+ * and the run exits 1 rather than pretending. Connect custom SMTP (**Authentication → Emails →
+ * SMTP Settings**) and run it again to get the six digits.
+ *
  * `--dry-run` prints what would change and writes nothing. `--site` and `--pages` change the two
  * origins (defaults are this app's own deployments).
  *
@@ -128,7 +138,15 @@ function projectRef() {
 
 const ref = projectRef()
 
-async function call(method, path, body) {
+/**
+ * One call, with the failure handed back rather than thrown.
+ *
+ * Writing is done in groups (below) precisely because **a refusal is sometimes only about part
+ * of the config**: a free-tier project refuses the mail template and answers 400 for the whole
+ * request it arrives in, which would take the redirect fix down with it. Reading the status and
+ * the message back lets the URL settings land and the refusal be reported as what it is.
+ */
+async function request(method, path, body) {
   const response = await fetch(`${API}${path}`, {
     method,
     headers: {
@@ -152,10 +170,19 @@ async function call(method, path, body) {
         : response.status === 404
           ? ` — no project "${ref}" for this token.`
           : ""
-    console.error(`${method} ${path} → ${response.status}${hint}\n  ${detail}`)
+    return { ok: false, status: response.status, detail, hint, data: null }
+  }
+  return { ok: true, status: response.status, detail: null, hint: "", data }
+}
+
+/** A call this script cannot go on without: a refusal here ends the run. */
+async function call(method, path, body) {
+  const result = await request(method, path, body)
+  if (!result.ok) {
+    console.error(`${method} ${path} → ${result.status}${result.hint}\n  ${result.detail}`)
     process.exit(1)
   }
-  return data
+  return result.data
 }
 
 /** `a, b` and `b, c` → `a, b, c`, in the order they were first seen. */
@@ -216,20 +243,86 @@ if (dryRun) {
   process.exit(0)
 }
 
-const patch = Object.fromEntries(changed)
-await call("PATCH", `/projects/${ref}/config/auth`, patch)
+/**
+ * The settings, in the two groups the project treats differently.
+ *
+ * The URLs are ordinary configuration. The mail template is not: **a free-tier project on the
+ * built-in mailer cannot change its templates at all** — the dashboard will not offer it and the
+ * API answers 400 with *Email template modification is not available for free tier projects using
+ * the default email provider* — and because that refusal arrives for the whole request, sending it
+ * alongside the URLs would lose them too. So the URLs are written first, on their own, and the
+ * mail settings are then asked for separately and reported on their own terms.
+ */
+const URL_SETTINGS = ["site_url", "uri_allow_list"]
+const MAIL_SETTINGS = [
+  "mailer_subjects_magic_link",
+  "mailer_templates_magic_link_content",
+  "mailer_otp_length",
+  "mailer_otp_exp",
+]
 
-/** Read it back rather than trusting the write: this endpoint answers with the whole config. */
+const refusals = []
+let applied = 0
+
+for (const group of [URL_SETTINGS, MAIL_SETTINGS]) {
+  const patch = Object.fromEntries(changed.filter(([key]) => group.includes(key)))
+  const count = Object.keys(patch).length
+  if (count === 0) continue
+  const result = await request("PATCH", `/projects/${ref}/config/auth`, patch)
+  if (result.ok) {
+    applied += count
+    continue
+  }
+  refusals.push({
+    keys: Object.keys(patch),
+    status: result.status,
+    detail: result.detail,
+    hint: result.hint,
+    mail: group === MAIL_SETTINGS,
+  })
+}
+
+/**
+ * Read it back rather than trusting the write: this endpoint answers with the whole config.
+ *
+ * Only what the project **accepted** is held to it. A setting it refused is not a write that
+ * failed to stick — it is a write it would not take, reported above on its own.
+ */
 const after = await call("GET", `/projects/${ref}/config/auth`)
-const wrong = Object.entries(wanted).filter(([key, value]) => after?.[key] !== value)
+const refusedKeys = new Set(refusals.flatMap((refusal) => refusal.keys))
+const wrong = Object.entries(wanted).filter(
+  ([key, value]) => !refusedKeys.has(key) && after?.[key] !== value,
+)
+
+if (applied > 0) console.log(`\n  Applied ${applied} ${applied === 1 ? "setting" : "settings"}.`)
+
+for (const refusal of refusals) {
+  console.error(`\n  The project refused ${refusal.keys.join(", ")} — ${refusal.status}.\n  ${refusal.detail}`)
+  if (refusal.mail) {
+    console.error(
+      `
+  That is Supabase's free tier: with the built-in mail provider the mail template cannot be
+  edited at all, so the six-digit code step cannot be fed — the mail carries the link and no
+  digits. Two ways out: connect your own SMTP under Authentication → Emails → SMTP Settings
+  (then run this again, and the template lands), or keep signing in with the mailed link, which
+  this app adopts on the way back (\`detectSessionInUrl\`, lib/supabase.ts). The Site URL is what
+  decides where that link lands, and it is the half this run did apply.
+`,
+    )
+  }
+}
+
 if (wrong.length > 0) {
-  console.error(`\nThe project did not keep: ${wrong.map(([key]) => key).join(", ")}\n`)
+  console.error(`\nThe project does not read back as asked: ${wrong.map(([key]) => key).join(", ")}\n`)
+  process.exit(1)
+}
+
+if (refusals.length > 0) {
+  console.error(`  The settings above are as asked for; the refused ones are not, and cannot be until the\n  project can hold them.\n`)
   process.exit(1)
 }
 
 console.log(`
-  Applied ${changed.length} ${changed.length === 1 ? "setting" : "settings"}.
-
   The mail now carries a six-digit code, the Site URL is ${site},
   and ${pages} is on the redirect allow-list. Send yourself one with the
   portal's password step to check it end to end.

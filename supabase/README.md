@@ -48,16 +48,27 @@ Supabase's `{{ .Token }}` — and Supabase's stock *Magic Link* template contain
 <p>It expires in five minutes. If you did not ask for it, ignore this email.</p>
 ```
 
+**On the free plan this template cannot be edited at all.** With the built-in mail provider,
+Supabase refuses it in both places — the dashboard offers no editor, and the Management API
+answers `400: Email template modification is not available for free tier projects using the
+default email provider` — so the mail carries the link and no digits, and `npm run setup:auth`
+reports exactly that while still applying the two URL settings it can (and exits 1, because the
+config is not what the script says it should be). The link is not a dead end: it comes back to
+this app's own address, which adopts the session it carries (see below), so the free tier signs
+in through the link. Connect custom SMTP to get the six digits, then run it again — the template
+lands then.
+
 Two things follow from that, and both are worth knowing before they surprise you: the code is
-the *only* way in (the password alone no longer opens the vault — the app throws its session
-away), and Supabase's built-in mailer is rate-limited to a handful of messages an hour, so
-testing the portal repeatedly will stop sending. Connect custom SMTP
+the *only* way in **once the template carries it** (the password alone never opens the vault —
+the app throws that session away), and Supabase's built-in mailer is rate-limited to a handful of
+messages an hour, so testing the portal repeatedly will stop sending. Connect custom SMTP
 (**Authentication → Emails → SMTP Settings**) if that becomes the limit rather than the guard.
 
 The app's second step is checked with `verifyOtp({ type: "email" })`, so the **only** thing that
 has to be true for a code to exist is that template edit. **With the stock template the mail
-arrives with a link and no digits, and the portal waits for six numbers that cannot be typed** —
-that is the state to check first when a sign-in goes quiet after the password.
+arrives with a link and no digits** — the portal's paragraph names both halves now, so the link on
+the phone is the way through, and a sign-in that goes quiet after the password is the state to
+check that first.
 
 ### The link, as the fallback
 
