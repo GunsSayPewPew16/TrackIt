@@ -230,6 +230,32 @@ To start that account's history from scratch instead, delete its rows and the cl
 delete from public.ledgers where user_id = (select id from auth.users where email = 'priyanshdhoot0611@gmail.com');
 ```
 
+## The secrets, and where each one lives
+
+Four credentials touch this project, and none of them belongs in the repository. Which is which,
+and what to do when one has to be replaced:
+
+| Secret | Where it lives | Where it comes from |
+| --- | --- | --- |
+| **Personal access token** (`sbp_…`) | Nowhere. It is typed into the shell for one command (`SUPABASE_ACCESS_TOKEN=… npm run setup:auth`) and never written to a file. | Account → **Access Tokens** |
+| **Mail server password** (Resend's is an API key, `re_…`) | `~/.trackit-smtp`, one line, mode `600`, outside the repository — the file `--smtp-pass-file` reads. Supabase also holds a copy as its `smtp_pass`, server-side. | The provider's dashboard (**API Keys**) |
+| **Project URL + publishable key** | In the source (`app/src/lib/supabase-config.ts`) and in `app/.env.local` (git-ignored). Public by design: they ship inside every bundle, and RLS is what protects the rows. | Settings → **API** |
+| **`service_role` key** | Never here — not in this repository, not in the app, and not in the built bundle. A test harness may fetch it into memory for one run (to mint a link) and drop it; it is never written or printed. | Settings → **API** (do not copy it into anything that ships) |
+
+**Replacing one.** A new mail password: save it to `~/.trackit-smtp` and re-run `npm run
+setup:auth` with the same `--smtp-*` arguments — the password is written on every run precisely
+because Supabase never reads it back, so rotating is that one command. A new personal access
+token: nothing to update, it is only ever typed. **A leaked one should be revoked where it was
+issued** (Supabase: Account → Access Tokens; Resend: API Keys), not here: revoking is the only
+thing that actually stops it.
+
+**What keeps them out.** `.gitignore` covers `*.local`, `.dev.vars` and `.wrangler`, and now
+`.trackit-smtp` as well — belt and braces, because the file these docs tell you to write lives in
+your home directory rather than the working tree, and the ignore rule is only there for the day
+somebody writes it in the wrong place. Nothing in this project reads a secret out of the
+repository: `npm run check:flows` runs on a throwaway profile with no credentials at all, and the
+one place a token is ever typed is a command line.
+
 ## Running without it
 
 No values → no gate, no network calls, and the app is the device-only tracker it has always been.

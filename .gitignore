@@ -16,6 +16,9 @@ dist-ssr
 .dev.vars
 .wrangler
 
+# The mail server's password (supabase/README.md): it belongs in $HOME, never in the tree
+.trackit-smtp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

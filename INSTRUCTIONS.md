@@ -658,13 +658,15 @@ for a typed row is never fooled by the store the app has stopped using.
 `TRACKIT_TEST_EMAIL` and `TRACKIT_TEST_PASSWORD` when the build has a portal; with neither set it
 checks the portal itself (its two fields, its refused submit, the closed sign-ups sentence) and
 exits **2** saying the signed-in flows did not run — never 0. A right password lands on the
-**six-digit step**, which a script cannot read an inbox for, so that is exit 2 as well unless
-`TRACKIT_TEST_CODE` carries a code that is still valid (five minutes; run it by hand). Signed in
+**code step**, which a script cannot read an inbox for, so that is exit 2 as well unless
+`TRACKIT_TEST_CODE` carries a code that is still valid (five minutes; run it by hand). The
+code's width is the project's setting, not the app's: this project's are **eight digits**, and
+the field takes six to eight so a code is never truncated. Signed in
 that way, the run asserts a **real** sign-in: the stored access token is a JWT and the session is
 not the harness's. `TRACKIT_TEST_SESSION='{"id":"<uuid>","email":"…"}'` is the other way in —
 it writes the session supabase-js would have stored and reloads, which covers the remembered
 session and the sign-out without an inbox but, as the notes it prints say, does not exercise the
-sign-in itself. To run thesigned-in flows without touching the project, build the device app instead: `VITE_CLOUD=off npm
+sign-in itself. To run the signed-in flows without touching the project, build the device app instead: `VITE_CLOUD=off npm
 run check:flows` (or point `APP_URL` at a server started that way). The server the suite starts
 itself matches what it was handed: **gated** when a session or an account is given, device-only
 otherwise — so credentials are never pointed at a build that has no portal and reported green.
@@ -676,7 +678,9 @@ the terminal rather than the dashboard: `SUPABASE_ACCESS_TOKEN=sbp_… npm run s
 §2 as one command. Pass `--smtp-host/--smtp-user/--smtp-from/--smtp-pass-file` and the same run
 configures the project's own mail server **first** and then the template: Supabase's own mailer
 refuses every template edit (so the mail can only carry a link), and a project with its own SMTP
-does not. That refusal is the one thing that decides whether the digits exist at all.
+does not. That refusal is the one thing that decides whether the digits exist at all. The password
+that `--smtp-pass-file` reads lives in `~/.trackit-smtp`, never in this tree — `supabase/README.md`
+has a table of every credential this project touches and what to revoke when one leaks.
 
 The portal's second step takes either half of that mail: the six digits, or **the link pasted
 in**, which `verifyOtp({ token_hash })` spends exactly as opening the link would
