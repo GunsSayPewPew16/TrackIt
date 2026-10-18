@@ -10,10 +10,19 @@
  * 8px rhythm the whole layout is built on. Where this file says more than the
  * artboards did, it is only to explain where a value comes from.
  *
- * Light and dark are the same ten roles with different values, so no component
- * ever needs to know which theme it is drawn in: it says `bg-card` and `text-ink2`
- * and gets the right pair. Dark is the default (the artboards' own `:root`), and
- * `data-theme="light"` on `<html>` swaps the table — see `src/lib/theme.ts`.
+ * A **palette** is one complete table of those roles: the dark and light pairs, the two
+ * accents, the dock, the data colours. No component ever needs to know which one it is
+ * drawn in: it says `bg-card` and `text-ink2` and gets that palette's pair. The palettes
+ * are the blocks below, and **`data-palette` on `<html>` is the only switch between them**
+ * — one attribute, one table, no per-component knowledge, which is what a theme picker
+ * needs. `src/lib/theme.ts` is the register of their ids, labels and themes; `index.html`
+ * puts the remembered one on before the first paint.
+ *
+ * The artboard's own dark is first (`ink`) and is also what `:root` alone carries, so a
+ * document that names no palette is the design of record. `midnight` and `parchment` are
+ * the register's two samples; a palette the register has never heard of simply falls back
+ * to `ink`, and a palette that forgets a token falls back to the one it inherited from —
+ * which is why every block here states the whole table rather than an override or two.
  */
 
 /* ------------------------------------------------------------------ *
@@ -160,8 +169,15 @@
   --safe-top: calc(8px + env(safe-area-inset-top, 0px));
 }
 
+/*
+ * 1. Ink — the artboard's dark, and the default.
+ *
+ * The ten roles, the date capsule's own pair, the dock's surface and hairline, and the
+ * data colours. Everything below this block inherits it until a palette says otherwise, so
+ * the comments that explain an individual token live here.
+ */
 :root,
-:root[data-theme="dark"] {
+:root[data-palette="ink"] {
   --canvas: #0a0f0d;
   --card: #1a221e;
   --line: #28332e;
@@ -211,7 +227,47 @@
   color-scheme: dark;
 }
 
-:root[data-theme="light"] {
+/*
+ * 2. Midnight — a sample dark. The same table, cooled: the surfaces go blue-black, the two
+ * accents are lifted so they still read against them (a 13px label on `--card` has more
+ * contrast to spare than the artboard's own pair, not less), and the data colours are
+ * deliberately **unchanged** — those are the owner's categories, not the theme's.
+ *
+ * The date capsule's `--pill` is the card rather than the canvas here for the reason Ink
+ * says: a capsule should rest *on* the panel it is drawn on, outlined by the hairline.
+ */
+:root[data-palette="midnight"] {
+  --canvas: #080c14;
+  --card: #131a26;
+  --line: #232d3d;
+  --ink: #eef2f8;
+  --ink2: #eef2f899;
+  --clay: #d8a97a;
+  --sage: #93b3a6;
+  --on-clay: #080c14;
+  --on-sage: #080c14;
+  --pill: #131a26;
+  --pill-ink: #eef2f899;
+  --dock: #1a2331;
+  --dock-line: #2b3648;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #a3b19b;
+  --data-indigo: #2c3e50;
+  --tint-bg: 14%;
+  --tint-border: 35%;
+  --tint-pill: 20%;
+  --tint-pill-ink: #ffffff;
+  color-scheme: dark;
+}
+
+/*
+ * 3. Paper — the artboard's light. The same ten roles over white, with the two washes
+ * lightened for a bright ground: a 14% tint that reads well on a near-black card is heavy
+ * on paper, and a white label on a 12% wash would vanish — hence the two tint numbers and
+ * the ink on the lit pill.
+ */
+:root[data-palette="paper"] {
   --canvas: #f8f6f2;
   --card: #ffffff;
   --line: #e2ddd5;
@@ -238,6 +294,36 @@
 }
 
 /*
+ * 4. Parchment — a sample light. Paper warmed: a cream canvas, an off-white card and a
+ * brown-black ink, with the clay taken a shade deeper so it still carries the small dark
+ * labels laid on it. Same data colours, same light tint numbers.
+ */
+:root[data-palette="parchment"] {
+  --canvas: #f4efe6;
+  --card: #fffdf8;
+  --line: #e3dac9;
+  --ink: #2a2118;
+  --ink2: #2a211899;
+  --clay: #c08a52;
+  --sage: #6d7c5f;
+  --on-clay: #2a2118;
+  --on-sage: #ffffff;
+  --pill: #f4efe6;
+  --pill-ink: #2a211899;
+  --dock: #fffdf8;
+  --dock-line: #ded3c0;
+  --data-red: #c95a49;
+  --data-gold: #d9a74a;
+  --data-teal: #3b594c;
+  --data-indigo: #2c3e50;
+  --tint-bg: 10%;
+  --tint-border: 35%;
+  --tint-pill: 12%;
+  --tint-pill-ink: var(--ink);
+  color-scheme: light;
+}
+
+/*
  * Every `transition-*` utility takes the page's one speed. Tailwind's defaults are 150ms and
  * its own curve, and a utility outranks the reset below, so without these a utility-driven
  * change would move at a second speed. `120ms` is the whole page's repaint — see the token
@@ -251,7 +337,7 @@
 
 /*
  * `inline` is what makes the swap work: each utility is written against the
- * variable, not against a copy of its value, so changing `data-theme` repaints
+ * variable, not against a copy of its value, so changing `data-palette` repaints
  * without a rebuild or a second stylesheet.
  */
 @theme inline {
@@ -301,7 +387,7 @@
  * The colour roles, registered as colours.
  *
  * A plain custom property is an untyped string, and CSS cannot interpolate a string —
- * so `--ink` used to jump from one value to the other the instant `data-theme`
+ * so `--ink` used to jump from one value to the other the instant the palette
  * changed. `@property` gives each role a type and an initial value, which makes it
  * animatable: the root transitions the tokens (see `@layer base`) and every element
  * that reads one sees the value move.
@@ -312,9 +398,10 @@
  * the token animating, there is one clock and no chaser, so every label, figure and
  * placeholder on screen starts and ends on the same frame.
  *
- * `initial-value` repeats the dark table below. It is not a second source of truth so
- * much as the value a registered property must have before any selector sets it; the
- * tokens are read from `:root`, never from this default.
+ * `initial-value` repeats the **Ink** table below, which is the default palette. It is not
+ * a second source of truth so much as the value a registered property must have before any
+ * selector sets it; the tokens are read from `:root`, never from this default — and a
+ * palette block states every one of them, so no palette ever leans on it.
  */
 @property --canvas {
   syntax: "<color>";

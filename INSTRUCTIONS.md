@@ -132,10 +132,24 @@ left out and why.
   thumb used to leave it cropped until the app was killed. Single-finger scrolling, the
   wheel's drag and the sheet's pull-down are untouched — do not "fix" this by removing one of
   the three layers, because a different browser is covered by each.
-- **Dark is the default**, and it is what `:root` carries. Light is the same ten
-  roles with different values, on `data-theme="light"`, and the choice is remembered
-  under `trackit-theme`. A boot script in `app/index.html` applies it before the first
-  paint; if you change the key or a value, change it in both places.
+- **The colours are palettes, and `data-palette` is the only switch.** `app/src/index.css`
+  has one block per **palette**, each stating the whole table (surfaces, the ten roles, the
+  dock, the data colours, the tint numbers) — `ink` and `paper` are the artboards' own two
+  and the defaults, and `midnight` / `parchment` are samples there so a picker has something
+  to choose. `:root` alone carries `ink`, so a document that names nothing is the design of
+  record. **This is the modularity the owner asked for**: a theme picker is a list over
+  `lib/theme.ts`'s `PALETTES` calling `useTheme().choosePalette(id)`, and adding a palette is
+  one CSS block, one register row and one line in the boot table — nothing in a component
+  and no per-theme CSS ever again. There is **no `data-theme`**: a palette declares its own
+  theme (`color-scheme`, and which way the sun/moon toggle goes), the toggle flips to the
+  palette **the owner last used in the other theme** and to that theme's default only the
+  first time, and a browser that chose before palettes existed still gets its choice —
+  `trackit-theme`'s `light` / `dark` are read once and mapped to `paper` / `ink`. Three
+  things must be kept in step by hand, and `lib/theme.ts` is the one to edit first: the
+  register, the stylesheet blocks, and `app/index.html`'s boot table of id → canvas (the one
+  value a script needs before the stylesheet has run, because a `<meta>` cannot read CSS).
+  A palette that forgets a token inherits the previous block's value, which is why each
+  block states all twenty-one rather than an override or two.
 - **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
   4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
@@ -498,7 +512,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
 | The account stack's pill | at 390 wide: the band is 288px, the front card's bottom edge is at 224 inside it, the pill's top is 240 (**a 16px gap**) and its bottom is the band's own 288, its right edge is 8px inside the card's (`right: 374` against the pill's `366` — the alignment the owner asked to keep), and the quick-log band starts 8px below the pill; pulling a card past 40px still re-stacks it without moving the pill |
-| The theme | both palettes' canvas, card, hairline and ink by computed style *and* by pixel; the toggle's `aria-pressed`, its label, and the stored choice after a reload. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame from the toggle click, compare each element against its own final value, and repeat the flip several times (it is the *start* spread and the *last* change that matter; a token that is still moving at 200ms means a `color` transition has crept back onto an element). `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
+| The palettes | every palette in `PALETTES` has a stylesheet block and the boot table, and its `canvas` matches both; each block states **all twenty-one tokens** (a missing one silently inherits the block above it) and `color-scheme` agrees with the register's theme. For each one: canvas, card, hairline and ink by computed style (read *after* the 120ms repaint — a read in the same task catches the previous palette, because the tokens transition); the toggle's `aria-pressed`, its label, and the stored choice after a reload; a browser holding only the legacy `trackit-theme` lands on that theme's default palette; and **the dark palette picked before the toggle is still the one it comes back to** (`trackit-palette-<theme>`). Contrast, per palette: ink-on-canvas, ink-on-card, ink2-on-card, on-clay-on-clay and on-sage-on-sage — the artboards' own paper sits at 15.06 / 16.26 / 4.34 / 5.57 / 4.33, and a new sample should not be worse than the paper it is a variation of. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame *from inside the change* (start the sampler, then perform the change in the same task, so the zero point is the click rather than the round trip), compare each element against its own final value, and repeat across a toggle, a same-theme pick and a cross-theme pick. `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
 | The two budgets | with no stored limits: the dashboard card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on either opens the keypad editor on that card's own limit — Android `navigator.vibrate` 20ms for the hold, then **8ms per digit and 20ms for `.`/backspace** exactly as the entry keypad does (both sheets render the same `Keypad`, which ticks on `pointerdown`), iOS the switch clicks — and saving rewrites `trackit-budgets` and redraws the card and the dial. The food limit must not move the dial's figure or the reverse; a limit changed while the ledger is empty still shows on the demo card; the total saved from the dial survives a reload |

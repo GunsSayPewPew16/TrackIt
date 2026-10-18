@@ -146,12 +146,23 @@ repository, and never in a bundle, which is the one rule that has not changed.
 
 ## The theme
 
-One set of ten colour roles, two palettes, switched by `data-theme` on `<html>`.
-Dark is the default (`#0A0F0D` canvas, `#1A221E` cards, `#28332E` hairlines,
-`#F4F0EA` ink, `#D4A373` clay, `#A3B19B` sage); light is `#F8F6F2` / `#FFFFFF` /
-`#E2DDD5` / `#1A221E` / `#C58B54` / `#6B7F64`. No component knows which theme it is
-drawn in — it says `bg-card` and `text-ink2` and gets the right pair — and every
-surface repaints over the same 120ms.
+One set of colour roles, **a palette to a block**, switched by `data-palette` on `<html>`.
+The artboards' own two are `ink` (`#0A0F0D` canvas, `#1A221E` cards, `#28332E` hairlines,
+`#F4F0EA` ink, `#D4A373` clay, `#A3B19B` sage — the default) and `paper` (`#F8F6F2` /
+`#FFFFFF` / `#E2DDD5` / `#1A221E` / `#C58B54` / `#6B7F64`), and two samples sit beside them —
+`midnight`, a cooled dark, and `parchment`, a warmed light — so the planned theme picker has
+something to choose. No component knows which palette it is drawn in — it says `bg-card`
+and `text-ink2` and gets that palette's pair — and every surface repaints over the same
+120ms.
+
+A palette is a complete table rather than a variation: surfaces, the ten roles, the date
+capsule, the dock and the data colours, all twenty-one in every block, so nothing is
+inherited from a palette the owner did not pick. `src/lib/theme.ts` is the register — ids,
+labels, themes and the canvas colour the browser's own chrome is painted with — and a theme
+picker is a list over it calling `choosePalette(id)`; the toggle flips to the palette that
+was last used in the other theme, so a pick survives a trip through the other side. A
+browser that chose before palettes existed keeps its choice (`trackit-theme`'s `dark` and
+`light` are read once and mapped to `ink` and `paper`).
 
 The repaint is **one clock for the whole page**. The colour roles are registered with
 `@property` as `<color>` and the *tokens* — not the elements — are what transition, so
@@ -160,7 +171,9 @@ every label, figure, placeholder and hairline switches together and is done insi
 is inherited, each nesting level chased the one above it, and a word two levels down
 finished its repaint long after the root had. `app/src/index.css` explains it at the
 root transition. The choice is remembered, and a boot script in `app/index.html` puts
-it on the document before the first paint so a light screen never flashes dark.
+it on the document before the first paint so a light screen never flashes dark — that
+script carries its own id → canvas table, the one value it cannot read from a stylesheet
+in time, which is why `src/lib/theme.ts` asks you to edit it first.
 
 ## Importing, and where the rows live
 

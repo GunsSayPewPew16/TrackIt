@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-palette="ink">
   <head>
     <meta charset="UTF-8" />
     <!--
@@ -13,7 +13,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0A0F0D" />
+    <meta name="theme-color" content="#0a0f0d" />
     <meta
       name="description"
       content="A private expense tracker: a bento dashboard and a daily ledger, kept on the device."
@@ -46,21 +46,35 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
     <title>TrackIt</title>
     <script>
-      // Dark is the theme the app ships; a stored choice is put on <html> here,
-      // before the first paint, so choosing light cannot flash a dark frame on the
-      // way in. The key is THEME_STORAGE_KEY in src/lib/theme.ts — keep the two in
-      // step. The two theme-color values are THEME_COLORS in the same module.
-      try {
-        var theme = localStorage.getItem("trackit-theme")
-        if (theme === "light" || theme === "dark") {
-          document.documentElement.dataset.theme = theme
-          document
-            .querySelector('meta[name="theme-color"]')
-            .setAttribute("content", theme === "light" ? "#F8F6F2" : "#0A0F0D")
+      // The palette the owner chose is put on <html> here, before the first paint, so a
+      // remembered one cannot flash the default frame first.
+      //
+      // This table is the *only* copy of the register outside src/lib/theme.ts, and it
+      // exists because neither the stylesheet nor the app module has run yet: the page
+      // needs the palette's canvas for the browser's own chrome, and a palette the
+      // stylesheet paints with. Keep the ids and canvas colours in step with PALETTES
+      // there — the module is the one to edit first.
+      ;(function () {
+        var CANVAS = {
+          ink: "#0a0f0d",
+          midnight: "#080c14",
+          paper: "#f8f6f2",
+          parchment: "#f4efe6",
         }
-      } catch (error) {
-        // Private mode refuses storage; the attribute on <html> already says dark.
-      }
+        // A browser that chose a *theme* before palettes existed (trackit-theme) keeps its
+        // choice: light and dark become each theme's default palette.
+        var LEGACY = { dark: "ink", light: "paper" }
+        try {
+          var id = localStorage.getItem("trackit-palette")
+          if (!CANVAS[id]) id = LEGACY[localStorage.getItem("trackit-theme")]
+          if (CANVAS[id]) {
+            document.documentElement.dataset.palette = id
+            document.querySelector('meta[name="theme-color"]').setAttribute("content", CANVAS[id])
+          }
+        } catch (error) {
+          // Private mode refuses storage; the attribute on <html> already says ink.
+        }
+      })()
     </script>
   </head>
   <body>

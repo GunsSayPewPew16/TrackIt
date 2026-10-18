@@ -207,6 +207,14 @@ export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
             animate={{ left: p.x, top: TOP + p.y }}
             transition={dragging ? INSTANT : SPRING}
           />
+          {/*
+            The one surface in the app that is **not** a palette token, on purpose: this
+            bubble rides the chart wherever the finger is, so it has to be the highest
+            contrast thing on the card in every palette. `--ink` over `--canvas` inverts
+            per palette (dark text on a light one), and either half of that pair vanishes
+            against the other on half the palettes, so it is the fixed black-and-cream
+            pair the artboard drew — see the palettes in `index.css`.
+          */}
           <motion.span
             aria-hidden
             className="absolute top-0 -translate-x-1/2 rounded-full bg-black px-2 text-[10px] leading-5 font-bold tracking-[0.01em] whitespace-nowrap text-[#F4F0EA]"
