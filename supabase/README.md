@@ -232,7 +232,7 @@ delete from public.ledgers where user_id = (select id from auth.users where emai
 
 ## The secrets, and where each one lives
 
-Four credentials touch this project, and none of them belongs in the repository. Which is which,
+Five credentials touch this project, and none of them belongs in the repository. Which is which,
 and what to do when one has to be replaced:
 
 | Secret | Where it lives | Where it comes from |
@@ -241,11 +241,13 @@ and what to do when one has to be replaced:
 | **Mail server password** (Resend's is an API key, `re_…`) | `~/.trackit-smtp`, one line, mode `600`, outside the repository — the file `--smtp-pass-file` reads. Supabase also holds a copy as its `smtp_pass`, server-side. | The provider's dashboard (**API Keys**) |
 | **Project URL + publishable key** | In the source (`app/src/lib/supabase-config.ts`) and in `app/.env.local` (git-ignored). Public by design: they ship inside every bundle, and RLS is what protects the rows. | Settings → **API** |
 | **`service_role` key** | Never here — not in this repository, not in the app, and not in the built bundle. A test harness may fetch it into memory for one run (to mint a link) and drop it; it is never written or printed. | Settings → **API** (do not copy it into anything that ships) |
+| **The portal account's password** (`TRACKIT_TEST_EMAIL` / `TRACKIT_TEST_PASSWORD`) | Nowhere. Exported for one `npm run check:flows` run and gone with the shell. With neither set the suite checks the portal's own screens and exits **2**, never 0, rather than reporting a sign-in it did not do. | The account itself, made in the dashboard |
 
 **Replacing one.** A new mail password: save it to `~/.trackit-smtp` and re-run `npm run
 setup:auth` with the same `--smtp-*` arguments — the password is written on every run precisely
 because Supabase never reads it back, so rotating is that one command. A new personal access
-token: nothing to update, it is only ever typed. **A leaked one should be revoked where it was
+token: nothing to update, it is only ever typed. A new account password: change it in the dashboard
+and export the new one next time — nothing in the tree remembers the old one. **A leaked one should be revoked where it was
 issued** (Supabase: Account → Access Tokens; Resend: API Keys), not here: revoking is the only
 thing that actually stops it.
 
