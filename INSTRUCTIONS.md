@@ -153,9 +153,9 @@ left out and why.
 - **The 8px grid is real.** Heights, gaps and paddings are the artboard's multiples of
   4/8 (`p-4`, `gap-2`, `h-11`), and a card's height comes from the design rather than
   from its content. Numbers that look arbitrary — 358×128 for a card, 104px for the
-  scan band, 224/176/160/280 for the dashboard's cards, and the account band's 224 of card
-  plus the 288 the pinned pill grew it to — are the artboard's, so keep
-  them together with the comment that says where they came from.
+  scan band, 224/176/160/280 for the dashboard's cards, and the account band's 224 — which is
+  the card's own height, since the band is only ever as tall as the cards in it — are the
+  artboard's, so keep them together with the comment that says where they came from.
 - **A fixed height is a promise about its content, and the content has to keep it.** Two
   cards were breaking that promise, and both are content-sized rather than re-tuned. The
   recent card is a 48px header and **three** 64px rows inside its 280px, so the derived
@@ -199,14 +199,17 @@ left out and why.
   per account (`components/BalanceCards.tsx`), so the screen finally draws the accounts
   `lib/accounts.ts` has always carried instead of only their sum. Three things are the
   owner's rather than the artboard's: **the pill is pinned** (the export draws one inside
-  each card, so it would travel with the drag) at the export's own 8px right inset; and it
-  is **below the card rather than inside it** — the owner asked for air between the two, so
-  it starts 240px down (the card's own bottom edge is 224: a 40px seat plus 184 of card),
-  which is a 16px gap, and the band grew from the artboard's 224px to **288px** (240 + the
-  48px pill) so the pill stays inside the band and the column's 8px gap still separates it
-  from the quick-log row. The 8px right inset is unchanged on purpose: it is what keeps the
-  pill's right edge lined up with the card's, so **do not trade that alignment away** for
-  more padding — the gap goes vertically, never horizontally; **the
+  each card, so it would travel with the drag) at the export's own 8px right inset, and it
+  **ends on the card's own bottom edge** — the card's 184px sits at a 40px seat, so its
+  bottom is 224, and the pill is `bottom-0` of a band that is that same 224. It is anchored
+  by a bottom edge rather than a top offset on purpose: the last version hung it 240px down
+  (16px below the card) and grew the band to 288, which left a gap the artboard never drew
+  and made the band taller than its own card. Its step is where it belongs — the card cuts a
+  notch out of its bottom-right corner for exactly this control — and the extra 4px on the
+  pill's **left** padding is the only thing about it that is not the artboard's. The 8px
+  right inset is unchanged: it is what keeps the pill's right edge lined up with the card's,
+  so **do not trade that alignment away** — padding goes to the pill's own left, never to its
+  right; **the
   release re-stacks** — the export drops the front card 160px and re-indexes 300ms later,
   which drew a card below the band over the quick-log row, so the pulled card instead
   travels up to the back seat while the card behind takes the front, with no drop and no
@@ -309,7 +312,7 @@ left out and why.
   Tailwind v4, and Helvetica Neue stays out of the sans stack for the reason below.
 - **The add-record pill is the manual entry's door.** The dashboard's pinned pill (over the
   account stack, where the artboard drew "Add card") reads **Add Record** and opens
-  `features/manual-entry` — a full-screen spring sheet (380/32/0.8) that slides up, drags
+  `features/manual-entry` — a full-screen spring sheet (400/34/0.8) that slides up, drags
   down from its header, and dismisses past 150px. Inside: the amount at 56px Neue Haas
   Grotesk Display Bold with a 24px clay rupee superscript, the UPI/Cash tray, two journal
   lines whose placeholder is Anthropic Serif Text italic and whose typed value is upright
@@ -337,11 +340,19 @@ left out and why.
   the add-record pill opens it — and the pill hands in `null`, because a blank entry is what *it*
   means. The screen unmounts with the sheet, which is why the seed cannot outlive one open. The
   sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up
-  from the 15px captions the same face sets elsewhere. **On the add-record screen that title is
-  the Expense/Income switch** (the owner's ask: one screen records both directions): two
-  segments in a `bg-card` tray, the live one on a `bg-canvas` seat, `role="radiogroup"` named
-  *Record type*, ticking at the light weight and keeping its presses off the header's drag. It
-  is a **kind, not a sign** — `ManualEntry.kind` goes into the row's `kind`, `amountCents` stays
+  from the 15px captions the same face sets elsewhere — and it is a *title*, not a control, and
+  it follows the kind (`New income` / `New expense`), because the header is also the sheet's
+  drag handle. **The Expense/Income rail sits in the column, between the account rail and the
+  merchant line** (the owner's ask, and the order an entry is thought through: which account,
+  which direction, then who): `SegmentRow` renders both rails — `UPI | CASH` and
+  `EXPENSE | INCOME` — as one component, so neither can drift from the other's geometry, type
+  or physics. Each rail is a full-width `rounded-[20px]` `bg-card` box with a 1px `border-line`
+  and `p-1`, each segment a **48px** row, its label the reading face at 11px **bold, uppercase,
+  tracked 0.04em**, unselected at `text-ink2` (the ink token at 60%), `role="radiogroup"`, and
+  the live seat a `bg-canvas` capsule on its own `layoutId` — `activeSegmentIndicator-<rail>`,
+  one per rail, because a capsule that could glide *between* two unrelated questions would look
+  like the account selection moving sideways when the kind changed. Each capsule glides on
+  450/28 (snappier than the sheet's own 400/34). It is a **kind, not a sign** — `ManualEntry.kind` goes into the row's `kind`, `amountCents` stays
   positive, and every "spent" figure in `lib/derive.ts` filters on the kind, so an income can
   never be counted as spending. Switching kind clears the category and remounts the mosaic,
   because the picker draws a **second tree** for money in: the same six-tile bento, its parents
@@ -351,8 +362,23 @@ left out and why.
   `checks-coupons`, `lending-renting`, `income-lottery`, `income-child-support`, `allowance`),
   with the same pixel geometry as the expense mosaic. The confirm reads **Add Income** for money
   in and **Add Record** for money out, the rupee mark turns sage, and the journal line asks *Who
-  paid you?*. **A scanned payment never shows the switch**: a code being paid is always money
-  out, so that screen keeps the plain `New expense` title.
+  paid you?*. **A scanned payment never shows the rail**: a code being paid is always money
+  out, so that screen keeps the plain `New expense` title and the payee's box takes the
+  account rail's own 58px.
+  **The column arrives after the sheet does.** The two rails, the journal pair and the mosaic
+  are one staggered reveal (`REVEAL`/`REVEAL_ROW` in `ManualEntryScreen.tsx`): 12px low and
+  transparent, then in place, top to bottom, 50ms apart, 350ms each, starting 120ms after the
+  sheet begins — the one orchestrated moment on the screen, because everything else here answers
+  a thumb. **The keypad is one card, not twelve buttons**: `Keypad.tsx` draws a
+  `rounded-[20px]` `bg-card` box with a 1px border over a `grid` whose `gap-px` exposes the
+  card's own `bg-line` as the partition between neighbours (one background doing the work of
+  eleven dividers, and a single hairline at the outer edge), each cell 48×48, the digits in the
+  **display** face at 20px, `whileHover` 0.98, `whileTap` 0.94 on a stiff 600/15 spring, and the
+  pressed state a 6% mix of the page's own ink so it is a shade of whichever palette is on.
+  **The amount canvas yields to the column.** Its height is `min(35%, 100% - 555px)`, never below
+  its 192px floor: the column's rows (two rails, two journal lines, the category row, the keypad
+  card and the confirm) are 555px whatever the window is, and on a 390×844 artboard the canvas
+  gives up 20 of its 295 so the whole column fits — on a 761px laptop window it gives up 74.
   **The same sheet is the scanner's payment
   screen** (see the UPI bullet below): the tray gives its 56px to a box naming the payee, the
   keypad may arrive prefilled with the code's own amount, and the confirm reads **Pay and Log
@@ -394,10 +420,11 @@ left out and why.
   animation is a decision, not an implementation detail. It used to be two elements sharing
   a Framer `layoutId`, and the morph scaled the whole mosaic (tiles stretched non-uniformly,
   the card translucent for long enough that the leaving keypad showed through it) while the
-  exiting keypad kept its 248px in the flow, so the panel grew part of the way, stalled, and
+  exiting keypad kept its 203px in the flow, so the panel grew part of the way, stalled, and
   snapped the last 265px in one frame. Three things hold the current behaviour up: the panel
   is one `motion.div` with `animate={{ height }}` and **no `layoutId`**; `ManualEntryScreen`
-  measures the room the panel may take (column height less the account tray and one gap) and
+  measures the room the panel may take (column height less **both rails** and the gap between
+  them and the panel — `topCard` and `kindRow`, 58 + 8 + 58 on the add-record screen) and
   passes it down as `room`; and the keypad leaves with `AnimatePresence mode="popLayout"` so
   it vacates the layout on the first frame while it slides away, with the panel at
   `relative z-10` over it. The journal lines deliberately stay *in* the flow on the way
@@ -504,14 +531,24 @@ left out and why.
 npm run typecheck    # tsc over the app and the Worker's project
 npm run build        # typecheck + a production build
 npm run lint         # oxlint
+npm run check:flows  # the three key flows, driven in Chrome over CDP
 ```
+
+`check:flows` (`tools/flows.mjs`) is the portable half of the driving below: it launches its
+own Chrome on a throwaway profile, starts the dev server if one is not already up, and asserts
+the add-record rail and both kinds, a scanned code's payment screen, the Friends pill and its
+reload, and the date card's opening moment, swipe paging and `done` — with real mouse input,
+not `element.click()`, because a control under a drag layer still "clicks" from a script. It
+exits 1 on a failed assertion and 2 when it cannot run at all (no Chrome, or the app never
+answered), so a green run is never a missing browser. Keep it green: a new flow belongs there
+rather than in a one-off probe.
 
 Then drive the app. What is worth exercising for a change in these areas:
 
 | Changed | Check |
 | --- | --- |
 | A screen's layout | computed heights/positions against the artboard values, and a screenshot at 390×1100 |
-| The account stack's pill | at 390 wide: the band is 288px, the front card's bottom edge is at 224 inside it, the pill's top is 240 (**a 16px gap**) and its bottom is the band's own 288, its right edge is 8px inside the card's (`right: 374` against the pill's `366` — the alignment the owner asked to keep), and the quick-log band starts 8px below the pill; pulling a card past 40px still re-stacks it without moving the pill |
+| The account stack's pill | at 390 wide: the band is **224px** — the front card's own height (a 40px seat plus 184), its bottom edge 224 from the band's top — the pill's bottom is that same edge (**`bottom-0`**, so no gap and nothing hanging below the stack), its right edge 8px inside the card's (`right: 374` against the pill's `366`, the alignment the owner asked to keep), and the quick-log band starts 8px below the band; pulling a card past 40px still re-stacks it without moving the pill |
 | The palettes | every palette in `PALETTES` has a stylesheet block and the boot table, and its `canvas` matches both; each block states **all twenty-one tokens** (a missing one silently inherits the block above it) and `color-scheme` agrees with the register's theme. For each one: canvas, card, hairline and ink by computed style (read *after* the 120ms repaint — a read in the same task catches the previous palette, because the tokens transition); the toggle's `aria-pressed`, its label, and the stored choice after a reload; a browser holding only the legacy `trackit-theme` lands on that theme's default palette; and **the dark palette picked before the toggle is still the one it comes back to** (`trackit-palette-<theme>`). Contrast, per palette: ink-on-canvas, ink-on-card, ink2-on-card, on-clay-on-clay and on-sage-on-sage — the artboards' own paper sits at 15.06 / 16.26 / 4.34 / 5.57 / 4.33, and a new sample should not be worse than the paper it is a variation of. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame *from inside the change* (start the sampler, then perform the change in the same task, so the zero point is the click rather than the round trip), compare each element against its own final value, and repeat across a toggle, a same-theme pick and a cross-theme pick. `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
@@ -520,7 +557,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
 | The add-record date and time | the pill reads `Today · 2:14 PM` on the amount canvas's top-right (the sheet's own clock) and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected and the time on the current minute; the next chevron and every future day are disabled, *now* puts day and time back on the current moment, and a previous month's chevron works and is unbounded backwards; **a swipe across the grid pages a month each way and never picks the day under the finger**, and the day travels with the month (its number clamped, never past today); **nothing closes the card but `done`** — no ✕ is drawn, a tap on the scrim leaves it open, and it is still open after several idle seconds and after the platform's own time field has been used — while Escape cancels on a desk; tapping the 12th leaves the card open and selects the 12th; setting `09:40` and pressing **done** relabels the pill `Oct 12, 2026 · 9:40 AM`; confirming writes a row whose `at` is that day at 09:40 (not midnight, not now, and in that day's order), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment wears the same pill and logs at the moment it shows |
-| The add-record switch (expense/income) | the header carries a **Record type** radiogroup only on the add-record screen — a scanned code's payment screen has the plain `New expense` title and no switch; **Income** draws the income mosaic (Salary & bonus / Interest / Freelance / Refunds / Gifts & winnings / Other) at the **same pixel geometry** as the expense tiles, its pills file `wage-invoices` / `interests-dividends` / `dues-grants` / `refunds` / `income-gifts` / `income` and their children, the rupee mark turns sage, the journals ask *Who paid you?*, and the confirm reads **Add Income**; confirming appends one row with `kind: "income"` — so no spent figure, envelope or budget on either screen moves — and its ledger card is the sage `+₹…` one under the *Income* tag; switching back to Expense clears the category, and no expense category can be carried into the income tree or the reverse. The **Friends** pill sits under **Life & Leisure** (the tile's caption is capitalised like that, not `Life & leisure`), files the row as `category: "friends"`, and that id **survives a reload** — `lib/refile.ts` must not move it to `life-entertainment` |
+| The add-record switch (expense/income) | the **Record type** radiogroup sits in the column between the **Account** rail and the merchant line — 8px from each, both rails the same 58px box — and exists only on the add-record screen: a scanned code's payment screen has the plain `New expense` title and no rail; the header's title follows the kind (`New income` / `New expense`); each rail's labels are 11px uppercase tracked 0.04em, the unselected one at `text-ink2`; **Income** draws the income mosaic (Salary & bonus / Interest / Freelance / Refunds / Gifts & winnings / Other) at the **same pixel geometry** as the expense tiles, its pills file `wage-invoices` / `interests-dividends` / `dues-grants` / `refunds` / `income-gifts` / `income` and their children, the rupee mark turns sage, the journals ask *Who paid you?*, and the confirm reads **Add Income**; confirming appends one row with `kind: "income"` — so no spent figure, envelope or budget on either screen moves — and its ledger card is the sage `+₹…` one under the *Income* tag; switching back to Expense clears the category, and no expense category can be carried into the income tree or the reverse. The **Friends** pill sits under **Life & Leisure** (the tile's caption is capitalised like that, not `Life & leisure`), files the row as `category: "friends"`, and that id **survives a reload** — `lib/refile.ts` must not move it to `life-entertainment` |
 | The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading **Pay and Log Transaction** (not **Add Record**), the date and time pill present and starting on the current moment (`at` on the logged row follows it), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
 | The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
 | The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |

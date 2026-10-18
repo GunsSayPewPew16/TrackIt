@@ -21,10 +21,15 @@ npm install          # installs the root tooling and the app (see app/)
 npm run dev          # the app on http://127.0.0.1:4323
 npm run typecheck    # app + the Worker's own project
 npm run build        # typecheck, then a production build into app/dist
+npm run check:flows  # drives the app in a real Chrome and asserts the key flows
 ```
 
 `npm run lint` (oxlint) and `npm run preview` (serve the built output) are there
-too. Every script at the root is a thin wrapper around `app/`, so the app can also
+too. `check:flows` is the one that catches a regression the type checker cannot: it
+starts its own browser on a throwaway profile and presses through the add-record
+screen (both kinds, and a scanned payment), the Friends pill and the date card with
+real input, so a screen that still builds but no longer works fails a command
+(`tools/flows.mjs`; Chrome, and a dev server it will start itself if none is up). Every script at the root is a thin wrapper around `app/`, so the app can also
 be worked on directly: `cd app && npm run dev`.
 
 ## The screens
@@ -34,8 +39,9 @@ hello in a different language every time the app is opened, see *The greeting* b
 with its
 two round header controls; the stack of account cards, one per account, which is what
 the newer artboard drew in place of the single balance box — pull the front card down
-and it goes to the back of the stack, with the "Add card" pill pinned where it was — a
-16px gap under the card's bottom edge now, and still lined up with the card's right edge; a
+and it goes to the back of the stack, with the "Add card" pill pinned where it was: its
+bottom edge on the card's own bottom edge, sitting in the notch the card cuts out of its
+bottom-right corner, and lined up with the card's right edge; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
 side, the **F&B budget** (what Food & Beverages has taken this month out of the owner's
@@ -60,8 +66,9 @@ expenses, sage for money in. **A hold on a card asks to delete that row** and th
 names it before it goes, which is the only way to take an entry back.
 
 **The add-record sheet** is where a row is typed: the amount at 56px with its rupee mark
-above it, the UPI/Cash tray, two journal lines, the six Wallet dimensions as a mosaic, and
-the keypad. It records **both directions**: an **Expense / Income** switch in the header is
+above it, the UPI/Cash tray, the **Expense / Income** rail, two journal lines, the six Wallet
+dimensions as a mosaic, and the keypad — one card with hairline partitions between its keys
+rather than twelve floating buttons. It records **both directions**: that rail is
 the whole difference — income draws a second six-tile tree (Salary & Bonus, Interest,
 Freelance, Refunds, Gifts & Winnings, Other, every pill a real Wallet income envelope), the
 rupee mark turns sage, the journal asks *Who paid you?*, the confirm reads **Add Income**,
@@ -80,7 +87,12 @@ because nothing defaults to midnight. The pill is on
 the canvas rather than in the column because the closed column is exactly full on a 390×844
 phone, and the **scanned payment screen** wears the same pill: a receipt is often typed up
 after the fact, so it too starts on the current moment and can be moved back — it is a
-payment, so it never shows the Expense/Income switch.
+payment, so it never shows the Expense/Income rail.
+
+**The tab carries the owner's own mark.** The logo in the browser tab is the
+interlocking T the owner drew (`app/public/favicon.png`, 512px on its own black field). It
+is the only place the mark appears: no screen draws it, and the install icons under
+`app/public/icons/` are the previous tile.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
