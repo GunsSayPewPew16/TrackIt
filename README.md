@@ -58,16 +58,28 @@ the faces on the step, in one of three treatments — plain, clay for a month's 
 expenses, sage for money in. **A hold on a card asks to delete that row** and the panel
 names it before it goes, which is the only way to take an entry back.
 
-**The add-record sheet** is where a row is typed: the amount at 56px with a clay rupee
+**The add-record sheet** is where a row is typed: the amount at 56px with its rupee mark
 above it, the UPI/Cash tray, two journal lines, the six Wallet dimensions as a mosaic, and
-the keypad. A small **date and time pill** in the amount canvas's top-right reads
+the keypad. It records **both directions**: an **Expense / Income** switch in the header is
+the whole difference — income draws a second six-tile tree (Salary & Bonus, Interest,
+Freelance, Refunds, Gifts & Winnings, Other, every pill a real Wallet income envelope), the
+rupee mark turns sage, the journal asks *Who paid you?*, the confirm reads **Add Income**,
+and the row lands with `kind: "income"`, which is what keeps a wage out of every "spent this
+month" figure. The mosaic is the same bento either way — same tiles, same pixel geometry —
+and one of its pills is new: **Friends**, under **Life & Leisure**. A small **date and time
+pill** in the amount canvas's top-right reads
 `Today · 2:14 PM` and opens a month grid with a clock under it, so an expense remembered too
 late is filed on the day **and at the hour** it happened — it starts on the current moment,
 a tapped day keeps the time, the field sets the time on that day, and `now` puts both halves
-back. Nothing is written at midnight because nothing defaults to midnight. The pill is on
+back. **The months cycle** — the chevrons step one, and the grid is dragged sideways, the
+day travelling with the month — and **`done` is the only way out**: there is no ✕ and the
+dim behind the card is not a door, because on a phone the tap that dismisses the platform's
+own time wheel used to land on it and throw the draft away. Nothing is written at midnight
+because nothing defaults to midnight. The pill is on
 the canvas rather than in the column because the closed column is exactly full on a 390×844
 phone, and the **scanned payment screen** wears the same pill: a receipt is often typed up
-after the fact, so it too starts on the current moment and can be moved back.
+after the fact, so it too starts on the current moment and can be moved back — it is a
+payment, so it never shows the Expense/Income switch.
 
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px

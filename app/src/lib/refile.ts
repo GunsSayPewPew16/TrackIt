@@ -4,7 +4,7 @@
  *
  * The ledger was imported from Wallet, and Wallet's tree is deeper than the picker in
  * `features/manual-entry/CategoryMatrix.tsx`: it has envelopes the matrix has no tile
- * for (`Friends`, `Stationery, tools`, `Culture, sport events`, `Long distance`) and it
+ * for (`Stationery, tools`, `Culture, sport events`, `Long distance`) and it
  * names others in a wording the new tiles have moved past (`Mobile Recharge` where the
  * matrix now says **Internet & Mobile**, `Phone, cell phone` likewise). Every row still
  * had to be *somewhere*, so the old ids stayed and the ledger read in a vocabulary the
@@ -20,9 +20,11 @@
  *
  * - **Nearest, not tidiest.** `Mobile Recharge` is the same money as `Internet` on a
  *   phone bill, so it is re-homed to `internet` and reads *Internet & Mobile*. Where
- *   nothing is near — `Friends` is social spending with no envelope of its own — the row
- *   goes to the parent dimension (`life-entertainment`, *Life & Leisure*) rather than
- *   being forced into a leaf that would misname it.
+ *   nothing is near — `Culture, sport events` is spending with no envelope of its own —
+ *   the row goes to the parent dimension (`life-entertainment`, *Life & Leisure*) rather
+ *   than being forced into a leaf that would misname it. **`friends` is deliberately not
+ *   here**: the matrix offers that envelope now (a *Friends* pill under Life & Leisure),
+ *   so the ledger keeps the owner's own filing instead of moving it up to the dimension.
  * - **Only an auto-filled title is renamed.** Wallet wrote a row's title as its
  *   category's name, so a title that still reads as one — either the app's current label
  *   for that envelope or the spelling the importer wrote before the table was re-labelled
@@ -46,9 +48,7 @@ import type { Budget, Row } from "./types"
  * not a new taxonomy.
  */
 const REHOMED: Record<string, string> = {
-  // Social spending has no leaf of its own: the dimension it belongs to is the honest home.
-  friends: "life-entertainment",
-  // Culture and sport events, same reasoning.
+  // Culture and sport events have no leaf of their own: the dimension is the honest home.
   "culture-sport": "life-entertainment",
   // Pens, paper and tools are bought, which is what the Shopping dimension is.
   stationery: "shopping",
@@ -77,7 +77,6 @@ const WALLET_TITLES: Record<string, string[]> = {
   "culture-sport": ["Culture, sport events"],
   stationery: ["Stationery, tools"],
   "public-transport": ["Public transport"],
-  friends: ["Friends"],
   "books-subs": ["Books, audio, subscriptions"],
   wellness: ["Wellness, beauty"],
   "mobile-recharge": ["Mobile Recharge"],

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 import { join } from "@/lib/classes"
 import {
@@ -14,7 +14,7 @@ import {
   startOfMonth,
   timeFieldValue,
 } from "@/lib/format"
-import { lightTap, mediumClick } from "@/lib/haptics"
+import { lightTap } from "@/lib/haptics"
 
 /**
  * The add-record sheet's date **and time** picker.
@@ -32,6 +32,13 @@ import { lightTap, mediumClick } from "@/lib/haptics"
  * two taps, and its clothes are the app's own — the 20px radii, the hairline, the display
  * face for the month, the editorial italic for the question — because no artboard draws it.
  *
+ * **The months cycle.** The chevrons step one month, and the grid itself is dragged
+ * sideways: the month follows the finger under a little elastic, and past ~32px or a flick
+ * it pages — backwards without limit, forwards only as far as the current month, because an
+ * expense cannot have happened tomorrow. A swipe is also *not* a tap: for a beat after one,
+ * a day button ignores the click the browser sends when the finger leaves it, so paging
+ * never quietly moves the selection.
+ *
  * **The time is the platform's own field.** A `time` input is a wheel on iOS and Android and
  * a typed `HH:MM` on a desk, with the device's own 12- or 24-hour reading of it; rolling a
  * time picker by hand would be this app's taste rather than the owner's clock. Its value is
@@ -39,15 +46,16 @@ import { lightTap, mediumClick } from "@/lib/haptics"
  * the two clocks meet.
  *
  * **A day is chosen; the pair is committed.** Tapping a day moves the selection and leaves
- * the card open, because the next thing the owner usually wants is the time — a `done` that
- * closed on the day would make them reopen it. `done` is what hands the moment back, and
- * closing any other way (the ✕, the scrim, Escape) throws the draft away, so the sheet behind
- * can never be changed by a mistaken tap.
+ * the card open, because the next thing the owner usually wants is the time. **`done` is the
+ * only way out** — there is no ✕ and the scrim is not a door: the card used to close on a
+ * scrim click, and on a phone the tap that dismisses the platform's time wheel lands on that
+ * scrim, so adjusting the time threw the whole draft away. Since the card always opens on the
+ * moment the pill is already showing, pressing `done` without touching anything changes
+ * nothing, which is what makes a cancel unnecessary. On a desk, Escape is still the way out.
  *
  * **Forward is closed, not merely greyed.** The right chevron and every day after today are
- * disabled at the current month: an expense cannot have happened tomorrow, and offering the
- * day would only invite a typo to land in the future. Backwards is unbounded, because the
- * owner's history is. `now` puts both halves back on the current moment.
+ * disabled at the current month. Backwards is unbounded, because the owner's history is.
+ * `now` puts both halves back on the current moment.
  *
  * Every control ticks at the light weight. There is no confirming thud here — the moment is
  * chosen, not committed; the sheet's own **Add Record** is where the thud lives.
@@ -55,6 +63,25 @@ import { lightTap, mediumClick } from "@/lib/haptics"
 const SPRING = { type: "spring", stiffness: 420, damping: 32 } as const
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]
 const DAY = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", year: "numeric" })
+
+/** A day cell: 36px, plus the 4px gap the grid leaves between rows. */
+const CELL = 36
+const GAP = 4
+
+/** How far a drag has to travel (or how hard it has to be flicked) to page a month. */
+const PAGE_DISTANCE = 32
+const PAGE_VELOCITY = 320
+
+/** The month arriving from the right when the finger went left, and the other way round. */
+const SHIFT = {
+  enter: (direction: number) => ({ x: direction * 28, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: direction * -28, opacity: 0 }),
+}
+
+/** How many days the month a moment falls in has. */
+const daysIn = (month: number): number =>
+  new Date(new Date(month).getFullYear(), new Date(month).getMonth() + 1, 0).getDate()
 
 export type DateDialogProps = {
   isOpen: boolean
@@ -74,7 +101,11 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
   const [month, setMonth] = useState(() => startOfMonth(value))
   const [day, setDay] = useState(() => startOfDay(value))
   const [minutes, setMinutes] = useState(() => minutesOfDay(value))
+  /** Which way the last month change travelled, so the next one slides with it. */
+  const [slide, setSlide] = useState(1)
   const [wasOpen, setWasOpen] = useState(false)
+  /** Clicks that belong to a swipe rather than to the day under the finger. */
+  const paged = useRef(0)
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen)
     if (isOpen) {
@@ -108,10 +139,32 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
 
   const first = new Date(startOfMonth(month))
   const lead = (first.getDay() + 6) % 7 // Monday-first, like the heatmap
-  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+  const length = daysIn(month)
+  const rows = Math.ceil((lead + length) / 7)
   const days = Array.from({ length }, (_, index) => addDays(first.getTime(), index))
 
+  /**
+   * Page to another month, and bring the selection with it.
+   *
+   * The day cannot stay behind: the grid is showing the month it is on, and `done` commits
+   * what the grid shows — a card browsing September that still held October's 18th would file
+   * a row nobody asked for. So the day keeps its number where that month has it (31 → 30 → 28),
+   * and never passes today, which is the same rule the day cells obey.
+   */
+  const shiftMonth = (delta: 1 | -1) => {
+    if (delta === 1 && atLatestMonth) return
+    lightTap()
+    const when = new Date(startOfMonth(month))
+    when.setMonth(when.getMonth() + delta)
+    const next = startOfMonth(when.getTime())
+    setSlide(delta)
+    setMonth(next)
+    const dayOfMonth = Math.min(new Date(day).getDate(), daysIn(next))
+    setDay(Math.min(addDays(next, dayOfMonth - 1), today))
+  }
+
   const choose = (picked: number) => {
+    if (Date.now() < paged.current) return
     lightTap()
     setDay(picked)
   }
@@ -128,13 +181,14 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* The dim is a dim: it keeps the sheet's keys behind the card, and pressing it
+              does nothing — the card is left deliberately with one exit, `done`. */}
           <motion.div
             key="date-dim"
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={onClose}
             aria-hidden="true"
             className="fixed inset-0 z-[60] bg-canvas"
           />
@@ -151,20 +205,7 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
               transition={SPRING}
               className="pointer-events-auto w-full max-w-[358px] rounded-[20px] border border-line bg-card p-4"
             >
-              <div className="flex items-start justify-between gap-4">
-                <p className="font-editorial text-[18px] leading-7 italic text-ink">When was this?</p>
-                <button
-                  type="button"
-                  aria-label="Close without changing the date or time"
-                  onClick={() => {
-                    mediumClick()
-                    onClose()
-                  }}
-                  className="grid size-8 flex-none place-items-center rounded-2xl border border-line bg-transparent text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
-                >
-                  <X strokeWidth={1.5} className="size-4" aria-hidden="true" />
-                </button>
-              </div>
+              <p className="font-editorial text-[18px] leading-7 italic text-ink">When was this?</p>
 
               <div className="mt-2 flex items-center justify-between">
                 <span className="font-display text-lg leading-6 font-medium tracking-[-0.01em] text-ink">
@@ -174,14 +215,7 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
                   <button
                     type="button"
                     aria-label="Previous month"
-                    onClick={() => {
-                      lightTap()
-                      setMonth((from) => {
-                        const when = new Date(from)
-                        when.setMonth(when.getMonth() - 1)
-                        return when.getTime()
-                      })
-                    }}
+                    onClick={() => shiftMonth(-1)}
                     className="grid size-8 place-items-center rounded-2xl border border-line bg-transparent text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
                   >
                     <ChevronLeft strokeWidth={1.5} className="size-4" aria-hidden="true" />
@@ -190,14 +224,7 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
                     type="button"
                     aria-label="Next month"
                     disabled={atLatestMonth}
-                    onClick={() => {
-                      lightTap()
-                      setMonth((from) => {
-                        const when = new Date(from)
-                        when.setMonth(when.getMonth() + 1)
-                        return when.getTime()
-                      })
-                    }}
+                    onClick={() => shiftMonth(1)}
                     className="grid size-8 place-items-center rounded-2xl border border-line bg-transparent text-ink outline-none transition-opacity disabled:opacity-25 focus-visible:ring-2 focus-visible:ring-ink"
                   >
                     <ChevronRight strokeWidth={1.5} className="size-4" aria-hidden="true" />
@@ -211,34 +238,65 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
                 ))}
               </div>
 
-              <div className="mt-1 grid grid-cols-7 gap-1">
-                {Array.from({ length: lead }, (_, index) => (
-                  <span key={`lead-${index}`} aria-hidden="true" />
-                ))}
-                {days.map((each) => {
-                  const future = each > today
-                  const selected = sameDay(each, day)
-                  return (
-                    <button
-                      key={each}
-                      type="button"
-                      disabled={future}
-                      aria-pressed={selected}
-                      aria-label={DAY.format(each)}
-                      onClick={() => choose(each)}
-                      className={join(
-                        "grid h-9 place-items-center rounded-xl font-sans text-[13px] leading-4 tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-25",
-                        selected
-                          ? "border border-sage bg-sage font-medium text-on-sage"
-                          : "border border-transparent text-ink hover:bg-line",
-                        !selected && sameDay(each, today) && "border-sage text-sage",
-                      )}
-                    >
-                      {new Date(each).getDate()}
-                    </button>
-                  )
-                })}
-              </div>
+              {/* The grid's own box, sized by the month showing: a five-row February must not
+                  leave a row's worth of blank card, and the box animates when the month does. */}
+              <motion.div
+                animate={{ height: rows * CELL + (rows - 1) * GAP }}
+                transition={{ duration: 0.18 }}
+                className="relative mt-1 overflow-hidden"
+              >
+                <AnimatePresence initial={false} custom={slide} mode="popLayout">
+                  <motion.div
+                    key={month}
+                    custom={slide}
+                    variants={SHIFT}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.16, ease: "easeOut" }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.12}
+                    dragMomentum={false}
+                    onDragEnd={(_, info) => {
+                      const pushed = info.offset.x + info.velocity.x * 0.08
+                      if (Math.abs(pushed) < PAGE_DISTANCE && Math.abs(info.velocity.x) < PAGE_VELOCITY) return
+                      // The click the browser sends after a finger leaves a day button is
+                      // part of the swipe, not a choice of that day.
+                      paged.current = Date.now() + 320
+                      shiftMonth(pushed < 0 ? 1 : -1)
+                    }}
+                    className="absolute inset-x-0 top-0 grid grid-cols-7 gap-1"
+                  >
+                    {Array.from({ length: lead }, (_, index) => (
+                      <span key={`lead-${index}`} aria-hidden="true" />
+                    ))}
+                    {days.map((each) => {
+                      const future = each > today
+                      const selected = sameDay(each, day)
+                      return (
+                        <button
+                          key={each}
+                          type="button"
+                          disabled={future}
+                          aria-pressed={selected}
+                          aria-label={DAY.format(each)}
+                          onClick={() => choose(each)}
+                          className={join(
+                            "grid h-9 place-items-center rounded-xl font-sans text-[13px] leading-4 tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-25",
+                            selected
+                              ? "border border-sage bg-sage font-medium text-on-sage"
+                              : "border border-transparent text-ink hover:bg-line",
+                            !selected && sameDay(each, today) && "border-sage text-sage",
+                          )}
+                        >
+                          {new Date(each).getDate()}
+                        </button>
+                      )
+                    })}
+                  </motion.div>
+                </AnimatePresence>
+              </motion.div>
 
               {/*
                 The clock. The italic label says what the field is rather than naming the
@@ -266,6 +324,7 @@ export function DateDialog({ isOpen, value, now, onClose, onPick }: DateDialogPr
                   type="button"
                   onClick={() => {
                     lightTap()
+                    setSlide(-1)
                     setMonth(startOfMonth(now))
                     setDay(today)
                     setMinutes(minutesOfDay(now))

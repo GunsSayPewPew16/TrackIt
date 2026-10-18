@@ -61,8 +61,9 @@ export function ManualEntrySheet({ isOpen, category, payee, onClose, onSubmit }:
             key="sheet"
             role="dialog"
             aria-modal="true"
-            // The same sheet, named for what it does: a scanned code's open is a payment.
-            aria-label={payee ? "Pay and log transaction" : "Manual expense entry"}
+            // The same sheet, named for what it does: a scanned code's open is a payment,
+            // and the add-record open records either direction.
+            aria-label={payee ? "Pay and log transaction" : "Manual record entry"}
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}

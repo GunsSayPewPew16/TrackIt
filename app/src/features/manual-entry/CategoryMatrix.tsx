@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  Banknote,
   BookOpen,
+  Briefcase,
   Bus,
   Car,
   Coffee,
@@ -15,12 +17,14 @@ import {
   Laptop,
   Layers,
   Music4,
+  RotateCcw,
   ShieldAlert,
   Shirt,
   ShoppingCart,
   Sparkles,
   TrendingUp,
   Tv,
+  Users,
   Utensils,
   Wifi,
   Wine,
@@ -33,11 +37,21 @@ import { useEffect, useRef, useState } from "react"
 import { RowIcon } from "@/components/RowIcon"
 import { join } from "@/lib/classes"
 import { lightTap } from "@/lib/haptics"
+import type { Kind } from "@/lib/types"
 
 /**
  * The category picker: a closed row that unfolds into BudgetBakers' six parent
  * dimensions as an asymmetric bento mosaic, and then unfolds again — per parent —
  * into the sub-categories that actually file the row.
+ *
+ * **It has two trees, because the sheet records two kinds of money.** An expense is
+ * filed under the six spending dimensions; an income is not spending and has no home
+ * there — Salary is not Shopping, and filing it under one would make the dashboard's
+ * breakdown count a wage as a purchase. So the sheet's Expense/Income switch hands this
+ * component a `kind`, and it draws the same bento with six income parents instead
+ * (`Salary`, `Freelance`, `Interest`, `Refunds`, `Gifts`, `Other`), every pill pointing at
+ * a `lib/categories.ts` envelope from Wallet's Income group. The bento is the same shape
+ * in both — six tiles, the same areas — so switching kind never resizes the panel.
  *
  * **The mosaic is the parent tree.** Food & Beverages and Shopping get the wide 2×1
  * blocks because they are where the money goes; Life & Leisure gets the 2×2 and
@@ -86,7 +100,7 @@ type MatrixCategory = {
   children: SubCategory[]
 }
 
-const MATRIX: MatrixCategory[] = [
+const EXPENSES: MatrixCategory[] = [
   {
     id: "food-drinks",
     name: "Food & Beverages",
@@ -143,7 +157,7 @@ const MATRIX: MatrixCategory[] = [
   {
     id: "life-entertainment",
     name: "Life & Leisure",
-    short: "Life & leisure",
+    short: "Life & Leisure",
     tone: "teal",
     area: "col-span-2 row-span-2",
     children: [
@@ -152,6 +166,10 @@ const MATRIX: MatrixCategory[] = [
       { key: "gym", id: "active-sport", label: "Gym & Fitness", icon: Dumbbell },
       { key: "books", id: "books-subs", label: "Books & Education", icon: BookOpen },
       { key: "hobbies", id: "hobbies", label: "Hobbies", icon: Compass },
+      // Money spent on other people: Wallet has always had this envelope, and the
+      // ledger has been re-homing it to the dimension because the tray could not offer
+      // it (`lib/refile.ts`). The pill is that envelope back where it belongs.
+      { key: "friends", id: "friends", label: "Friends", icon: Users },
     ],
   },
   {
@@ -169,6 +187,92 @@ const MATRIX: MatrixCategory[] = [
   },
 ]
 
+/**
+ * The same bento, for money coming in.
+ *
+ * Six parents so the mosaic keeps its shape, and every id is already in Wallet's Income
+ * group — nothing is invented for the picker (`lib/categories.ts` is still the one table
+ * of envelopes). The parent's own id is what the row is filed under when its tray is
+ * opened and closed with **Done**, so each tile is a sensible answer on its own: Salary
+ * files `wage-invoices`, Gifts files `income-gifts`. Where two pills share an envelope —
+ * Salary and Bonus are both `wage-invoices` — `key` tells them apart, exactly as the
+ * expense pills do for the cafe and the bar.
+ */
+const INCOMES: MatrixCategory[] = [
+  {
+    id: "wage-invoices",
+    name: "Salary & Bonus",
+    short: "Salary & bonus",
+    tone: "gold",
+    area: "col-span-2",
+    children: [
+      { key: "salary", id: "wage-invoices", label: "Salary", icon: Banknote },
+      { key: "bonus", id: "wage-invoices", label: "Bonus", icon: Sparkles },
+      { key: "allowance", id: "allowance", label: "Allowance", icon: Coins },
+    ],
+  },
+  {
+    id: "interests-dividends",
+    name: "Interest & Dividends",
+    short: "Interest",
+    tone: "teal",
+    area: "",
+    children: [
+      { key: "interest", id: "interests-dividends", label: "Interest & Dividends", icon: TrendingUp },
+      { key: "rental", id: "rental-income", label: "Rental Income", icon: Key },
+    ],
+  },
+  {
+    id: "dues-grants",
+    name: "Freelance & Grants",
+    short: "Freelance",
+    tone: "indigo",
+    area: "col-span-2",
+    children: [
+      { key: "freelance", id: "dues-grants", label: "Freelance & Consulting", icon: Briefcase },
+      { key: "grants", id: "dues-grants", label: "Grants & Dues", icon: FileText },
+      { key: "sale", id: "sale", label: "Sold Something", icon: ShoppingCart },
+    ],
+  },
+  {
+    id: "refunds",
+    name: "Refunds",
+    short: "Refunds",
+    tone: "red",
+    area: "",
+    children: [
+      { key: "refund", id: "refunds", label: "Refunds", icon: RotateCcw },
+      { key: "coupons", id: "checks-coupons", label: "Checks & Coupons", icon: FileText },
+    ],
+  },
+  {
+    id: "income-gifts",
+    name: "Gifts & Winnings",
+    short: "Gifts & winnings",
+    tone: "gold",
+    area: "col-span-2 row-span-2",
+    children: [
+      { key: "gifts", id: "income-gifts", label: "Gifts Received", icon: Gift },
+      { key: "lending", id: "lending-renting", label: "Lending & Renting", icon: Coins },
+      { key: "winnings", id: "income-lottery", label: "Lottery & Winnings", icon: Sparkles },
+    ],
+  },
+  {
+    id: "income",
+    name: "Other Income",
+    short: "Other",
+    tone: "teal",
+    area: "row-span-2",
+    children: [
+      { key: "other", id: "income", label: "Other Income", icon: Banknote },
+      { key: "child-support", id: "income-child-support", label: "Child Support", icon: Users },
+    ],
+  },
+]
+
+/** Which tree the mosaic draws for a kind of money. */
+const TREES: Record<Kind, MatrixCategory[]> = { expense: EXPENSES, income: INCOMES }
+
 const SPRING = { type: "spring", stiffness: 320, damping: 30 } as const
 /** How long a pick stays on screen before the panel folds back to its one row. */
 const COLLAPSE_DELAY = 250
@@ -178,6 +282,8 @@ const edge = (tone: Tone) => `color-mix(in srgb, var(--data-${tone}) var(--tint-
 const pillWash = (tone: Tone) => `color-mix(in srgb, var(--data-${tone}) var(--tint-pill), transparent)`
 
 interface CategoryMatrixProps {
+  /** Whether the entry being filed is money out or money in — which tree it draws. */
+  kind: Kind
   value: string | null
   expanded: boolean
   /** The height the open panel may occupy: the sheet's room for it, measured by the screen. */
@@ -187,7 +293,7 @@ interface CategoryMatrixProps {
   onSelect: (id: string) => void
 }
 
-export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, onSelect }: CategoryMatrixProps) {
+export function CategoryMatrix({ kind, value, expanded, room, onExpand, onCollapse, onSelect }: CategoryMatrixProps) {
   const timer = useRef<number | undefined>(undefined)
   /** Which parent's tray is open. One at a time: the mosaic is the switcher. */
   const [open, setOpen] = useState<string | null>(null)
@@ -200,7 +306,8 @@ export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, on
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
-  const owner = MATRIX.find((parent) => parent.id === value || parent.children.some((child) => child.id === value)) ?? null
+  const matrix = TREES[kind]
+  const owner = matrix.find((parent) => parent.id === value || parent.children.some((child) => child.id === value)) ?? null
   const chosen =
     (picked && owner?.children.find((child) => child.key === picked && child.id === value)) ||
     owner?.children.find((child) => child.id === value) ||
@@ -338,7 +445,7 @@ export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, on
           aria-label="Categories"
           className="grid min-h-0 flex-1 grid-cols-3 grid-rows-4 gap-2"
         >
-          {MATRIX.map((parent) => {
+          {matrix.map((parent) => {
             const isSelected = owner?.id === parent.id
             const dimmed = value !== null && !isSelected
             return (
@@ -375,7 +482,7 @@ export function CategoryMatrix({ value, expanded, room, onExpand, onCollapse, on
           cannot stack two trays and squeeze the mosaic twice on its way there.
         */}
         <AnimatePresence initial={false} mode="popLayout">
-          {MATRIX.filter((parent) => parent.id === open).map((parent) => (
+          {matrix.filter((parent) => parent.id === open).map((parent) => (
             <motion.div
               key={parent.id}
               id={`category-tray-${parent.id}`}

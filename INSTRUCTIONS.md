@@ -101,7 +101,9 @@ knows which producer filled them:
 place that knows both vocabularies: an envelope the six dimensions cannot offer is re-homed
 to the nearest id that exists (`mobile-recharge` and `phone` → `internet`, `stationery` →
 `shopping`, `education` → `books-subs`, `wellness` → `health-beauty`, `long-distance` →
-`transportation`, and `friends` / `culture-sport` → `life-entertainment`), a title that still
+`transportation`, and `culture-sport` → `life-entertainment`; `friends` used to be re-homed
+there too and is **not any more**, because the picker offers that envelope — see the add-record
+bullet below), a title that still
 reads as an envelope's own name — Wallet's longer spelling included, see `WALLET_TITLES` — is
 replaced with the new name, and `filedName()` is what every screen calls a category by, so
 the ledger reads *Restaurants* / *Internet & Mobile* / *Food & Beverages* where the table still
@@ -296,7 +298,10 @@ left out and why.
   every pill files under a real `lib/categories.ts` id rather than an invented leaf: where
   Wallet has one envelope for two intents (`bar-cafe` is the cafe and the bar, `tv-streaming`
   is Spotify and everything else you subscribe to) two pills share the id and are told apart
-  by key. The closed row reads `Parent • Sub` — sans, bullet, editorial serif italic at 60% —
+  by key. **`Friends` is one of those envelopes**, and it is offered now: it sits under Life &
+  Leisure (whose tile reads **Life & Leisure**, not Wallet's lowercase *leisure*), and
+  `lib/refile.ts` no longer re-homes `friends` to the dimension — the ledger keeps the owner's
+  own filing for money spent on other people. The closed row reads `Parent • Sub` — sans, bullet, editorial serif italic at 60% —
   a pick folds the panel after 250ms, and `Done` in the panel's own header folds it with the
   parent alone, which is the only other way to bring the keypad back. Haptics are
   weighted in `lib/haptics.ts` — 8ms digits, 20ms backspace/decimal, 45ms confirm — which on
@@ -310,7 +315,23 @@ left out and why.
   the add-record pill opens it — and the pill hands in `null`, because a blank entry is what *it*
   means. The screen unmounts with the sheet, which is why the seed cannot outlive one open. The
   sheet's own title is the editorial serif italic at 18px (`text-[18px] leading-7`), one step up
-  from the 15px captions the same face sets elsewhere. **The same sheet is the scanner's payment
+  from the 15px captions the same face sets elsewhere. **On the add-record screen that title is
+  the Expense/Income switch** (the owner's ask: one screen records both directions): two
+  segments in a `bg-card` tray, the live one on a `bg-canvas` seat, `role="radiogroup"` named
+  *Record type*, ticking at the light weight and keeping its presses off the header's drag. It
+  is a **kind, not a sign** — `ManualEntry.kind` goes into the row's `kind`, `amountCents` stays
+  positive, and every "spent" figure in `lib/derive.ts` filters on the kind, so an income can
+  never be counted as spending. Switching kind clears the category and remounts the mosaic,
+  because the picker draws a **second tree** for money in: the same six-tile bento, its parents
+  Salary & Bonus / Interest / Freelance / Refunds / Gifts & Winnings / Other, every pill an
+  envelope from Wallet's Income group (nothing invented — `wage-invoices`, `dues-grants`,
+  `interests-dividends`, `refunds`, `income-gifts`, `income`, `rental-income`, `sale`,
+  `checks-coupons`, `lending-renting`, `income-lottery`, `income-child-support`, `allowance`),
+  with the same pixel geometry as the expense mosaic. The confirm reads **Add Income** for money
+  in and **Add Record** for money out, the rupee mark turns sage, and the journal line asks *Who
+  paid you?*. **A scanned payment never shows the switch**: a code being paid is always money
+  out, so that screen keeps the plain `New expense` title.
+  **The same sheet is the scanner's payment
   screen** (see the UPI bullet below): the tray gives its 56px to a box naming the payee, the
   keypad may arrive prefilled with the code's own amount, and the confirm reads **Pay and Log
   Transaction** — a payment to a UPI address is from the UPI account, so an account control
@@ -324,8 +345,20 @@ left out and why.
   would push the keypad off the bottom; the canvas's top-right is the one corner nothing else
   owns. Both halves are the owner's: a day tap moves the selection and leaves the card open
   (the time is usually the next thing wanted), the field sets the time on that day, `now`
-  resets both, and only `done` hands the moment back — the ✕, the scrim and Escape throw the
-  draft away. The dialog cannot reach forward — the next chevron and every day after today
+  resets both, and **`done` is the only way out** — the owner's ask, after the card kept
+  closing while they were adjusting the time. There is no ✕ and the scrim is a dim, not a door:
+  the card used to close on a scrim click, and on a phone the tap that dismisses the platform's
+  own time wheel lands on that scrim. Nothing here closes on a timer either — a card left open
+  stays open — and because it always opens on the moment the pill is already showing, pressing
+  `done` without touching anything changes nothing, which is what makes a cancel unnecessary.
+  Escape still cancels on a desk (and is swallowed, so it cannot close the sheet behind).
+  **The months cycle.** The chevrons step one month, and the grid is dragged sideways — the
+  month follows the finger under 0.12 elastic and pages past ~32px or a flick, the grid box's
+  height animating to the month showing (a five-row February leaves no blank row). A swipe is
+  not a tap: `paged` holds off the day buttons for 320ms after one, so paging cannot quietly
+  move the selection. **The selection travels with the month** — the day keeps its number where
+  the month has it (31 → 30 → 28) and never passes today — because `done` commits what the grid
+  shows. The dialog cannot reach forward — the next chevron and every day after today
   are disabled — and unlimited back.
   **It starts on the current moment**, which is the default the owner asked for, and
   `ManualEntry.at` is a whole moment rather than a day: a backdated row carries the hour it
@@ -463,7 +496,8 @@ Then drive the app. What is worth exercising for a change in these areas:
 | Deleting a row | a hold on a ledger card (or Enter / right-click) opens **Delete this entry?** with that row's title, category, time and amount; a scroll cancels the hold; **Keep It** leaves the store untouched, **Delete** removes that id from `trackit-ledger`, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; Android vibrates 20ms on the hold and 45ms on the delete |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
-| The add-record date and time | the pill reads `Today · 2:14 PM` on the amount canvas's top-right (the sheet's own clock) and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected and the time on the current minute; the next chevron and every future day are disabled, *now* puts day and time back on the current moment, and a previous month's chevron works and is unbounded backwards; tapping the 12th **leaves the card open** and selects the 12th; setting `09:40` and pressing **done** relabels the pill `Oct 12, 2026 · 9:40 AM`; confirming writes a row whose `at` is that day at 09:40 (not midnight, not now, and in that day's order), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment wears the same pill and logs at the moment it shows |
+| The add-record date and time | the pill reads `Today · 2:14 PM` on the amount canvas's top-right (the sheet's own clock) and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected and the time on the current minute; the next chevron and every future day are disabled, *now* puts day and time back on the current moment, and a previous month's chevron works and is unbounded backwards; **a swipe across the grid pages a month each way and never picks the day under the finger**, and the day travels with the month (its number clamped, never past today); **nothing closes the card but `done`** — no ✕ is drawn, a tap on the scrim leaves it open, and it is still open after several idle seconds and after the platform's own time field has been used — while Escape cancels on a desk; tapping the 12th leaves the card open and selects the 12th; setting `09:40` and pressing **done** relabels the pill `Oct 12, 2026 · 9:40 AM`; confirming writes a row whose `at` is that day at 09:40 (not midnight, not now, and in that day's order), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment wears the same pill and logs at the moment it shows |
+| The add-record switch (expense/income) | the header carries a **Record type** radiogroup only on the add-record screen — a scanned code's payment screen has the plain `New expense` title and no switch; **Income** draws the income mosaic (Salary & bonus / Interest / Freelance / Refunds / Gifts & winnings / Other) at the **same pixel geometry** as the expense tiles, its pills file `wage-invoices` / `interests-dividends` / `dues-grants` / `refunds` / `income-gifts` / `income` and their children, the rupee mark turns sage, the journals ask *Who paid you?*, and the confirm reads **Add Income**; confirming appends one row with `kind: "income"` — so no spent figure, envelope or budget on either screen moves — and its ledger card is the sage `+₹…` one under the *Income* tag; switching back to Expense clears the category, and no expense category can be carried into the income tree or the reverse. The **Friends** pill sits under **Life & Leisure** (the tile's caption is capitalised like that, not `Life & leisure`), files the row as `category: "friends"`, and that id **survives a reload** — `lib/refile.ts` must not move it to `life-entertainment` |
 | The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading **Pay and Log Transaction** (not **Add Record**), the date and time pill present and starting on the current moment (`at` on the logged row follows it), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
 | The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
 | The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |

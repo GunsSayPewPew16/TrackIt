@@ -7,6 +7,7 @@ import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
 import { clock, dayLabel, minutesOfDay, momentOn, startOfDay } from "@/lib/format"
 import { heavyThud, lightTap } from "@/lib/haptics"
+import type { Kind } from "@/lib/types"
 import { CategoryMatrix } from "./CategoryMatrix"
 import { DateDialog } from "./DateDialog"
 import { Keypad } from "./Keypad"
@@ -85,6 +86,12 @@ function JournalLine({
  * The manual entry view: the amount canvas, the account tray, the two journal lines,
  * the category mosaic, and the keypad.
  *
+ * **It records both directions.** The header carries an Expense / Income switch, and the
+ * switch is the whole difference: the same canvas, tray, journal lines and keypad write
+ * `kind: "income"` with an income envelope instead of `kind: "expense"`. The switch is
+ * only here when the sheet is the *add-record* screen — a scanned code is a payment and is
+ * always money out (`payee !== null`), so it keeps the plain `New expense` title.
+ *
  * **The amount is the one hero.** 56px of Neue Haas Grotesk Display Bold at
  * `tracking-tight-hero`, with the rupee mark lifted into a superscript of its own —
  * 24px, high-desert clay, sitting on the top-left of the figure rather than in its
@@ -124,6 +131,13 @@ export function ManualEntryScreen({
   /** The moment this sheet was opened: the latest day the picker may offer, and the default
    *  moment a new row is filed at. Taking it once keeps the pill and that row in one frame. */
   const [now] = useState(() => Date.now())
+  /**
+   * Money out is what this sheet was built for and stays the default; the switch in the
+   * header is the one control that changes it. Switching clears the category with it,
+   * because an income cannot be filed under a spending dimension — `CategoryMatrix` draws
+   * a different tree for each kind.
+   */
+  const [kind, setKind] = useState<Kind>("expense")
   const [account, setAccount] = useState(ACCOUNTS[0].id)
   const [merchant, setMerchant] = useState("")
   const [note, setNote] = useState("")
@@ -176,7 +190,7 @@ export function ManualEntryScreen({
     const written = note.trim()
     const amountCents = Math.round(value * 100)
     // The picker's moment, to the minute. Untouched, that is the moment the sheet opened.
-    onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: written, category, at })
+    onSubmit?.({ kind, amount: value, account, merchant: merchant.trim(), note: written, category, at })
     /*
       **Logged first, handed to Google Pay second**, in that order and for a reason: the
       handoff is one-way, so a row written afterwards is a row that a crash, a back-swipe or a
@@ -214,9 +228,60 @@ export function ManualEntryScreen({
           className="absolute inset-x-0 top-0 flex h-14 cursor-grab touch-none items-center justify-between px-4"
         >
           <span aria-hidden="true" className="absolute left-1/2 top-2 h-1 w-9 -translate-x-1/2 rounded-full bg-line" />
-          {/* The sheet's title, at the editorial serif's reading size — 18px, one step up
-              the ladder from the 15px captions the same face sets elsewhere. */}
-          <span className="font-editorial text-[18px] leading-7 italic text-ink2">New expense</span>
+          {/*
+            The sheet's title, at the editorial serif's reading size — 18px, one step up
+            the ladder from the 15px captions the same face sets elsewhere.
+
+            On the add-record screen the title *is* the Expense/Income switch: the sheet
+            records both, so a fixed "New expense" would be a lie half the time, and two
+            segments in the header read faster than a title plus a control would fit. A
+            payment screen keeps the plain title — a scanned code is always money out.
+          */}
+          {payee === null ? (
+            <div
+              role="radiogroup"
+              aria-label="Record type"
+              // The header is the sheet's drag handle, so the control has to keep its own
+              // presses away from the drag before it can be a control at all.
+              onPointerDown={(event) => event.stopPropagation()}
+              className="flex items-center rounded-2xl border border-line bg-card p-0.5"
+            >
+              {(["expense", "income"] as const).map((option) => {
+                const active = kind === option
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => {
+                      lightTap()
+                      if (active) return
+                      setKind(option)
+                      // The two kinds have different trees, so a category picked in one
+                      // cannot mean anything in the other.
+                      setCategory(null)
+                    }}
+                    className={join(
+                      "relative h-9 rounded-[14px] border-0 bg-transparent px-3 font-sans text-[12px] leading-4 font-medium tracking-wide-tag outline-none focus-visible:ring-2 focus-visible:ring-ink",
+                      active ? "text-ink" : "text-ink2",
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="entryKind"
+                        transition={SPRING}
+                        className="absolute inset-0 rounded-[14px] bg-canvas"
+                      />
+                    )}
+                    <span className="relative z-10">{option === "expense" ? "Expense" : "Income"}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <span className="font-editorial text-[18px] leading-7 italic text-ink2">New expense</span>
+          )}
           <button
             type="button"
             aria-label="Close"
@@ -233,12 +298,17 @@ export function ManualEntryScreen({
 
         <p
           role="status"
-          aria-label={`Amount ${text} rupees`}
+          aria-label={`${kind === "income" ? "Income" : "Amount"} ${text} rupees`}
           className="absolute bottom-6 left-4 flex items-start font-display font-bold"
         >
+          {/* The mark wears the direction: clay for money out, sage for money in, the same
+              two accents a ledger card uses for the two kinds. */}
           <span
             aria-hidden="true"
-            className="mr-1 font-sans text-2xl leading-none font-medium tracking-normal text-clay"
+            className={join(
+              "mr-1 font-sans text-2xl leading-none font-medium tracking-normal",
+              kind === "income" ? "text-sage" : "text-clay",
+            )}
             style={{ marginTop: digitSize * 0.12 }}
           >
             ₹
@@ -364,13 +434,27 @@ export function ManualEntryScreen({
         <AnimatePresence initial={false}>
           {!expanded && (
             <motion.div key="journal" {...collapse} transition={SPRING} className="overflow-hidden">
-              <JournalLine label="Merchant" value={merchant} onChange={setMerchant} placeholder="Who did you pay?..." />
-              <JournalLine label="Notes" value={note} onChange={setNote} placeholder="What did you purchase?..." />
+              <JournalLine
+                label={kind === "income" ? "From" : "Merchant"}
+                value={merchant}
+                onChange={setMerchant}
+                placeholder={kind === "income" ? "Who paid you?..." : "Who did you pay?..."}
+              />
+              <JournalLine
+                label="Notes"
+                value={note}
+                onChange={setNote}
+                placeholder={kind === "income" ? "What was it for?..." : "What did you purchase?..."}
+              />
             </motion.div>
           )}
         </AnimatePresence>
 
         <CategoryMatrix
+          // Remount per kind so the open tray and the pressed pill cannot survive a
+          // switch into a tree that does not contain them.
+          key={kind}
+          kind={kind}
           value={category}
           expanded={expanded}
           room={panelRoom}
@@ -413,7 +497,7 @@ export function ManualEntryScreen({
                 disabled={value <= 0}
                 className="h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none transition-opacity disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-ink"
               >
-                {payee === null ? "Add Record" : "Pay and Log Transaction"}
+                {payee !== null ? "Pay and Log Transaction" : kind === "income" ? "Add Income" : "Add Record"}
               </button>
             </motion.div>
           )}

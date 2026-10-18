@@ -271,7 +271,10 @@ export default function App() {
           category,
           account: entry.account,
           amountCents: Math.round(entry.amount * 100),
-          kind: "expense",
+          // The sheet's Expense/Income switch decides the direction; `amountCents` stays a
+          // positive number and every total reads the kind (`lib/derive.ts`), so an income
+          // here is never counted as spending.
+          kind: entry.kind,
           at,
           ...(entry.note ? { note: entry.note } : {}),
           source: "manual",
@@ -287,7 +290,9 @@ export default function App() {
    * import can collide with), and an entry opened from a scanned code is the *payee's* —
    * `logPaidPayee` writes it through `logScan.ts`'s `rowFor`, so
    * the two ways into a scanned row cannot disagree about what one is. It also hands the
-   * scanner its sentence, which is what the status line shows when the sheet closes.
+   * scanner its sentence, which is what the status line shows when the sheet closes. A scan
+   * is always money out, so that screen never shows the sheet's kind switch: only the
+   * add-record path can hand `addEntry` an income.
    */
   const submitEntry = useCallback(
     (entry: ManualEntry) => {

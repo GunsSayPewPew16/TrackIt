@@ -1,4 +1,5 @@
 import type { UpiPayee } from "@/features/upi/upi"
+import type { Kind } from "@/lib/types"
 
 /**
  * What the manual-entry sheet collects, and the shape the ledger takes it in.
@@ -8,13 +9,23 @@ import type { UpiPayee } from "@/features/upi/upi"
  * at the one boundary where that is allowed — `lib/ledger.ts` never sees a float.
  */
 export type ManualEntry = {
+  /**
+   * Whether this is money out or money in. The same sheet records both, switched by the
+   * Expense/Income control in its header, and the row is written with this kind — which is
+   * what keeps an income out of every "spent this month" figure (`lib/derive.ts`).
+   */
+  kind: Kind
   /** Rupees as typed, e.g. `1250.5`. Converted to paise by the caller. */
   amount: number
   /** An account id from `lib/accounts.ts` (`upi`, `cash`). */
   account: string
   merchant: string
   note: string
-  /** A category id from `lib/categories.ts`, or `null` when nothing was picked. */
+  /**
+   * A category id from `lib/categories.ts`, or `null` when nothing was picked. It is an
+   * id from the tree the header's kind was on: an expense category for money out, an
+   * income envelope for money in.
+   */
   category: string | null
   /**
    * When the money left, as epoch ms — a whole moment, day and time of day.
