@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * The flows check: the three things the owner asked for, driven in a real browser.
+ * The flows check: the things the owner asked for, driven in a real browser.
  *
  * `INSTRUCTIONS.md` says a build, a clean exit code or an HTTP 200 is not evidence that a
  * screen renders or that a gesture works, and that the checks worth doing are done in a real
  * Chrome over the DevTools protocol. Doing that by hand every time is how a regression slips
- * through, so the three owner-requested flows live here as assertions:
+ * through, so the owner-requested flows live here as assertions:
  *
  *   1. **The add-record switch** — Expense/Income only on that screen, the income tree with
  *      its own tiles and envelopes, the confirm's wording, and the *kind* that lands in the
@@ -34,7 +34,9 @@
  *   attribute write reads the palette being replaced. Every read here is its own round trip.
  * - **A frozen animation is not a layout, and a scripted `click()` is not a press.** Gestures
  *   here are real mouse input over CDP (`Input.dispatchMouseEvent`), so a drag is a drag and
- *   a control under an overlay cannot be "pressed" by reaching past it.
+ *   a control under an overlay cannot be "pressed" by reaching past it. A press also waits for
+ *   its control's box to stop moving first (`point`): a panel that is still on its spring has
+ *   no press to give, and a check that presses anyway fails for a reason the owner never sees.
  * - **State lives in `localStorage`, and a fresh profile is what makes that deterministic.**
  *   The browser is launched with a throwaway profile, so the owner's own ledger (and their
  *   palette) can never leak in, and this check can never write into theirs.
@@ -396,17 +398,34 @@ class Screen {
     throw new Error(`timed out waiting for ${description}`)
   }
 
-  /** The centre of the first element matching a selector, scrolled into view. */
+  /**
+   * The centre of the first element matching a selector, scrolled into view.
+   *
+   * **The box is re-read until it stops moving.** Most of these controls arrive on a spring
+   * (`framer-motion`), and a press dispatched at a box read mid-flight lands beside the button —
+   * which is neither what a thumb does nor what any check here means to test. Two reads a frame
+   * apart agreeing is the test for "settled"; a control still travelling after ~600ms is taken
+   * as it is, so a press never hangs on an animation that never ends.
+   */
   async point(selector, { index = 0 } = {}) {
-    const point = await this.cdp.evaluate(`(() => {
-      const el = [...document.querySelectorAll(${JSON.stringify(selector)})][${index}];
-      if (!el) return null;
-      el.scrollIntoView({ block: "center" });
-      const r = el.getBoundingClientRect();
-      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
-    })()`)
-    assert(point, `nothing matches ${selector}`)
-    return point
+    const read = () =>
+      this.cdp.evaluate(`(() => {
+        const el = [...document.querySelectorAll(${JSON.stringify(selector)})][${index}];
+        if (!el) return null;
+        el.scrollIntoView({ block: "center" });
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      })()`)
+    let previous = await read()
+    assert(previous, `nothing matches ${selector}`)
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await sleep(50)
+      const next = await read()
+      if (!next) break
+      if (Math.abs(next.x - previous.x) <= 1 && Math.abs(next.y - previous.y) <= 1) return next
+      previous = next
+    }
+    return previous
   }
 
   async press(selector, options) {
