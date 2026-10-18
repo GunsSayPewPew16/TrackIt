@@ -55,7 +55,10 @@ testing the portal repeatedly will stop sending. Connect custom SMTP
 (**Authentication → Emails → SMTP Settings**) if that becomes the limit rather than the guard.
 
 Nothing else is needed for sign-in: the app has no redirect URLs to configure, because the
-session is established on the device that typed the password (no OAuth, no magic links).
+session is established on the device that typed the password (no OAuth, no magic links). The
+app's second step is checked with `verifyOtp({ type: "email" })`, so the **only** thing that has
+to be true for a code to exist is that template edit — with the stock template the mail arrives
+with a link and no digits, and the portal waits for six numbers that cannot be typed.
 
 The one exception is **Forgot password?**. Supabase mails a link whose target comes from
 **Authentication → URL Configuration → Site URL**, so set that to the origin people actually use
@@ -78,10 +81,22 @@ VITE_SUPABASE_ANON_KEY=<publishable or anon key>
 
 Vite only exposes `VITE_`-prefixed names, and only at build time — so each host needs them too:
 
-- **Vercel** → Project → Settings → Environment Variables: add both for *Production* (and
-  *Preview* if you want previews signed in), then redeploy.
 - **GitHub Pages** → repo → Settings → Secrets and variables → **Actions → Variables**: add both
-  with the same names. `.github/workflows/deploy-pages.yml` passes them to the build.
+  with the same names. `.github/workflows/deploy-pages.yml` passes them to the build. **Both are
+  set on this repository**, so `https://gunssaypewpew16.github.io/TrackIt/` is the online app:
+  the portal, the six digits, and the sign-out behind the greeting's name. Check that a deploy
+  really carried them — a device-only build has no portal at all:
+
+  ```bash
+  ASSET=$(curl -s https://gunssaypewpew16.github.io/TrackIt/ | grep -o '/TrackIt/assets/index-[^\"]*\.js' | head -1)
+  curl -s "https://gunssaypewpew16.github.io$ASSET" | grep -c '<project-ref>.supabase.co'   # → 1
+  gh variable list -R <owner>/<repo>                                                       # the two names
+  ```
+
+- **Vercel** → Project → Settings → Environment Variables: add both for *Production* (and
+  *Preview* if you want previews signed in), then redeploy. **Nothing can set these from the
+  repository** — a `vercel.json` only describes the build, and the values are per project — so a
+  Vercel deployment that still opens on the dashboard is missing them, not broken.
 
 ## 4. Check the fence
 

@@ -450,7 +450,12 @@ card, the editable account balances, the two editable budgets (the card's F&B on
 dial's total) and what each of them tracks, the add-record
 sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
-Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's
+Pages deploy — **with the vault online there**: the deployment is built with the project's two
+public Supabase values (the repository's Actions variables), so the Pages URL opens on the
+portal, takes the password and then the six digits Supabase mails, and signs out from the
+account panel behind the greeting's name (`supabase/README.md` §3 has the check for whether a
+deploy carried them). The Vercel deployment is the same source without those two variables, so
+it is still the device-only tracker until they are added there. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
 exists on the account yet**, so the live site greets from the fifty in its own bundle
 (`data-greeting="pool"`), which is the same fifty the table is seeded with.
