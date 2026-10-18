@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Wallet, X } from "lucide-react"
+import { CalendarDays, Wallet, X } from "lucide-react"
 import { useLayoutEffect, useRef, useState, type PointerEventHandler } from "react"
 
 import { handOffToUpiApp, type UpiPayee } from "@/features/upi/upi"
 import { ACCOUNTS } from "@/lib/accounts"
 import { join } from "@/lib/classes"
+import { dayLabel, startOfDay } from "@/lib/format"
 import { heavyThud, lightTap } from "@/lib/haptics"
 import { CategoryMatrix } from "./CategoryMatrix"
+import { DateDialog } from "./DateDialog"
 import { Keypad } from "./Keypad"
 import type { ManualEntry } from "./types"
 import { formatRaw, rawFromCents, useAmountInput } from "./useAmountInput"
@@ -93,6 +95,14 @@ function JournalLine({
  * the journal lines and slides the keypad out of view; picking a category or closing the
  * mosaic brings them back. The amount stays on screen throughout, because it is the
  * thing being edited and the sheet is not a wizard.
+ *
+ * **The day lives on the amount canvas.** A small pill under the header says *Today* (or
+ * the day, once it has been changed) and opens `DateDialog`, so a forgotten expense can be
+ * filed on the day it happened. It is deliberately not a row in the column: the closed
+ * column is exactly full on a 390×844 phone, and a date field that pushed the keypad off
+ * the bottom would be a worse trade than the one this screen already makes. A scanned
+ * payment hides it — that money is leaving now, and a backdated payment is not a thing the
+ * scanner can make true.
  */
 export function ManualEntryScreen({
   initialCategory = null,
@@ -106,11 +116,17 @@ export function ManualEntryScreen({
     // the owner still confirms it — see `SheetProps.payee`.
     payee?.amountCents != null ? rawFromCents(payee.amountCents) : "",
   )
+  /** The moment this sheet was opened: the latest day it may offer, and the clock time a
+   *  backdated row is filed at. Taking it once keeps the pill and that row in one frame. */
+  const [now] = useState(() => Date.now())
   const [account, setAccount] = useState(ACCOUNTS[0].id)
   const [merchant, setMerchant] = useState("")
   const [note, setNote] = useState("")
   const [category, setCategory] = useState<string | null>(initialCategory)
   const [expanded, setExpanded] = useState(false)
+  /** The day the row will be filed on, as local midnight — today unless it was changed. */
+  const [day, setDay] = useState(() => startOfDay(now))
+  const [dateOpen, setDateOpen] = useState(false)
   /**
    * How tall the category panel is allowed to be: the sheet's column, less the account
    * tray and the one gap above the panel. Measured rather than guessed, because the
@@ -147,7 +163,13 @@ export function ManualEntryScreen({
     heavyThud() // 45ms, and only here
     const written = note.trim()
     const amountCents = Math.round(value * 100)
-    onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: written, category })
+    /*
+     * The chosen day at the clock time the sheet was opened. Today is therefore the moment
+     * itself; a day in the past keeps an ordinary time on its row rather than midnight, and
+     * two rows logged for the same forgotten day still sort the way they were typed.
+     */
+    const at = day + (now - startOfDay(now))
+    onSubmit?.({ amount: value, account, merchant: merchant.trim(), note: written, category, at })
     /*
       **Logged first, handed to Google Pay second**, in that order and for a reason: the
       handoff is one-way, so a row written afterwards is a row that a crash, a back-swipe or a
@@ -229,6 +251,26 @@ export function ManualEntryScreen({
             {text}
           </motion.span>
         </p>
+
+        {/*
+          The day this row belongs to, on the amount canvas's free top-right: the header is
+          its own strip and the amount owns the bottom-left, so this is the one corner that
+          costs the column nothing. A payment has no pill — see the header.
+        */}
+        {payee === null && (
+          <button
+            type="button"
+            aria-label={`Date: ${dayLabel(day, now)}. Change the date`}
+            onClick={() => {
+              lightTap()
+              setDateOpen(true)
+            }}
+            className="absolute right-4 top-16 inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-card px-3 text-[12px] leading-4 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          >
+            <CalendarDays strokeWidth={1.5} className="size-4 text-ink2" aria-hidden="true" />
+            {dayLabel(day, now)}
+          </button>
+        )}
       </section>
 
       <div ref={column} className="relative flex min-h-0 flex-1 flex-col gap-2 px-4">
@@ -361,6 +403,17 @@ export function ManualEntryScreen({
           )}
         </AnimatePresence>
       </div>
+
+      <DateDialog
+        isOpen={dateOpen}
+        value={day}
+        now={now}
+        onClose={() => setDateOpen(false)}
+        onPick={(picked) => {
+          setDay(picked)
+          setDateOpen(false)
+        }}
+      />
     </div>
   )
 }

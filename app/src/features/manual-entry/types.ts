@@ -16,6 +16,16 @@ export type ManualEntry = {
   note: string
   /** A category id from `lib/categories.ts`, or `null` when nothing was picked. */
   category: string | null
+  /**
+   * When the money left, as epoch ms.
+   *
+   * The sheet's date pill starts on today, and a day picked there is handed in at the clock
+   * time the entry was typed — so a forgotten expense lands on the day it happened without
+   * inventing a time for it, and two rows logged for the same day still order sensibly. A
+   * **scanned payment** always uses the moment of payment instead: `App.tsx` ignores this
+   * field on that path, because a payment being made now is not a memory to place.
+   */
+  at: number
 }
 
 export type SheetProps = {

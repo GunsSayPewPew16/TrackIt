@@ -76,6 +76,7 @@ export function parseAmountToCents(input: string): number | null {
 const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
 const SHORT_DAY = new Intl.DateTimeFormat("en-US", { weekday: "short" })
 const DAY_AND_MONTH = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short" })
+const WHOLE_DAY = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" })
 const MONTH_AND_YEAR = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" })
 
 /** The artboard's clock: `8:05 AM`. */
@@ -147,6 +148,19 @@ export function whenLabel(at: number, now = Date.now()): string {
   if (sameDay(at, now)) return clock(at)
   if (sameDay(at, addDays(now, -1))) return "Yesterday"
   return DAY_AND_MONTH.format(at)
+}
+
+/**
+ * A whole day as a field writes it: `Today`, `Yesterday`, or `Oct 12, 2026`.
+ *
+ * The add-record sheet's date pill uses this rather than `whenLabel`, because a date
+ * field is about the *day* and not about a clock, and because a two-day-old row has to
+ * read as a date the owner recognises rather than as `9:41 AM`.
+ */
+export function dayLabel(at: number, now = Date.now()): string {
+  if (sameDay(at, now)) return "Today"
+  if (sameDay(at, addDays(now, -1))) return "Yesterday"
+  return WHOLE_DAY.format(at)
 }
 
 /** The time of day as a single word, which is the quick-log tray's own label. */

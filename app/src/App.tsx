@@ -257,7 +257,10 @@ export default function App() {
   )
 
   const addEntry = useCallback((entry: ManualEntry) => {
-    const at = Date.now()
+    // The sheet's own day: today unless the owner changed it, so a forgotten expense lands
+    // on the day it happened rather than on the day it was remembered. The id carries that
+    // moment too, and the random tail keeps two entries in the same minute apart.
+    const at = entry.at
     const category = entry.category ?? DEFAULT_CATEGORY
     appendToLedger({
       rows: [

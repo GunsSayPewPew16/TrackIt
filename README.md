@@ -58,6 +58,15 @@ the faces on the step, in one of three treatments — plain, clay for a month's 
 expenses, sage for money in. **A hold on a card asks to delete that row** and the panel
 names it before it goes, which is the only way to take an entry back.
 
+**The add-record sheet** is where a row is typed: the amount at 56px with a clay rupee
+above it, the UPI/Cash tray, two journal lines, the six Wallet dimensions as a mosaic, and
+the keypad. A small **date pill** in the amount canvas's top-right reads `Today` and opens
+a month grid, so an expense remembered too late is filed on the day it happened — today at
+the clock time the sheet was opened, or an earlier day at that same time, never midnight
+and never the day it was remembered. The pill is on the canvas rather than in the column
+because the closed column is exactly full on a 390×844 phone; a scanned **payment** hides
+it, since that money is leaving now.
+
 **Scan to pay** is the artboard of the same name, and is the one screen with no content
 of its own: a 48px header (a back circle, the title, the theme toggle), the hint 88px
 down, a 358×358 viewfinder at 224px — a sage hairline, four corner brackets and a 2px
@@ -334,8 +343,8 @@ tools/                  wallet-import.py, lucide-icons.py, the two font converte
 Working: all three screens in both themes, the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
 the month menu that reaches the months past the one the wheel holds, hold-to-delete on a
-card, the two editable budgets (the card's F&B one and the stats dial's total), the Wallet
-import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
+card, the two editable budgets (the card's F&B one and the stats dial's total), the add-record
+sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database

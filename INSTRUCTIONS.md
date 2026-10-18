@@ -315,6 +315,18 @@ left out and why.
   keypad may arrive prefilled with the code's own amount, and the confirm reads *pay and log
   transaction* — a payment to a UPI address is from the UPI account, so an account control
   there could only be a lie.
+  **The sheet carries the day.** A 36px pill on the amount canvas's free top-right — under
+  the header, opposite the figures — reads `Today` / `Yesterday` / `Oct 12, 2026` and opens
+  `DateDialog` (`features/manual-entry/DateDialog.tsx`), a Monday-first month grid of 36px
+  days. It is on the **canvas** deliberately: the closed column is exactly full on a
+  390×844 phone, so a date row in it would push the keypad off the bottom; the canvas's
+  top-right is the one corner nothing else owns. The dialog cannot reach forward — the next
+  chevron and every day after today are disabled — and unlimited back. A picked day is
+  handed in as `ManualEntry.at`: that day at the clock time the sheet was opened, so a
+  forgotten expense lands on the day it happened with an ordinary time on its row. Today is
+  therefore the moment itself. **A scanned payment has no pill**: `payee !== null` hides it
+  and `App.tsx` keeps using the moment of payment, because money leaving now is not a
+  memory to place.
   **The mosaic is one surface whose height animates** — the row and the open panel are the
   same element, 56px closed and the sheet's measured room open — and the shape of that
   animation is a decision, not an implementation detail. It used to be two elements sharing
@@ -444,6 +456,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | Deleting a row | a hold on a ledger card (or Enter / right-click) opens **Delete this entry?** with that row's title, category, time and amount; a scroll cancels the hold; *keep it* leaves the store untouched, *delete* removes that id from `trackit-ledger`, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; Android vibrates 20ms on the hold and 45ms on the delete |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |
 | The scanner | both themes, the frame's 358×358 at 224px and the manual row at 724px against the artboard, and the camera's failure copy where there is no camera (a desktop) |
+| The add-record date | the pill reads **Today** on the amount canvas's top-right and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected, the next chevron and every future day disabled, and *today* selecting today; a previous month's chevron works and is unbounded backwards; picking the 12th closes the dialog and relabels the pill `Oct 12, 2026`; confirming writes a row whose `at` is that day at the sheet's own clock time (not midnight, and not now), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment shows no pill and still logs at the moment of payment |
 | The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading *pay and log transaction* (not *add record*), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
 | The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
 | The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
