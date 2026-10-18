@@ -199,7 +199,18 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth }: Props
     setSelected(model.selected)
   }
 
-  const day = model.days[selected]
+  /**
+   * The day the sheet shows, and the reason this line is not just `model.days[selected]`.
+   *
+   * `selected` is an index, and an index is a seat in **one** window: October's 31st is
+   * seat 30 in a 31-day month and no seat at all in September's 30. The state update
+   * above replaces it, but that update lands on the *next* pass — this one still reads the
+   * old value, which is how picking September and then October threw "cannot read
+   * properties of undefined" out of the render and took the whole screen with it. The
+   * clamp is the guard for exactly that pass; the state above is what makes the wheel and
+   * the cards agree from the pass after it.
+   */
+  const day = model.days[Math.min(Math.max(selected, 0), model.days.length - 1)]
 
   return (
     <div className="relative min-h-dvh w-full bg-canvas text-ink">
