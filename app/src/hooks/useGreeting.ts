@@ -14,12 +14,13 @@ import { openGreeting, rememberLanguage } from "@/lib/rotation"
  * - **A word is there on the first render**, before anything can be waited for. The greeting
  *   is the first thing a reader looks at, and a masthead that fills in late — or flickers
  *   from one language to another — would be worse than a language nobody chose. That word
- *   comes from the fifty in the bundle (`lib/rotation.ts`), which is the only source that
- *   needs no network and no server.
+ *   comes from the twenty words the hour owns in the bundle (`lib/rotation.ts`), which is the
+ *   only source that needs no network and no server.
  * - **The greeting's server's word replaces it if one is asked for and arrives**
  *   (`lib/hello.ts`). It is asked *once per open*, not per render, and it is never the only
  *   thing standing between the reader and a greeting: every way it can fail leaves the first
- *   word in place.
+ *   word in place. The question carries the hour the phone is in, so the row that comes back
+ *   is a word for the same part of the day as the one it replaces.
  * - **The name belongs to the account**, in the roman cut while the word wears the italic. It
  *   is the signed-in account's own (`lib/profile.ts`), and `OWNER_NAME` only stands in for a
  *   device-only build, which has no account to ask.
@@ -49,7 +50,7 @@ export function useGreeting(): GreetingLine {
     if (!hasGreetingServer()) return
     let live = true
     // The languages this browser has shown lately, so the server draws a different one.
-    asked ??= greetingFromServer(opened.avoid)
+    asked ??= greetingFromServer(opened.avoid, opened.slot)
     void asked.then((answer) => {
       if (answer === null || !live) return
       rememberLanguage(answer.language)

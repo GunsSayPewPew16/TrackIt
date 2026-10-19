@@ -552,13 +552,15 @@ left out and why.
   Neue Haas Grotesk's trial. If a serif question comes up again, that is the family to
   extend rather than swapping in a third.
 - **The greeting says hello in a different language every open**, which is the owner's
-  ask and the one thing on screen that is neither data nor design. It is **fifty greetings
-  in fifty languages — the world's most spoken ones, romanized into latin letters** — and
-  the same fifty exist twice on purpose: as rows in the `greetings` table in D1, which
-  `backend/` serves, and as the array in `lib/greetings.ts` that ships in the bundle, which
-  is what makes the first render instant and offline. `lib/rotation.ts` walks the array and
-  remembers what it has just shown, `hooks/useGreeting.ts` composes the line, and
-  `lib/hello.ts` asks the server for a row. Three rules go with it: **a word is on screen
+  ask and the one thing on screen that is neither data nor design. It is **eighty greetings
+  — twenty languages with a word for each part of the day, romanized into latin letters** —
+  and the same eighty exist twice on purpose: as rows in the `hourly_greetings` table in D1,
+  which `backend/` serves, and as the array in `lib/greetings.ts` that ships in the bundle,
+  which is what makes the first render instant and offline. **The hour is the whole of the
+  choice**: there are no all-hour hellos, so every word carries a `when` and every open draws
+  out of that part of the day's twenty. `lib/rotation.ts` asks the clock for the hour's
+  twenty, walks those and remembers what it has just shown, `hooks/useGreeting.ts` composes
+  the line and sends the hour with its question, and `lib/hello.ts` asks the server for a row. Three rules go with it: **a word is on screen
   in the first render** and a server's answer only ever replaces it — never a wait and never
   an error state; **an answer must survive `validateGreeting`** (one latin word the serif can
   draw, a plausible tag) or the bundle's word stands, and that guard covers a row somebody
@@ -566,9 +568,13 @@ left out and why.
   the bundle** — nothing in the greeting needs one any more, and the parked `?gemini_key=…`
   path below must stay out of the arrival path.
 - **The greeting is data, and the database is where it can be changed.** `lib/greetings.ts`
-  is the source the table is seeded from (the Worker imports it, so the fifty in D1 and the
-  fifty in the bundle cannot drift apart), and a word is corrected the same way a row of
+  is the source the table is seeded from (the Worker imports it, so the eighty in D1 and the
+  eighty in the bundle cannot drift apart), and a word is corrected the same way a row of
   money is: one `wrangler d1 execute` against the live database, no rebuild, no redeploy.
+  **A row is keyed by `(language, slot)`**, because one language has four words — one per
+  part of the day — and because Spanish says `Buenas noches` in two of them. The table is
+  `hourly_greetings`; the older `greetings` table (fifty all-hour hellos, keyed by language)
+  is superseded and unread, and a deployment can drop it.
   **The seed is decided by the draw, not by a flag** — `POST /api/greeting` fills the table
   only when a request finds it empty, so a fresh deploy fills it on its first greeting, a
   table somebody emptied fills again on the next request, and a word edited by hand is never
@@ -577,9 +583,9 @@ left out and why.
   being a way to put the deployed list back.
 - **The route is public and holds nothing.** `backend/`'s `/api/greeting` is the one route
   there that is not behind the Shortcut's token, and the reason is that there is nothing to
-  guard: no key, no name, no money — fifty hellos and which one to draw. What it can spend is
-  the day's D1 reads, and a script that hammered it would take the greeting down to the
-  app's own fifty; that is a graceful failure, which is why there is no rate limiter here.
+  guard: no key, no name, no money — eighty greetings and which one to draw. What it can spend
+  is the day's D1 reads, and a script that hammered it would take the greeting down to the
+  app's own pool; that is a graceful failure, which is why there is no rate limiter here.
   The limiter in `app/api/greeting.ts` belongs to the parked model route, where the thing
   being protected is a key's quota rather than a table.
 - **The parked model is parked, not deleted.** `lib/gemini.ts` (the question, the model, the
@@ -628,7 +634,7 @@ left out and why.
   code.
 - **`backend/` is the Shortcut's endpoint and the greeting's server, and the app calls
   exactly one of its routes.** That one is `POST /api/greeting`, which draws a random row
-  out of `greetings`; every expense route is the Shortcut's, stays token-guarded, and is
+  out of `hourly_greetings`; every expense route is the Shortcut's, stays token-guarded, and is
   untouched by the app. The two screens still read and write only the device's own ledger —
   do not wire them to the expense routes without saying why.
 - **The owner's Wallet export is personal data.** An export of it once sat in
@@ -713,8 +719,8 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The add-record date and time | the pill reads `Today · 2:14 PM` on the amount canvas's top-right (the sheet's own clock) and does not overlap the amount at 390×844; tapping it opens **When was this?** on the current month with today selected and the time on the current minute; the next chevron and every future day are disabled, *now* puts day and time back on the current moment, and a previous month's chevron works and is unbounded backwards; **a swipe across the grid pages a month each way and never picks the day under the finger**, and the day travels with the month (its number clamped, never past today); **nothing closes the card but `done`** — no ✕ is drawn, a tap on the scrim leaves it open, and it is still open after several idle seconds and after the platform's own time field has been used — while Escape cancels on a desk; tapping the 12th leaves the card open and selects the 12th; setting `09:40` and pressing **done** relabels the pill `Oct 12, 2026 · 9:40 AM`; confirming writes a row whose `at` is that day at 09:40 (not midnight, not now, and in that day's order), the ledger opens on that day with the row, the dashboard's recent list says `Oct 12`, and the totals include the amount; a scanned payment wears the same pill and logs at the moment it shows |
 | The add-record switch (expense/income) | the **Record type** radiogroup sits in the column between the **Account** rail and the merchant line — 8px from each, both rails the same 58px box — and exists only on the add-record screen: a scanned code's payment screen has the plain `New expense` title and no rail; the header's title follows the kind (`New income` / `New expense`); each rail's labels are 11px uppercase tracked 0.04em, the unselected one at `text-ink2`; **Income** draws the income mosaic (Salary & bonus / Interest / Freelance / Refunds / Gifts & winnings / Other) at the **same pixel geometry** as the expense tiles, its pills file `wage-invoices` / `interests-dividends` / `dues-grants` / `refunds` / `income-gifts` / `income` and their children, the rupee mark turns sage, the journals ask *Who paid you?*, and the confirm reads **Add Income**; confirming appends one row with `kind: "income"` — so no spent figure, envelope or budget on either screen moves — and its ledger card is the sage `+₹…` one under the *Income* tag; switching back to Expense clears the category, and no expense category can be carried into the income tree or the reverse. The **Friends** pill sits under **Life & Leisure** (the tile's caption is capitalised like that, not `Life & leisure`), files the row as `category: "friends"`, and that id **survives a reload** — `lib/refile.ts` must not move it to `life-entertainment` |
 | The payment screen | a hand-typed code — with or without `am` — must open the sheet, with the payee's name and address in its box, the amount **empty** without an `am` and **prefilled** with one, the confirm reading **Pay and Log Transaction** (not **Add Record**), the date and time pill present and starting on the current moment (`at` on the logged row follows it), and `Category: … Change category` still working; entering `1,250` must log ₹1,250.00 (commas are grouping in this app's money, not decimals) under the payee's own title, with the VPA in the note; the row must be in `trackit-ledger` **before** any handoff, and the handoff must carry the same paise (`gpay://upi/pay?…am=1250.00…` on an iOS user agent, an `intent://…package=com.google.android.apps.nbu.paisa.user` one on Android); on a desktop nothing may navigate away; and a code read while the sheet is open must not change the payee under it |
-| The greeting | two loads in a row, which must give two different languages; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
-| The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of fifty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it, `DELETE FROM greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
+| The greeting | two loads in a row, which must give two different languages; **every word drawn belongs to the part of the day the phone is in** (a `when` on every row, and the walk never leaves its slot); twenty opens give twenty different languages before any repeats; `data-greeting` on the `h1` says whether the table or the bundle answered; every word is drawn by the serif and never finished by a fallback face — the tone marks on `Zǎo shang hǎo,` included; a word is on screen in the first render (an endpoint that takes seconds must not be waited on); and an endpoint that is slow, absent or refused leaves that word standing with no error state |
+| The greeting's table | `wrangler dev --config backend/wrangler.toml --port 8787` against local D1, then drive `POST /api/greeting` with curl or a script: one row out of the `when` hour's twenty, `{ greeting }` with no escaping damage, `no-store`, `access-control-allow-origin: *`, `GET` → 405 and `OPTIONS` → 204, an `avoid` list that is honoured and then dropped rather than refused when it names every language, a body that names no hour (or a junk one) answered from the whole table, and a junk body that answers anyway. Check the seed: the first request against an empty table fills it to eighty rows, `SELECT slot, COUNT(*) FROM hourly_greetings GROUP BY slot` reads 20 a side, `DELETE FROM hourly_greetings` + the next request fills it again, and a hand-edited word survives both. Then point the app at it (`VITE_GREETING_ENDPOINT=http://127.0.0.1:8787/api/greeting npm --prefix app run dev`) and watch the heading become a row from the table with `data-greeting="server"` |
 | The parked model route | still, if it is ever woken up: `node_modules/.bin/esbuild app/api/greeting.ts --bundle --format=esm --platform=node --outfile=/tmp/greeting.mjs`, then import it in Node with `globalThis.fetch` stubbed and `GEMINI_API_KEY` set and ask it a Request. Vercel is a deploy target, not a thing to install — the handler is a plain `fetch`, so Node is enough. 200 and `{ greeting }`, same-origin with no CORS header, an allowed `Origin` echoed with `Vary`, a refused one 403, `OPTIONS` → 204, `GET` → 405, an unusable answer 502, and no key 503 without a call upstream |
 
 `app/design/` is what to compare against when the question is "has a design feature

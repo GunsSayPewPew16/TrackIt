@@ -10,7 +10,7 @@ import { lockZoom } from "./lib/zoom"
 // The one boot step the app has beyond painting: a `?gemini_key=…` on the URL is taken
 // into this browser's storage and out of the address bar before anything renders, so the
 // key never ends up in the history, a bookmark or a shared link (see `lib/hello.ts`).
-// Nothing spends that key at the moment — the greeting comes from the `greetings` table
+// Nothing spends that key at the moment — the greeting comes from the `hourly_greetings` table
 // behind the Worker — and it is kept because a model will be wanted for something else.
 rememberKeyFromUrl()
 

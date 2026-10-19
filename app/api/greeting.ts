@@ -2,7 +2,7 @@
  * POST /api/greeting — the greeting's model, behind a server so a key can live somewhere.
  *
  * **Parked, and not deployed by anything today.** The greeting's server is the Worker in
- * `backend/` now, which draws a row out of the `greetings` table in D1 and needs no key at
+ * `backend/` now, which draws a row out of the `hourly_greetings` table in D1 and needs no key at
  * all; nothing points here, and the app's `VITE_GREETING_ENDPOINT` is aimed at the Worker.
  * This file is kept because it is the whole of "ask a model from a server" — the key, the
  * origin check, the rationing — and that is what a future feature will want to copy. If it

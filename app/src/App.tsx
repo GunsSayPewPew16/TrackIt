@@ -40,9 +40,9 @@ import type { Row } from "@/lib/types"
  *
  * **The greeting is the one thing here that is neither.** It is a different language
  * every time the app is opened — the owner's ask — so it is chosen once per load by
- * `useGreeting`, out of the fifty words in the bundle (`lib/greetings.ts`) and, where the
- * build has a server, out of the `greetings` table the Worker draws one row from
- * (`backend/`). That is why it is a prop rather than a field of the dashboard model:
+ * `useGreeting`, out of the twenty words this part of the day owns in the bundle
+ * (`lib/greetings.ts`) and, where the build has a server, out of the `hourly_greetings` table
+ * the Worker draws one row from (`backend/`). That is why it is a prop rather than a field of the dashboard model:
  * the models are the owner's money, derived from their rows, and this is a line of
  * decoration that has to be on screen before anything is derived at all.
  *

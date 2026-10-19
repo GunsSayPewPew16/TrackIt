@@ -128,23 +128,27 @@ edge, and the greeting was the first thing to disappear under the notch.
 
 ## The greeting
 
-The dashboard's masthead says hello in a different language on every open — `Bonjour,
-Priyansh`, `Nǐ hǎo, Priyansh`, `Ahlan, Priyansh` — and it is a **table of fifty greetings:
-the world's most spoken languages, one hello each, romanized into latin letters**
-(`Mingalaba,`, `Nei hou,`, `Nong hao,`) so that the one serif face can draw every one of
-them.
+The dashboard's masthead says hello in a different language on every open — `Buongiorno,
+Priyansh`, `Zǎo shang hǎo, Priyansh`, `Bonsoir, Priyansh` — and **the hour picks the word**:
+it is a table of **eighty greetings, twenty languages with a word for each part of the day**
+(`Bonjour,` in the morning, `Bonne nuit,` at night), romanized into latin letters so that the
+one serif face can draw every one of them. Italian, Mandarin, German, French, Malay, Thai,
+Hindi and Nigerian Pidgin are in it because the owner asked for them by name; the other
+twelve are the most spoken languages that have a word of their own for each part of the day.
+There are no all-hour hellos left in the pool, so a morning can only be a morning word.
 
 - **The table is the data, and `backend/` serves it.** `POST /api/greeting` on the Worker
-draws one row at random out of `greetings` in D1, skipping the languages the app has just
-shown. Adding a language, or fixing a romanization, is one `wrangler d1 execute` against
-the live database — no rebuild, no redeploy, and the next app open may draw it. Nothing
-has to be run by hand to start: the first request that finds the table empty fills it from
-the list the app itself ships.
-- **The same fifty ship inside the app** (`src/lib/greetings.ts`), which is what makes the
+draws one row at random out of `hourly_greetings` in D1, for the part of the day the app
+names in the request (`when`) and skipping the languages the app has just shown. Adding a
+language, or fixing a romanization, is one `wrangler d1 execute` against the live database —
+no rebuild, no redeploy, and the next app open may draw it. Nothing has to be run by hand to
+start: the first request that finds the table empty fills it from the list the app itself
+ships.
+- **The same eighty ship inside the app** (`src/lib/greetings.ts`), which is what makes the
 greeting instant and offline — a word is on screen in the first render, before anything is
-asked for. `src/lib/rotation.ts` walks the list in a shuffled order kept in
-`localStorage`, so no language repeats until every other one has had a turn, and the
-languages just shown are what the server is told to avoid.
+asked for. `src/lib/rotation.ts` asks the clock which twenty the hour owns and walks those
+in a shuffled order kept in `localStorage`, so no language repeats until every other one of
+that hour has had a turn, and the languages just shown are what the server is told to avoid.
 - **The server's word replaces the pool's when it arrives** (`src/lib/hello.ts`), and only
 if it survives `validateGreeting` — one latin word, letters the serif can draw, a plausible
 language tag. Every other outcome, including a network that never answers, leaves the word
@@ -155,7 +159,7 @@ On the Worker's own domain the app and the route share an origin, so `/api/greet
 relative URL — is the whole configuration, and `npm run deploy` serves both. A build served
 from somewhere else (GitHub Pages, say) points at the Worker's absolute URL and the Worker's
 CORS headers answer it. **A build with the variable unset has no server at all**, which is
-not a broken build: the fifty in the bundle *are* the greeting.
+not a broken build: the eighty in the bundle *are* the greeting.
 
 ### The model, parked
 
@@ -348,7 +352,7 @@ fresh deployment. To do it on a Cloudflare account:
    cross-origin by setting the variable to the Worker's absolute URL
    (`https://trackit.<subdomain>.workers.dev/api/greeting`). That is what the route's
    `access-control-allow-origin: *` is for. Leave the variable unset and that build greets
-   from its own fifty, which is a complete greeting either way.
+   from its own eighty, which is a complete greeting either way.
 4. **Check it**: hover the greeting. The tooltip says `hello in <language>`, and the
    heading itself carries `data-greeting="server"` when the row came out of D1 and
    `"pool"` when the bundle answered.
@@ -356,20 +360,23 @@ fresh deployment. To do it on a Cloudflare account:
 
    ```bash
    wrangler d1 execute trackit-db --remote --config backend/wrangler.toml \
-     --command "INSERT INTO greetings (language, word, lang) VALUES ('Maori', 'Kia ora,', 'mi')"
+     --command "INSERT INTO hourly_greetings (language, slot, word, lang) \
+                 VALUES ('Maori', 'morning', 'Kia ora,', 'mi')"
    ```
 
-   The app's own `validateGreeting` still has the last word: a row whose word the serif
-   cannot draw, or whose tag is not a tag, is refused and the pool's word stands — a bad row
-   costs a greeting rather than the masthead. Run `tools/vendor-anthropic-serif.py` when you
+   A row is one language **in one part of the day** — `slot` is `morning`, `afternoon`,
+   `evening` or `night` — so a language with four words is four rows. The app's own
+   `validateGreeting` still has the last word: a row whose word the serif cannot draw, or
+   whose tag is not a tag, is refused and the pool's word stands — a bad row costs a greeting
+   rather than the masthead. Run `tools/vendor-anthropic-serif.py` when you
    want a new word checked against the faces properly; it fails the run rather than
    shipping a word that would be finished by Georgia.
 
 **The route is public, and it holds nothing worth guarding.** No key, no name, no money —
-fifty hellos and which one to draw, which is why it is the one route in `backend/` that does
-not sit behind the Shortcut's token. What it can spend is the day's D1 reads, since every
-request draws a random row against that table; a script that hammered it would take the
-greeting down to the app's own fifty, which is a graceful way for a greeting to fail and the
+eighty greetings and which one to draw, which is why it is the one route in `backend/` that
+does not sit behind the Shortcut's token. What it can spend is the day's D1 reads, since
+every request draws a random row against that table; a script that hammered it would take
+the greeting down to the app's own pool, which is a graceful way for a greeting to fail and the
 reason there is no rate limiter in front of it. (The rate limiter in `app/api/greeting.ts`
 belongs to the *parked* model route, where what it protects is a key's quota.)
 
@@ -435,7 +442,8 @@ app/                    the whole product — one Vite app
       demo.ts           the artboards' own content, before an import
       view.ts           the two models, one shape for both sources
       format.ts         rupees, clocks, "Yesterday"
-      greetings.ts      the fifty greetings, and what qualifies as one (data and rules)
+      greetings.ts      the eighty greetings — twenty languages across the four parts of
+                        the day — and what qualifies as one (data and rules)
       rotation.ts       which language this open shows, and which it has just shown
       hello.ts          the greeting's server, and the parked model key
       gemini.ts         the parked question a model is asked, and what an answer must be
@@ -466,8 +474,8 @@ link may return to — and `npm run setup:auth` applies those three settings to 
 terminal, with a personal access token, so none of them needs clicking in the dashboard). A sign-in is remembered on the device until that sign-out; a release can
 retire every older session once by bumping `SESSION_EPOCH` in `lib/portal.ts`. The greeting's table is written and driven end to end against local D1 — the route's
 contract, the seed, the `avoid` list, the re-seed after a hand-edit — but **no D1 database
-exists on the account yet**, so the live site greets from the fifty in its own bundle
-(`data-greeting="pool"`), which is the same fifty the table is seeded with.
+exists on the account yet**, so the live site greets from the eighty in its own bundle
+(`data-greeting="pool"`), which is the same eighty the table is seeded with.
 Not built yet: savings goals. Import and export are implemented but **unwired** — the owner
 is placing that panel themselves, which is why no screen opens it. The app is no longer a
 service-worker PWA — the previous one was retired with its design.

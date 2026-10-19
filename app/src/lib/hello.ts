@@ -1,9 +1,10 @@
 /**
  * The greeting's server half, seen from the app: one question out, one word back.
  *
- * The masthead greets out of the fifty words that ship in the bundle (`lib/rotation.ts`),
+ * The masthead greets out of the eighty words that ship in the bundle (`lib/rotation.ts`),
  * instantly and offline. This file is the second source: it asks **the greeting's server**
- * for a row at random, and swaps that word in if — and only if — an answer arrives.
+ * for a row at random out of the part of the day the phone is in, and swaps that word in if
+ * — and only if — an answer arrives.
  *
  * **The server is the Worker in `backend/`**, which keeps the words in the `greetings`
  * table in D1 and draws one with `ORDER BY RANDOM()`. It used to be a model (and a Vercel
@@ -12,18 +13,20 @@
  * that a language can be added, or a romanization fixed, with one `wrangler d1 execute`
  * against the live database instead of a rebuild and a redeploy of the site.
  *
- * **The contract is one way and is unchanged from the model's day**: `POST { avoid: string[]
- * }` in, `{ greeting: { word, language, lang } }` out, anything else and the app keeps the
- * word it is already showing. `avoid` is the languages this browser has just seen
- * (`lib/rotation.ts`), which is what keeps "a different language every open" true now that
- * the choice is a roll of the dice rather than a walk through a shuffled list.
+ * **The contract is one way and is unchanged from the model's day but for one field**:
+ * `POST { avoid: string[], when: DaySlot }` in, `{ greeting: { word, language, lang } }` out,
+ * anything else and the app keeps the word it is already showing. `avoid` is the languages
+ * this browser has just seen (`lib/rotation.ts`), which is what keeps "a different language
+ * every open" true now that the choice is a roll of the dice rather than a walk through a
+ * shuffled list, and `when` is the part of the day the pool has already drawn from — the
+ * answer has to be a word for the same hour, or it is the wrong word said at 8am.
  *
  * **Which server, and how the build is told.** `VITE_GREETING_ENDPOINT`, set at build time.
  * On the Worker's own domain the app and this route share an origin, so a relative
  * `/api/greeting` is the whole configuration; a build served from somewhere else (GitHub
  * Pages, say) points at the Worker's absolute URL and the Worker's CORS headers answer it.
  * **No build without that variable has a server at all**, which is not a broken build: the
- * pool is the greeting, and it is the same fifty words.
+ * pool is the greeting, and it is the same eighty words.
  *
  * ## Parked below: the model
  *
@@ -36,7 +39,7 @@
  */
 
 import { askGemini } from "./gemini"
-import { validateGreeting, type Greeting } from "./greetings"
+import { validateGreeting, type DaySlot, type Greeting } from "./greetings"
 
 /** The greeting's server, when the build was given one. Empty string and undefined are the same. */
 const ENDPOINT: string | null = import.meta.env.VITE_GREETING_ENDPOINT?.trim() || null
@@ -45,7 +48,7 @@ const ENDPOINT: string | null = import.meta.env.VITE_GREETING_ENDPOINT?.trim() |
  * How long the table is given to answer, which is short on purpose — and the opposite
  * reasoning to the model's own fifteen seconds (`lib/gemini.ts`).
  *
- * Drawing a row out of fifty is a database read: it is milliseconds, and this runs while
+ * Drawing a row out of the table is a database read: it is milliseconds, and this runs while
  * the reader is looking at a word that is already right. Something that has not answered in
  * four seconds is not going to improve the masthead, and holding a request open for it is a
  * socket and a promise spent on nothing.
@@ -66,14 +69,18 @@ export function hasGreetingServer(): boolean {
  * the table is a database anyone with the credentials can add a row to, and the thing being
  * protected is not a secret but the masthead: a word must be one the serif can draw, or the
  * line reads in two typefaces.
+ *
+ * `when` is the phone's own part of the day, and it is sent because the server draws out of
+ * the same four lists the pool is in: the row it answers with is a word for this hour, and
+ * the request is what tells it which hour that is.
  */
-export async function greetingFromServer(avoid: string[]): Promise<Greeting | null> {
+export async function greetingFromServer(avoid: string[], when: DaySlot): Promise<Greeting | null> {
   if (ENDPOINT === null) return null
   try {
     const answer = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ avoid }),
+      body: JSON.stringify({ avoid, when }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
     if (!answer.ok) return null

@@ -53,9 +53,9 @@ export function DashboardScreen({
 }: {
   model: DashboardModel
   /**
-   * This open's greeting, which is nobody's data: it comes from the fifty words in
-   * `lib/greetings.ts`, or from the greetings table the server draws one row from
-   * (`hooks/useGreeting.ts`).
+   * This open's greeting, which is nobody's data: it comes from the twenty words this part
+   * of the day owns in `lib/greetings.ts`, or from the greetings table the server draws one
+   * row from (`hooks/useGreeting.ts`).
    */
   greeting: GreetingLine
   theme: Theme

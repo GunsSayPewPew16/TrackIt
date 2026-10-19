@@ -3,7 +3,7 @@
  *
  * **Nothing asks it at the moment, and that is deliberate.** The greeting used to be a
  * model's word — first from the owner's own key, then from a function holding one for every
- * visitor — and it is a row drawn out of the `greetings` table in D1 now (`backend/`),
+ * visitor — and it is a row drawn out of the `hourly_greetings` table in D1 now (`backend/`),
  * because a greeting is data. This module is kept whole and working for whatever asks a
  * model next, together with the parked half of `lib/hello.ts` and the key itself, which
  * lives in a gitignored `.dev.vars` rather than in this repository.
