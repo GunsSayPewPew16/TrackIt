@@ -116,11 +116,20 @@ frame holds the live camera; see *Scanning a UPI code* below for the one part of
 artboard that is deliberately not rebuilt.
 
 **The dashboard and the ledger show the design until there is something real to show.**
-With no import they are drawn from `src/lib/demo.ts`, which is the artboards' own
-content — the eleven sample rows, $24,860.40 of balance, October 2026 — written out as
-literals. The moment the owner imports a Wallet export, `src/lib/derive.ts` computes the
-same two models from their rows and the screens change without knowing it. That switch
-is the only place the app decides what it is looking at (`src/App.tsx`).
+On the **device-only build** (no Supabase values) they are drawn from `src/lib/demo.ts`,
+which is the artboards' own content — the eleven sample rows, $24,860.40 of balance,
+October 2026 — written out as literals. The moment the owner imports a Wallet export,
+`src/lib/derive.ts` computes the same two models from their rows and the screens change
+without knowing it. That switch is the only place the app decides what it is looking at
+(`src/App.tsx`).
+
+**An account is never shown the artboards' content.** A signed-in account with no rows
+gets the real models over an empty ledger: ₹0 cards, no quick-log habits yet, an empty
+recent list and an empty week. Its balances and budgets are its own too — a fresh account
+opens at zero, not at the import's ₹18,084, and not with somebody else's renamed
+envelope (`src/lib/balances.ts`, `src/lib/budget.ts`); the owner's account adopts the
+device's figures once on its first sign-in, through the same name gate as the ledger
+claim.
 
 Every screen starts at the artboards' 24px plus 8px plus whatever the phone reserves
 for itself (`pt-safe`): on an iPhone in a home-screen window the page is drawn edge to
@@ -217,9 +226,10 @@ divides by 100 once, at the edge.
 
 **It has no way in from the UI at the moment.** The panel that drives it
 (`src/components/DataSheet.tsx`) is written and unwired while the owner decides where
-it belongs — so today the app cannot take a file, and both screens stay on the
-artboards' own content until something calls `useLedger`'s `importHistory`. Wiring it
-back up is one piece of state and two props.
+it belongs — so today the app cannot take a file, and a device with no rows keeps
+showing the artboards' content (or, signed in, its own empty ledger) until something
+calls `useLedger`'s `importHistory`. Wiring it back up is one piece of state and two
+props.
 
 Everything imported is kept in `localStorage` under `trackit-ledger`
 (`src/lib/ledger.ts`), which is the app's only storage, so a ledger imported by an

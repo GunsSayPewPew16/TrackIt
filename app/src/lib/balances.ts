@@ -20,8 +20,12 @@
  *
  * The store is the budget editor's (`lib/budget.ts`): one key, one cached snapshot so
  * `useSyncExternalStore` can compare by identity, listeners, and best-effort storage. It is
- * per device, like the limits — `public.budgets` in the schema mirrors the export's own
- * envelopes, not the app's two numbers.
+ * **per ledger**, like the rows themselves, not per device: `trackit-balances` is the device's
+ * own, and a signed-in account gets `trackit-balances:u:<uuid>`. The import's openings belong
+ * to the imported history; a second account on the same phone starts at **zero**, and an
+ * account that has never been given a balance owes the device's figures nothing. The owner's
+ * own account takes the device's copy over on its first sign-in (`adoptDeviceBalances`), so
+ * the figures set before accounts existed are not lost.
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
@@ -37,8 +41,37 @@ const DEFAULTS: AccountOpenings = Object.fromEntries(
   ACCOUNTS.map((account) => [account.id, account.openingCents]),
 )
 
+/**
+ * What an account starts from before the owner gives it a balance: nothing.
+ *
+ * The import's openings are the owner's Wallet history, not a fact about every sign-in, so
+ * they are the **device** ledger's default and never an account's. A new login showing
+ * somebody else's ₹18,084 would be worse than showing zero.
+ */
+const ZERO: AccountOpenings = Object.fromEntries(ACCOUNTS.map((account) => [account.id, 0]))
+
+/**
+ * Whose figures these are: `null` for the device's own ledger, an account id once signed in.
+ *
+ * The key carries the owner (`trackit-balances:u:<uuid>`), exactly as the ledger's cache does,
+ * so two accounts on one phone cannot inherit each other's money and signing out hands the
+ * device its own figures back.
+ */
+let owner: string | null = null
+
+/** The device's figures, captured on the way into an account so the owner's can adopt them. */
+let carried: AccountOpenings | null = null
+
+const storageKey = (): string => (owner === null ? STORAGE_KEY : `${STORAGE_KEY}:u:${owner}`)
+
+const defaults = (): AccountOpenings => (owner === null ? DEFAULTS : ZERO)
+
 let cache: AccountOpenings | null = null
 const listeners = new Set<() => void>()
+
+const announce = (): void => {
+  for (const listener of listeners) listener()
+}
 
 /** A stored opening is kept only if it is a whole, finite number of paise. */
 function openingFrom(value: unknown, fallback: number): number {
@@ -46,15 +79,16 @@ function openingFrom(value: unknown, fallback: number): number {
 }
 
 function read(): AccountOpenings {
-  const openings: AccountOpenings = { ...DEFAULTS }
+  const fallback = defaults()
+  const openings: AccountOpenings = { ...fallback }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    const raw = window.localStorage.getItem(storageKey())
     if (!raw) return openings
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return openings
     const store = parsed as Record<string, unknown>
     for (const account of ACCOUNTS) {
-      openings[account.id] = openingFrom(store[account.id], DEFAULTS[account.id])
+      openings[account.id] = openingFrom(store[account.id], fallback[account.id])
     }
     return openings
   } catch {
@@ -93,11 +127,53 @@ export function setAccountBalance(accountId: string, targetCents: number, rows: 
   const next = { ...openingSnapshot(), [accountId]: openingFor(rows, accountId, Math.max(0, targetCents)) }
   cache = next
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    window.localStorage.setItem(storageKey(), JSON.stringify(next))
   } catch {
     // The new balance still holds for this session; only remembering it was refused.
   }
-  for (const listener of listeners) listener()
+  announce()
+}
+
+/**
+ * Point the store at an account's own figures, or back at the device's.
+ *
+ * The device's snapshot is kept on the way out of it, because it is what the owner's account
+ * adopts (`adoptDeviceBalances`). The cache is dropped rather than copied: the next
+ * `openingSnapshot()` reads the new key, and every card is told to look again.
+ */
+export function setBalancesOwner(userId: string | null): void {
+  if (owner === userId) return
+  if (owner === null) carried = openingSnapshot()
+  if (userId === null) carried = null
+  owner = userId
+  cache = null
+  announce()
+}
+
+/**
+ * Hand the device's figures to the account that has just signed in.
+ *
+ * Only the owner's account should call this — the caller is the same one that decides the
+ * ledger claim (`lib/cloud.ts`, compared to `OWNER_NAME`) — because these are the import's
+ * openings, the owner's own Wallet history, and a second account must start at zero. It writes
+ * once: an account that already has figures keeps them, so a balance set on this account is
+ * never overwritten by a later sign-in.
+ */
+export function adoptDeviceBalances(): void {
+  if (owner === null || carried === null) return
+  try {
+    if (window.localStorage.getItem(storageKey()) !== null) return
+  } catch {
+    // A store that cannot be read cannot be written safely either; zero stands.
+    return
+  }
+  cache = { ...carried }
+  try {
+    window.localStorage.setItem(storageKey(), JSON.stringify(cache))
+  } catch {
+    // This session still draws the adopted figures; only remembering them was refused.
+  }
+  announce()
 }
 
 /** Watch the store. The returned function stops watching. */

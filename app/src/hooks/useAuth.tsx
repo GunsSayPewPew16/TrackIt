@@ -61,6 +61,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -68,7 +69,7 @@ import {
   type ReactNode,
 } from "react"
 
-import { attach, claimDeviceLedger, detach, flush } from "@/lib/cloud"
+import { adoptDeviceSettings, attach, claimDeviceLedger, detach, flush } from "@/lib/cloud"
 import {
   epochSettled,
   forgetVerified,
@@ -298,11 +299,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * hands the device its own ledger back. Neither deletes anything: signing out is not an
    * erasure, and the account's cache is waiting at its own key next time.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hasCloud) return
-    if (userId) attach(userId)
-    else detach()
-  }, [userId])
+    if (!userId) {
+      detach()
+      return
+    }
+    attach(userId)
+    // The name the session itself carries answers without a query, so the owner's balances
+    // and budgets are in place before the first paint rather than after `profiles` arrives.
+    // The confirmed name below repeats this, which is what catches an account whose metadata
+    // never carried one; the write happens once either way.
+    adoptDeviceSettings(userId, nameFromAccount(session?.user))
+  }, [userId, session])
 
   /**
    * The account's name, and — once it is known to be the owner's — the one-time move of this
@@ -317,6 +326,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void displayName(session.user).then((confirmed) => {
       if (!live) return
       setProfile({ id: userId, name: confirmed })
+      // The account now owns this device's history, so it takes the figures that were set
+      // beside that history too — balances and both budgets. Another account is left at zero.
+      adoptDeviceSettings(userId, confirmed)
       void claimDeviceLedger(userId, confirmed)
     })
     return () => {

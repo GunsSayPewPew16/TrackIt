@@ -21,6 +21,12 @@
  * than reading the store, so `derive.ts` and `analytics.ts` stay pure and a screen re-derives
  * only when something it was drawn with actually changes.
  *
+ * **The numbers are the ledger's, not the device's.** `trackit-budgets` is the device's own
+ * store and a signed-in account reads `trackit-budgets:u:<uuid>`, so a second account on the
+ * same phone gets the app's defaults rather than the first account's renamed envelope. The
+ * owner's own account adopts the device's copy on its first sign-in
+ * (`adoptDeviceBudgets`), which is what keeps a limit set before accounts existed.
+ *
  * A Wallet export's own `Budget` documents are **not** these: they still drive the per-row
  * bars on the ledger (`lib/derive.ts`), which is a different question — what one row's
  * category has used up.
@@ -184,9 +190,27 @@ const FALLBACK: BudgetState = {
   names: { ...BUDGET_NAME_DEFAULTS },
 }
 
+/**
+ * Whose budgets these are: `null` for the device's own ledger, an account id once signed in.
+ *
+ * Defaults are the same for both — they are the app's numbers, not anybody's history — but the
+ * *store* is separate so one account's renamed envelope and chosen categories never appear
+ * under another login.
+ */
+let owner: string | null = null
+
+/** The device's budgets, captured on the way into an account so the owner's can adopt them. */
+let carried: BudgetState | null = null
+
+const storageKey = (): string => (owner === null ? STORAGE_KEY : `${STORAGE_KEY}:u:${owner}`)
+
 let cache: BudgetState | null = null
 
 const listeners = new Set<() => void>()
+
+const announce = (): void => {
+  for (const listener of listeners) listener()
+}
 
 /** A stored limit is kept only if it is a positive whole number of paise. */
 function limitFrom(value: unknown, fallback: number): number {
@@ -205,7 +229,7 @@ function trackedFrom(value: unknown, fallback: string[] | null): string[] | null
 
 function read(): BudgetState {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    const raw = window.localStorage.getItem(storageKey())
     if (!raw) return FALLBACK
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return FALLBACK
@@ -250,11 +274,50 @@ export function budgetSnapshot(): BudgetState {
 function commit(next: BudgetState): void {
   cache = next
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    window.localStorage.setItem(storageKey(), JSON.stringify(next))
   } catch {
     // The new value still holds for this session; only remembering it was refused.
   }
-  for (const listener of listeners) listener()
+  announce()
+}
+
+/**
+ * Point the store at an account's own budgets, or back at the device's.
+ *
+ * The device's snapshot is kept on the way out of it (`adoptDeviceBudgets`); the cache is
+ * dropped so the next `budgetSnapshot()` reads the new key and every card is told to look again.
+ */
+export function setBudgetOwner(userId: string | null): void {
+  if (owner === userId) return
+  if (owner === null) carried = budgetSnapshot()
+  if (userId === null) carried = null
+  owner = userId
+  cache = null
+  announce()
+}
+
+/**
+ * Hand the device's budgets to the account that has just signed in — the owner's, once.
+ *
+ * The caller is the same one that decides the ledger claim (`lib/cloud.ts`), so a second
+ * account is never handed an envelope somebody else named. An account that already has a stored
+ * budget keeps it; this only fills an empty one.
+ */
+export function adoptDeviceBudgets(): void {
+  if (owner === null || carried === null) return
+  try {
+    if (window.localStorage.getItem(storageKey()) !== null) return
+  } catch {
+    // A store that cannot be read cannot be written safely either; the defaults stand.
+    return
+  }
+  cache = carried
+  try {
+    window.localStorage.setItem(storageKey(), JSON.stringify(carried))
+  } catch {
+    // This session still draws the adopted budgets; only remembering them was refused.
+  }
+  announce()
 }
 
 /** Set one limit, in paise, and tell every card that draws it. */

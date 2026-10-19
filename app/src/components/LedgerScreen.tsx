@@ -348,50 +348,63 @@ export function LedgerScreen({ model, theme, onToggleTheme, onPickMonth, onDelet
           The month, and the way out of the window: the chevron the artboard draws
           opens the months the history actually touches. The row is the trigger, so
           the control is exactly where the design put it.
+
+          A ledger with no rows has no other month to go to, so there the name is a
+          plain label: a chevron that opens an empty menu is a door to nowhere, and
+          the first thing a clean account sees should not be one.
         */}
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button
-              type="button"
-              aria-label={`Month: ${monthLabel(day.at)}. Choose another month`}
-              className="relative mx-auto mt-4 flex h-10 items-center justify-center gap-2 border-0 bg-transparent p-0 font-serif text-2xl leading-8 font-normal tracking-wide"
-            >
+          {model.months.length === 0 ? (
+            <div className="relative mx-auto mt-4 flex h-10 items-center justify-center font-serif text-2xl leading-8 font-normal tracking-wide">
               {monthLabel(day.at)}
-              <ChevronDown className="size-5 text-sage" strokeWidth={1.5} aria-hidden="true" />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="center"
-              sideOffset={8}
-              className="z-50 max-h-[60dvh] min-w-[200px] overflow-y-auto rounded-[20px] border border-line bg-card p-2 text-ink"
-            >
-              {/* Marked by the month the wheel is showing, which is the one the
-                  label above it names. */}
-              <DropdownMenu.RadioGroup
-                value={monthKey(day.at)}
-                onValueChange={(key) => {
-                  const picked = model.months.find((month) => month.key === key)
-                  if (picked && key !== monthKey(day.at)) onPickMonth(picked.anchor)
-                }}
+            </div>
+          ) : (
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                aria-label={`Month: ${monthLabel(day.at)}. Choose another month`}
+                className="relative mx-auto mt-4 flex h-10 items-center justify-center gap-2 border-0 bg-transparent p-0 font-serif text-2xl leading-8 font-normal tracking-wide"
               >
-                {model.months.map((month) => (
-                  <DropdownMenu.RadioItem
-                    key={month.key}
-                    value={month.key}
-                    className="flex h-10 cursor-pointer items-center justify-between gap-4 rounded-2xl px-3 outline-none data-[highlighted]:bg-line"
-                  >
-                    <span className="font-display text-sm font-medium tracking-[-0.01em]">
-                      {month.label}
-                    </span>
-                    <DropdownMenu.ItemIndicator>
-                      <Check className="size-4 text-sage" strokeWidth={1.5} aria-hidden="true" />
-                    </DropdownMenu.ItemIndicator>
-                  </DropdownMenu.RadioItem>
-                ))}
-              </DropdownMenu.RadioGroup>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+                {monthLabel(day.at)}
+                <ChevronDown className="size-5 text-sage" strokeWidth={1.5} aria-hidden="true" />
+              </button>
+            </DropdownMenu.Trigger>
+          )}
+          {/* No months means no menu: the portal is not mounted at all. */}
+          {model.months.length > 0 && (
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="center"
+                sideOffset={8}
+                className="z-50 max-h-[60dvh] min-w-[200px] overflow-y-auto rounded-[20px] border border-line bg-card p-2 text-ink"
+              >
+                {/* Marked by the month the wheel is showing, which is the one the
+                    label above it names. */}
+                <DropdownMenu.RadioGroup
+                  value={monthKey(day.at)}
+                  onValueChange={(key) => {
+                    const picked = model.months.find((month) => month.key === key)
+                    if (picked && key !== monthKey(day.at)) onPickMonth(picked.anchor)
+                  }}
+                >
+                  {model.months.map((month) => (
+                    <DropdownMenu.RadioItem
+                      key={month.key}
+                      value={month.key}
+                      className="flex h-10 cursor-pointer items-center justify-between gap-4 rounded-2xl px-3 outline-none data-[highlighted]:bg-line"
+                    >
+                      <span className="font-display text-sm font-medium tracking-[-0.01em]">
+                        {month.label}
+                      </span>
+                      <DropdownMenu.ItemIndicator>
+                        <Check className="size-4 text-sage" strokeWidth={1.5} aria-hidden="true" />
+                      </DropdownMenu.ItemIndicator>
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          )}
         </DropdownMenu.Root>
 
         {/*

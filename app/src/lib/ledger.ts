@@ -109,7 +109,9 @@ function read(): LedgerSnapshot {
     // login would be money that is not theirs.
     if (!raw) return owner === null ? bundled() : EMPTY_LEDGER
     const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== "object" || parsed === null) return bundled()
+    // A signed-in account's unreadable cache is empty, not the bundled sheet: the same rule as
+    // the missing key above, for the same reason.
+    if (typeof parsed !== "object" || parsed === null) return owner === null ? bundled() : EMPTY_LEDGER
     const store = parsed as Record<string, unknown>
     const storedRows = Array.isArray(store.rows) ? store.rows.filter(isRow) : []
     const storedBudgets = Array.isArray(store.budgets) ? store.budgets.filter(isBudget) : []
@@ -131,7 +133,9 @@ function read(): LedgerSnapshot {
     }
     return snapshot
   } catch {
-    return bundled()
+    // A refused or corrupt store costs an account its cache for this session, never its
+    // neighbour's demo rows under its own name.
+    return owner === null ? bundled() : EMPTY_LEDGER
   }
 }
 

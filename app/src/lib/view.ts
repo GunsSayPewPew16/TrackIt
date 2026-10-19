@@ -2,10 +2,11 @@
  * What the screens render — one shape, two producers.
  *
  * The dashboard and the ledger do not read rows. They read these models, which
- * `lib/demo.ts` fills from the artboards' own values (so a first visit looks
- * exactly like the design) and `lib/derive.ts` fills from the owner's imported
- * history (so the same screens show real money). Keeping both behind one shape is
- * what lets that switch happen without the screens knowing which one they got.
+ * `lib/demo.ts` fills from the artboards' own values (so a device-only first visit
+ * looks exactly like the design) and `lib/derive.ts` fills from the owner's rows (so
+ * the same screens show real money — including an account with none, which draws
+ * empty). Keeping both behind one shape is what lets that switch happen without the
+ * screens knowing which one they got.
  *
  * Every string here is already formatted: `format.ts` owns rupees, clocks and
  * "Yesterday", and a screen never divides by 100.

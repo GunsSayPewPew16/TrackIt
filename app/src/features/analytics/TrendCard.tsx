@@ -36,11 +36,20 @@ function splinePath(pts: { x: number; y: number }[]): string {
   return d
 }
 
-export function TrendCard({ rows, now }: { rows: Row[]; now: number }) {
+export function TrendCard({
+  rows,
+  now,
+  openingCents,
+}: {
+  rows: Row[]
+  now: number
+  /** What both accounts held before the first row — the dashboard's own openings, summed. */
+  openingCents: number
+}) {
   const gradId = useId().replace(/:/g, "")
   const plot = useRef<HTMLDivElement>(null)
   const pressed = useRef(false)
-  const model = useMemo(() => balanceModel(rows, now), [rows, now])
+  const model = useMemo(() => balanceModel(rows, now, openingCents), [rows, now, openingCents])
   const dayCount = model.days.length
   const today = model.today
 

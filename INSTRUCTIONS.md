@@ -73,8 +73,10 @@ One shape, two producers — `app/src/lib/view.ts` holds the models, and nothing
 knows which producer filled them:
 
 - `app/src/lib/demo.ts` — the artboards' own content, as literals: the eleven sample
-  rows, the balance, October 2026. It is what a first visit shows, so the design is
-  what the owner sees before their own money is in.
+  rows, the balance, October 2026. It is what a **device-only** first visit shows, so
+  the design is what the owner sees before their own money is in. It is never drawn for
+  a signed-in account: that build's empty ledger gets the real models with nothing in
+  them, because sample rows under somebody's name read as their money.
 - `app/src/lib/derive.ts` — the same models computed from the owner's rows. Every
   decision a figure needs lives here rather than in a component: money in is never
   spending, `High expense` is a share of the month rather than a threshold, and a card's
@@ -357,7 +359,11 @@ left out and why.
   have not landed yet. That is not an optimisation to undo: it is what lets an installed app open
   in a lift and still be the owner's ledger. A signed-out device keeps its own ledger at
   `trackit-ledger` and gets it back on sign-out; a signed-in account with an empty cache is
-  **empty**, never the bundled demo sheet.
+  **empty**, never the bundled demo sheet or the artboards' models. The same rule covers the
+  figures beside the rows: balances and budgets are stored per ledger
+  (`trackit-balances:u:<uuid>`, `trackit-budgets:u:<uuid>`), a fresh account opens at zero
+  and at the app's default budgets, and only the owner's account — the one `OWNER_NAME`
+  names — adopts the device's own figures on its first sign-in.
 - **The portal is two steps, and the code is the session.** `signIn` checks the password by
   actually signing in, then **throws that session away** (`signOut({ scope: "local" })`) before
   Supabase mails six digits; `verifyCode` establishes the only session the app keeps. The

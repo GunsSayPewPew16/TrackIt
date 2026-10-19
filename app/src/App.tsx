@@ -48,9 +48,11 @@ import type { Row } from "@/lib/types"
  *
  * **Which content.** The owner's imported history decides it, in one place. With
  * rows in the ledger both screens are computed from them (`lib/derive.ts`); with
- * nothing imported they are the artboards' own dataset (`lib/demo.ts`), so the
- * design is what a first visit shows and the owner's money is what every visit
- * after that shows. Nothing else in the app knows which of the two it got.
+ * nothing imported, a **device-only** build draws the artboards' own dataset
+ * (`lib/demo.ts`), so the design is what a first visit shows. A signed-in account
+ * gets the same derived models over its empty rows instead — an account with
+ * nothing on it shows nothing, never sample merchants. Nothing else in the app
+ * knows which of the two it got.
  *
  * **The fade between the screens.** `mode="popLayout"` is what makes it a
  * cross-fade rather than a hand-over: the screen being left is taken out of the
@@ -146,6 +148,9 @@ function TrackIt() {
    * model stable for the memo below.
    */
   const [now] = useState(() => Date.now())
+  // Which build this is: the device-only tracker draws the artboards until something is
+  // imported, while an account's empty ledger is just that — empty.
+  const { mode } = useAuth()
   const { rows, budgets, remove, update } = useLedger()
   const { limits, tracked, names, save: saveBudget, saveTracked, saveName } = useBudgets()
   const { openings, setBalance } = useBalances(rows)
@@ -448,18 +453,31 @@ function TrackIt() {
    * Both models are rebuilt when the ledger changes and not on every render: the
    * derivation walks every row, and a screen that re-renders for a hover must not
    * make it do that.
+   *
+   * **The demo content belongs to the device-only build.** With no account there is nobody
+   * whose money it could be, so an empty ledger draws the artboards (`lib/demo.ts`) — that is
+   * what a first visit to the tracker has always been. A signed-in account with no rows is
+   * somebody's account with nothing on it, and drawing Blue Bottle and ₹24,860.40 there reads
+   * as their data: it gets the real (empty) models instead, which is the same rule
+   * `lib/ledger.ts` already follows for the bundled sheet.
    */
   const imported = hasHistory(rows)
+  const demo = mode === "device" && !imported
   const dashboard = useMemo(
     () =>
-      imported
-        ? dashboardModel(rows, now, limits.food, tracked.food, openings, names.food)
-        : demoDashboard(limits.food, tracked.food, openings, names.food),
-    [imported, rows, now, limits.food, tracked.food, openings, names.food],
+      demo
+        ? demoDashboard(limits.food, tracked.food, openings, names.food)
+        : dashboardModel(rows, now, limits.food, tracked.food, openings, names.food),
+    [demo, rows, now, limits.food, tracked.food, openings, names.food],
   )
   const ledger = useMemo(
-    () => (imported ? ledgerModel(rows, budgets, anchor) : DEMO_LEDGER),
-    [imported, rows, budgets, anchor],
+    () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor)),
+    [demo, rows, budgets, anchor],
+  )
+  /** What both accounts opened with, for the stats trend — the dashboard's own figures. */
+  const openingCents = useMemo(
+    () => Object.values(openings).reduce((total, cents) => total + cents, 0),
+    [openings],
   )
 
   const Ledger = arrived.ledger
@@ -509,6 +527,7 @@ function TrackIt() {
               onToggleTheme={toggleTheme}
               budgetCents={limits.total}
               budgetCategories={tracked.total}
+              openingCents={openingCents}
               onSetBudget={() => void editBudget("total")}
             />
         ) : view === "scan" && Scan ? (

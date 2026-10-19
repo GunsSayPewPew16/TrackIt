@@ -12,8 +12,12 @@
  *
  * - `attach(userId)` — called when a session appears: the device switches to that account's
  *   cache (a key of its own, so two accounts on one phone cannot see each other), the sink is
- *   wired, and the account's rows are pulled down over the cache.
+ *   wired, and the account's rows are pulled down over the cache. The balances and budgets are
+ *   per ledger too (`lib/balances.ts`, `lib/budget.ts`), so they switch with it.
  * - `detach()` — signed out: the sink is removed and the device's own ledger comes back.
+ * - `adoptDeviceSettings(userId, name)` — the owner's first sign-in on this device hands their
+ *   account the device's balances and budgets, exactly as `claimDeviceLedger` hands it the
+ *   rows. Another account starts at zero and at the app's default budgets.
  * - `hydrate()` — pull rows and budgets, then replace the cache. Pending writes are applied
  *   **on top** of what came back, because a row typed while offline is newer than the row the
  *   server has for it.
@@ -31,6 +35,8 @@
  */
 
 import { ACCOUNTS, DEFAULT_ACCOUNT, accountFor } from "./accounts"
+import { adoptDeviceBalances, setBalancesOwner } from "./balances"
+import { adoptDeviceBudgets, setBudgetOwner } from "./budget"
 import { CATEGORY_GROUPS, DEFAULT_CATEGORY, categoryFor, categoryIdForLabel } from "./categories"
 import { ledgerSnapshot, replaceLedger, setLedgerSink, setLedgerOwner } from "./ledger"
 import { OWNER_NAME } from "./owner"
@@ -352,6 +358,8 @@ export function attach(userId: string): void {
   if (owner === null) deviceLedger = ledgerSnapshot()
   owner = userId
   setLedgerOwner(userId)
+  setBalancesOwner(userId)
+  setBudgetOwner(userId)
   setLedgerSink({
     upsert(rows, budgets) {
       enqueue(userId, { op: "upsert", rows, budgets })
@@ -381,6 +389,8 @@ export function detach(): void {
   deviceLedger = null
   setLedgerSink(null)
   setLedgerOwner(null)
+  setBalancesOwner(null)
+  setBudgetOwner(null)
   window.removeEventListener("online", onOnline)
   announce()
 }
@@ -407,6 +417,14 @@ export function detach(): void {
  * The rows keep their own ids (`client_id`), so this is an upsert like any other: a claim
  * that races a queue push lands on the same rows instead of beside them.
  */
+export function adoptDeviceSettings(userId: string, name: string | null): void {
+  // The same gate as the claim below, and for the same reason: the device's figures are the
+  // owner's own history, so only the account the app greets by `OWNER_NAME` may take them.
+  if (owner !== userId || name !== OWNER_NAME) return
+  adoptDeviceBalances()
+  adoptDeviceBudgets()
+}
+
 export async function claimDeviceLedger(userId: string, name: string | null): Promise<boolean> {
   if (owner !== userId || name !== OWNER_NAME) return false
   if (claimed(userId)) return false

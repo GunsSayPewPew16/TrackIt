@@ -27,6 +27,12 @@ export type Props = {
   budgetCents: number
   /** What that budget counts, or `null` for every expense — see `lib/budget.ts`. */
   budgetCategories: string[] | null
+  /**
+   * What both accounts held before the first row, in paise — the same openings the
+   * dashboard's cards read (`lib/balances.ts`), so the trend opens where the cards do.
+   * Nothing on a fresh account, rather than the import's total.
+   */
+  openingCents: number
   /** A long press on the dial opens the budget editor (`features/budget/BudgetSheet.tsx`). */
   onSetBudget: () => void
 }
@@ -46,6 +52,7 @@ export function AnalyticsScreen({
   onToggleTheme,
   budgetCents,
   budgetCategories,
+  openingCents,
   onSetBudget,
 }: Props) {
   // Read once per visit: the figures are the day the screen was opened on.
@@ -66,7 +73,7 @@ export function AnalyticsScreen({
       </motion.header>
 
       <motion.div variants={rise}>
-        <TrendCard rows={rows} now={now} />
+        <TrendCard rows={rows} now={now} openingCents={openingCents} />
       </motion.div>
 
       <motion.div variants={rise} className="grid grid-cols-2 gap-4">

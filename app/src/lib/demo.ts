@@ -1,12 +1,13 @@
 /**
  * The artboards' own content, as data.
  *
- * Both screens have two states. With the owner's Wallet history imported they show
- * real money; before anything has been imported they show **exactly what the
+ * Both screens have two states. With rows in the ledger they show real money;
+ * before anything has been imported a **device-only** build shows **exactly what the
  * artboards draw** — $24,860.40 of balance, Blue Bottle Coffee at 8:05 AM, the
  * eleven sample rows spread across the days of the one month the wheel spins through. That
- * is what this file is: the design, kept as literals, so a first visit looks like
- * the design and nothing about it has to be guessed.
+ * is what this file is: the design, kept as literals, so a device-only first visit looks
+ * like the design and nothing about it has to be guessed. A signed-in account never
+ * draws any of it — see `App.tsx` and `lib/ledger.ts`.
  *
  * The figures are the artboards' figures and the currency is the app's: every one
  * of them is drawn in rupees by `format.ts`, because the owner's money is rupees

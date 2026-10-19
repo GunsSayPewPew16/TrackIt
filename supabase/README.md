@@ -236,6 +236,13 @@ other account starts empty and stays empty; a second device cannot re-seed a she
 since edited; and `trackit-claim:<uuid>` on the device means deliberately clearing the vault is
 not undone by the next sign-in.
 
+**Empty means the screen too, and the figures beside it.** The artboards' demo models are the
+device-only build's, so a signed-in account with no rows draws ₹0 cards, no habits and an empty
+recent list rather than sample merchants. Balances and budgets are stored per ledger as well
+(`trackit-balances:u:<uuid>`, `trackit-budgets:u:<uuid>`): a fresh account opens at zero with the
+app's default budgets, and only the owner's name-adopted account takes the device's own figures
+(`adoptDeviceSettings`, called beside the claim).
+
 To start that account's history from scratch instead, delete its rows and the claim marker:
 
 ```sql

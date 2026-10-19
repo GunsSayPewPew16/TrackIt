@@ -170,8 +170,17 @@ export function heatmapModel(rows: Row[], page: number, now: number, weeks: numb
  * The money both accounts hold, day by day across the current month. The balance at the
  * end of a day is the openings plus every row up to that day, so the series is built by
  * walking the rows once in time order rather than summing each day from scratch.
+ *
+ * `openingCents` is handed in by the screen from the same store the dashboard's cards read
+ * (`lib/balances.ts`), so the trend and the cards can never disagree — and an account that
+ * has no figures of its own opens on zero rather than on the import's total. Omitted, the
+ * import's total stands, which is the device ledger's own answer.
  */
-export function balanceModel(rows: Row[], now: number): BalanceModel {
+export function balanceModel(
+  rows: Row[],
+  now: number,
+  openingCents: number = OPENING_BALANCE_CENTS,
+): BalanceModel {
   const monthStart = startOfMonth(now)
   const monthEnd = startOfNextMonth(now)
   const dayCount = Math.round((monthEnd - monthStart) / 86_400_000)
@@ -181,7 +190,7 @@ export function balanceModel(rows: Row[], now: number): BalanceModel {
   }))
 
   const ordered = [...rows].sort((a, b) => a.at - b.at)
-  let total = OPENING_BALANCE_CENTS
+  let total = openingCents
   let next = 0
   // Everything before the month is already in the opening of its first day.
   while (next < ordered.length && ordered[next].at < monthStart) total += signed(ordered[next++])

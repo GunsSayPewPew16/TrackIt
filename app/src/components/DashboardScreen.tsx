@@ -164,28 +164,38 @@ export function DashboardScreen({
             <span className={`${cardTitle} text-[14px] leading-4`}>{model.quickLog.title}</span>
             <span className="text-ink2">{model.quickLog.context}</span>
           </div>
-          {/* A tray, so it scrolls sideways without a bar the way the artboard's does. */}
-          <div className="hide-scrollbar flex gap-2 overflow-x-auto">
-            {model.quickLog.actions.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => {
-                  lightTap() // must run synchronously inside the tap for iOS
-                  onQuickLog(action.category)
-                }}
-                className="h-12 flex-none border-0 bg-transparent p-0"
-              >
-                <span
-                  className={`${pill} h-8 rounded-2xl px-3 ${
-                    action.primary ? "bg-sage text-on-sage" : "border border-sage bg-transparent text-sage"
-                  }`}
+          {/*
+            A tray, so it scrolls sideways without a bar the way the artboard's does. An
+            account with nothing on it has no habits to guess at yet, so the tray says so
+            rather than leaving a blank row where the chips would be.
+          */}
+          {model.quickLog.actions.length === 0 ? (
+            <p className="font-editorial text-xs leading-4 italic text-ink2">
+              Your habits show up here after a few records.
+            </p>
+          ) : (
+            <div className="hide-scrollbar flex gap-2 overflow-x-auto">
+              {model.quickLog.actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => {
+                    lightTap() // must run synchronously inside the tap for iOS
+                    onQuickLog(action.category)
+                  }}
+                  className="h-12 flex-none border-0 bg-transparent p-0"
                 >
-                  {action.label}
-                </span>
-              </button>
-            ))}
-          </div>
+                  <span
+                    className={`${pill} h-8 rounded-2xl px-3 ${
+                      action.primary ? "bg-sage text-on-sage" : "border border-sage bg-transparent text-sage"
+                    }`}
+                  >
+                    {action.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -338,6 +348,9 @@ export function DashboardScreen({
         <div className="flex h-12 items-center">
           <span className={cardTitle}>{model.recent.title}</span>
         </div>
+        {model.recent.rows.length === 0 && (
+          <p className="py-8 text-center text-ink2">Nothing logged yet.</p>
+        )}
         {model.recent.rows.map((row) => (
           <div key={row.id} className="flex h-16 items-center justify-between border-t border-line">
             <div className="min-w-0">
