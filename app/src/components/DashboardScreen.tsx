@@ -249,10 +249,11 @@ export function DashboardScreen({
         `envelope`, not from an imported Wallet budget. It is deliberately **not** the same
         figure as the stats dial, which answers the whole month against ₹5,000.
 
-        **A hold on the card opens the editor.** The limit is the owner's, so it is edited
-        where it is drawn: `hooks/useLongPress.ts` gives the hold, the tick and a keyboard /
-        right-click path to it, and `onSetBudget` opens the panel. A scroll cancels the hold,
-        so the dashboard still scrolls under a thumb.
+        **A hold on the card opens the editor — and the card's title is the owner's too.**
+        The limit and the name are both theirs, so both are edited where they are drawn:
+        `hooks/useLongPress.ts` gives the hold, the tick and a keyboard / right-click path
+        to it, and `onSetBudget` opens the panel whose first field is the name (`lib/budget.ts`
+        keeps it). A scroll cancels the hold, so the dashboard still scrolls under a thumb.
 
         The artboard splits the card `2fr 3fr`, which is a ratio drawn around its own
         `$240` and `/ $600`. A rupee figure carries a symbol and thousands separators, so
@@ -267,8 +268,8 @@ export function DashboardScreen({
         {...holdEnvelope}
         role="group"
         tabIndex={0}
-        aria-label={`F&B Budget: ${model.envelope.spent} spent of ${model.envelope.limit}. Hold to change the budget`}
-        title="Hold to change the budget"
+        aria-label={`${model.envelope.title}: ${model.envelope.spent} spent of ${model.envelope.limit}. Hold to rename it or change the budget`}
+        title="Hold to rename or change the budget"
         className="grid h-40 grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4 select-none [-webkit-touch-callout:none]"
       >
         <div className="flex flex-col justify-between whitespace-nowrap">

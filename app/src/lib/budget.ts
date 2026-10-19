@@ -68,6 +68,7 @@ export const BUDGET_TRACKED_DEFAULTS: BudgetTracked = {
 export type BudgetState = {
   limits: BudgetLimits
   tracked: BudgetTracked
+  names: BudgetNames
 }
 
 /**
@@ -91,6 +92,45 @@ export const BUDGET_COPY: Record<
     title: "Total spending budget",
     blurb: "Every expense this month, whatever its category.",
   },
+}
+
+/**
+ * What each budget's card calls itself, once the owner has named it.
+ *
+ * **The envelope's name is theirs.** "F&B Budget" is what the app calls it before anybody
+ * says otherwise — it is the dimension's own label — and the card is where it is renamed,
+ * because the card is where the name is read. It lives in this store rather than on the
+ * row data: a name is not a transaction, and it has to survive a reload the same way the
+ * limit does.
+ */
+export type BudgetNames = Record<BudgetScope, string>
+
+/** The names the cards wear before the owner changes them. */
+export const BUDGET_NAME_DEFAULTS: BudgetNames = {
+  food: BUDGET_COPY.food.label,
+  total: BUDGET_COPY.total.label,
+}
+
+/**
+ * How long a name may be. A card is 390px wide and its title sits on one line beside a
+ * gauge, so a name that ran on would be truncated by the layout rather than by this — and a
+ * truncated name is the app deciding what the owner meant. It is short enough to fit, long
+ * enough for `Food & Beverages`.
+ */
+export const BUDGET_NAME_MAX = 28
+
+/**
+ * A name as it is kept: single-line, no surrounding space, and never empty.
+ *
+ * An empty field is not a name — it is the owner having cleared it, and what they then see
+ * is the app's own label again rather than a blank card with no way to tell what it counts.
+ * The trim happens here rather than on every keystroke: stripping a space as it is typed
+ * would make "F&B Budget" impossible to write.
+ */
+export function budgetNameFrom(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback
+  const clean = value.replace(/\s+/g, " ").trim().slice(0, BUDGET_NAME_MAX)
+  return clean.length > 0 ? clean : fallback
 }
 
 /** Whether money filed under this category is the food budget's business by default. */
@@ -141,6 +181,7 @@ const STORAGE_KEY = "trackit-budgets"
 const FALLBACK: BudgetState = {
   limits: { ...BUDGET_DEFAULTS },
   tracked: { food: [...FOOD_CATEGORIES], total: null },
+  names: { ...BUDGET_NAME_DEFAULTS },
 }
 
 let cache: BudgetState | null = null
@@ -177,6 +218,9 @@ function read(): BudgetState {
      */
     const limits = store.limits as Record<string, unknown> | undefined
     const tracked = store.tracked as Record<string, unknown> | undefined
+    // A store written before names existed simply holds none: each falls back to the label
+    // the card has always worn.
+    const names = store.names as Record<string, unknown> | undefined
     return {
       limits: {
         food: limitFrom(limits?.food ?? store.food, BUDGET_DEFAULTS.food),
@@ -185,6 +229,10 @@ function read(): BudgetState {
       tracked: {
         food: trackedFrom(tracked?.food, BUDGET_TRACKED_DEFAULTS.food),
         total: trackedFrom(tracked?.total, BUDGET_TRACKED_DEFAULTS.total),
+      },
+      names: {
+        food: budgetNameFrom(names?.food, BUDGET_NAME_DEFAULTS.food),
+        total: budgetNameFrom(names?.total, BUDGET_NAME_DEFAULTS.total),
       },
     }
   } catch {
@@ -215,6 +263,24 @@ export function setBudgetLimit(scope: BudgetScope, cents: number): void {
   commit({
     limits: { ...current.limits, [scope]: limitFrom(cents, BUDGET_DEFAULTS[scope]) },
     tracked: current.tracked,
+    names: current.names,
+  })
+}
+
+/**
+ * Rename a budget, and tell every card that prints the name.
+ *
+ * It is called when the field **loses focus** rather than on every keystroke: a name is
+ * written as it is typed, and trimming each keystroke would eat the spaces in the middle of
+ * one ("F&B Budget" would arrive as "F&BBudget"). Clearing the field restores the app's own
+ * label — see `budgetNameFrom`.
+ */
+export function setBudgetName(scope: BudgetScope, name: string): void {
+  const current = budgetSnapshot()
+  commit({
+    limits: current.limits,
+    tracked: current.tracked,
+    names: { ...current.names, [scope]: budgetNameFrom(name, BUDGET_NAME_DEFAULTS[scope]) },
   })
 }
 
@@ -233,6 +299,7 @@ export function setBudgetTracked(scope: BudgetScope, categories: string[] | null
       ...current.tracked,
       [scope]: categories === null ? null : [...new Set(categories)],
     },
+    names: current.names,
   })
 }
 

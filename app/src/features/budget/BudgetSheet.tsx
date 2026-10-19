@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 
 import { Keypad } from "@/features/manual-entry/Keypad"
 import { formatRaw, rawFromCents, useAmountInput } from "@/features/manual-entry/useAmountInput"
-import { BUDGET_COPY, type BudgetScope } from "@/lib/budget"
+import { BUDGET_COPY, BUDGET_NAME_MAX, type BudgetScope } from "@/lib/budget"
 import { CATEGORY_GROUPS, categoryFor } from "@/lib/categories"
 import { join } from "@/lib/classes"
 import { wholeMoney } from "@/lib/format"
@@ -61,6 +61,14 @@ export type BudgetSheetProps = {
   isOpen: boolean
   /** Which budget is being edited. Read even while closing, so it must not be `null`. */
   scope: BudgetScope
+  /**
+   * What the card calls this budget, which is the app's own label until the owner names it.
+   * It is edited here rather than on a screen of its own because the card is where a name is
+   * *read*, and the long press that opens this panel is already the card's one gesture.
+   */
+  name: string
+  /** The new name, called when the field is left — not on every keystroke. */
+  onName: (name: string) => void
   /** The limit on screen when it opened, in integer paise. */
   limitCents: number
   /** What the budget counts today: category ids, or `null` for every expense. */
@@ -118,6 +126,8 @@ function Chip({
 export function BudgetSheet({
   isOpen,
   scope,
+  name,
+  onName,
   limitCents,
   tracked,
   spentCents,
@@ -130,6 +140,13 @@ export function BudgetSheet({
   /** Which of the panel's two pages is showing: the figure, or what it counts. */
   const [view, setView] = useState<"limit" | "tracking">("limit")
   /**
+   * The name as it is being typed. It is local until the field is left, because a name is
+   * written *through* its spaces: trimming each keystroke would turn `F&B Budget` into
+   * `F&BBudget` as it was typed. Leaving the field — by tapping the keypad, the save button
+   * or anywhere else — writes it, and an empty field hands the app's own label back.
+   */
+  const [draft, setDraft] = useState(name)
+  /**
    * Every open starts on the limit page, because that is the page the card's own figure is
    * about. The reset happens **during render**, on the open's first pass, rather than in an
    * effect: an effect would draw the picker for one frame on a second open, which is exactly
@@ -138,7 +155,10 @@ export function BudgetSheet({
   const [wasOpen, setWasOpen] = useState(isOpen)
   if (wasOpen !== isOpen) {
     setWasOpen(isOpen)
-    if (isOpen) setView("limit")
+    if (isOpen) {
+      setView("limit")
+      setDraft(name)
+    }
   }
 
   /**
@@ -272,6 +292,31 @@ export function BudgetSheet({
 
             {view === "limit" ? (
               <>
+                {/*
+                  The name, on the page the card's own title comes from. It is the first
+                  thing on the panel and it is written straight onto the card behind it
+                  when it is left, which is what makes the long press on the envelope a
+                  rename as well as a limit change.
+                */}
+                <label className="mt-3 flex h-12 items-center gap-3 rounded-2xl border border-line px-3">
+                  <span className="text-[10px] leading-4 font-bold tracking-[0.03em] text-ink2 uppercase">
+                    Name
+                  </span>
+                  <input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onBlur={() => onName(draft)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur()
+                    }}
+                    maxLength={BUDGET_NAME_MAX}
+                    placeholder={copy.label}
+                    aria-label="Envelope name"
+                    autoComplete="off"
+                    className="min-w-0 flex-1 border-0 bg-transparent font-display text-[14px] leading-5 font-medium tracking-[-0.01em] text-ink outline-none placeholder:text-ink2"
+                  />
+                </label>
+
                 {/* The figure, in the manual entry's own money type. */}
                 <div className="mt-3 flex items-baseline gap-1" aria-live="polite">
                   <span className="font-display text-2xl leading-8 text-clay" aria-hidden="true">

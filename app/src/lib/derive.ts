@@ -32,7 +32,12 @@
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
-import { BUDGET_COPY, BUDGET_DEFAULTS, BUDGET_TRACKED_DEFAULTS, budgetSpent } from "./budget"
+import {
+  BUDGET_DEFAULTS,
+  BUDGET_NAME_DEFAULTS,
+  BUDGET_TRACKED_DEFAULTS,
+  budgetSpent,
+} from "./budget"
 import { categoryFor } from "./categories"
 // The name a person reads, which is the new tree's where it renamed an envelope: see
 // `lib/refile.ts`. The table itself is still the source of the id and the icon.
@@ -302,6 +307,8 @@ function envelope(
   limitCents: number,
   /** The categories this budget counts, or `null` for every expense (`lib/budget.ts`). */
   categories: string[] | null,
+  /** What the owner calls it (`lib/budget.ts`): the card's own title, defaulted. */
+  name: string,
 ): DashboardModel["envelope"] {
   const monthStart = startOfMonth(now)
   const monthRows = inWindow(rows.filter(isExpense), monthStart, startOfNextMonth(now))
@@ -319,7 +326,8 @@ function envelope(
   const pct = pctOf(spent, limitCents)
 
   return {
-    title: BUDGET_COPY.food.label,
+    // The owner's own name for the envelope, which is `F&B Budget` until they change it.
+    title: name,
     // The gauge's own two figures are headlines, so they carry no paise — the
     // same reason the artboard writes `$240 / $600` and not `$240.00 / $600.00`.
     spent: wholeMoney(spent),
@@ -348,6 +356,8 @@ export function dashboardModel(
    * own openings are used, which is what every caller but the app wants.
    */
   openings: Record<string, number> = {},
+  /** What the owner calls the envelope (`lib/budget.ts`) — the card's title. */
+  foodName: string = BUDGET_NAME_DEFAULTS.food,
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -418,7 +428,7 @@ export function dashboardModel(
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
-    envelope: envelope(rows, now, foodLimitCents, foodCategories),
+    envelope: envelope(rows, now, foodLimitCents, foodCategories, foodName),
     recent: {
       title: "Recent transactions",
       rows: recent.map((row) => ({

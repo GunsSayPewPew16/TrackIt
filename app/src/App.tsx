@@ -147,7 +147,7 @@ function TrackIt() {
    */
   const [now] = useState(() => Date.now())
   const { rows, budgets, remove, update } = useLedger()
-  const { limits, tracked, save: saveBudget, saveTracked } = useBudgets()
+  const { limits, tracked, names, save: saveBudget, saveTracked, saveName } = useBudgets()
   const { openings, setBalance } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
@@ -453,9 +453,9 @@ function TrackIt() {
   const dashboard = useMemo(
     () =>
       imported
-        ? dashboardModel(rows, now, limits.food, tracked.food, openings)
-        : demoDashboard(limits.food, tracked.food, openings),
-    [imported, rows, now, limits.food, tracked.food, openings],
+        ? dashboardModel(rows, now, limits.food, tracked.food, openings, names.food)
+        : demoDashboard(limits.food, tracked.food, openings, names.food),
+    [imported, rows, now, limits.food, tracked.food, openings, names.food],
   )
   const ledger = useMemo(
     () => (imported ? ledgerModel(rows, budgets, anchor) : DEMO_LEDGER),
@@ -564,6 +564,9 @@ function TrackIt() {
           scope={budgetScope}
           limitCents={limits[budgetScope]}
           tracked={tracked[budgetScope]}
+          // The envelope's own name, which the card behind this panel prints as its title.
+          name={names[budgetScope]}
+          onName={(value) => saveName(budgetScope, value)}
           // What the budget has counted so far this month, so the picker's own figure moves
           // on every toggle — re-derived here because the rows do not leave the app.
           spentCents={budgetSpent(rows, startOfMonth(now), startOfNextMonth(now), tracked[budgetScope])}

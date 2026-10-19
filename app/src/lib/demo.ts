@@ -16,7 +16,7 @@
  * replaces it the moment there is something real to show.
  */
 
-import { BUDGET_TRACKED_DEFAULTS } from "./budget"
+import { BUDGET_NAME_DEFAULTS, BUDGET_TRACKED_DEFAULTS } from "./budget"
 import { initialsOf } from "./derive"
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
 import { filedName } from "./refile"
@@ -241,6 +241,8 @@ export function demoDashboard(
   /** The categories the food budget counts, or `null` for every expense (`lib/budget.ts`). */
   foodCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.food,
   openings: Record<string, number> = {},
+  /** What the owner calls the envelope: the card's title before anything is imported too. */
+  foodName: string = BUDGET_NAME_DEFAULTS.food,
 ): DashboardModel {
   const tracked = foodCategories === null ? null : new Set(foodCategories)
   const parts = Object.entries(DEMO_FOOD_PARTS)
@@ -260,6 +262,7 @@ export function demoDashboard(
     }),
     envelope: {
       ...DEMO_DASHBOARD.envelope,
+      title: foodName,
       spent: wholeMoney(spent),
       limit: wholeMoney(foodLimitCents),
       pct,
