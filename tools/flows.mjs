@@ -17,7 +17,14 @@
  *   3. **The date card** — opens on the current moment, cannot be closed by anything but
  *      `done` (the scrim is not a door), pages its months on a swipe without the day under
  *      the finger becoming the choice, and hands the moment back to the pill.
- *   4. **The session** — on a build with a portal, the account that got in is still there after
+ *   4. **The budget carousel** — a hold offers the arrange and delete answers, creating an
+ *      envelope puts it beside the others, a reorder survives a reload, delete asks once more
+ *      and **Keep It** writes nothing, and the last envelope can never be deleted.
+ *   5. **The payment link** — a scanned merchant code is handed back with its merchant
+ *      fields (`mc`, `tr`, `tid`, `url`, `sign`) intact, a literal `@` in the VPA, and the
+ *      amount the owner confirmed — the difference between paying the merchant and asking a
+ *      UPI app to transfer money to a merchant's address.
+ *   6. **The session** — on a build with a portal, the account that got in is still there after
  *      a reload, and **Sign out** ends it for good: the portal is back, `trackit-auth` and the
  *      portal's mark are gone, and a reload does not open the vault again. It runs last,
  *      because it is the only flow that ends what the others need.
@@ -367,6 +374,11 @@ const PAYMENT = '[role=dialog][aria-label="Pay and log transaction"]'
 const DIALOG = '[role=dialog][aria-label="Date and time"]'
 const TYPE_SWITCH = '[role=radiogroup][aria-label="Record type"]'
 const MOSAIC = "[role=group][aria-label=Categories]"
+const CAROUSEL = '[aria-label="Budget envelopes"]'
+const CARD = `${CAROUSEL} section`
+const PAGES = '[role=group][aria-label="Budget envelope pages"]'
+/** The held envelope's panel, named by the same id on both of its pages. */
+const ENVELOPE_MENU = '[role=dialog][aria-labelledby="envelope-actions-title"]'
 /** The date card's day cells, found by their own reading rather than by a class name. */
 const DAY_READING = /^[A-Z][a-z]+ \d{1,2}, \d{4}$/
 
@@ -445,6 +457,21 @@ class Screen {
     assert(index >= 0, `no button reading "${text}" inside ${within}`)
     await this.press(`${within} button`, { index })
     await sleep(settle)
+  }
+
+  /**
+   * A real long press: press, hold still for longer than the app's 500ms, release.
+   *
+   * The move in between is not optional — a press that never sends a pointer move still
+   * arrives as one pointerdown, but sending the release at the same point is what the hold's
+   * slop is designed for, and a hold is the only way into the envelope menu.
+   */
+  async hold(selector, options) {
+    const from = await this.point(selector, options)
+    await this.cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", clickCount: 1, buttons: 1 })
+    await sleep(700)
+    await this.cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: from.x, y: from.y, button: "left", clickCount: 1, buttons: 0 })
+    await sleep(400)
   }
 
   /** A real drag: press, move in steps, release. Used for the date card's months. */
@@ -842,6 +869,75 @@ async function flowMailLink(screen) {
 }
 
 /**
+ * The link a scanned merchant code becomes.
+ *
+ * The owner scanned a merchant QR, Google Pay opened, and it said the VPA was incorrect. The
+ * payee had been flattened to `pa` on the way back out: the code's `mc`, `tr`, `tid`, `url`
+ * and `sign` were dropped, so a merchant payment had become an ordinary transfer to the same
+ * address. This asserts the fields survive, that the VPA keeps its literal `@`, and that the
+ * amount in the link is the one the owner typed — the three things a rebuilt link can get
+ * wrong without the screen showing anything. Vite serves the module to the page, which is how
+ * a string builder can be checked in the browser that will hand it to Google Pay.
+ */
+async function flowUpiLink(screen) {
+  const dev = await screen.cdp.evaluate(`!!document.querySelector('script[src*="/@vite/client"]')`)
+  if (!dev) {
+    notes.push(
+      "the UPI link check did not run: APP_URL is a built bundle, and a module has no path in one",
+    )
+    return
+  }
+  await check("upi: a scanned merchant code keeps its merchant fields", async () => {
+    const seen = await screen.cdp.evaluate(`(async () => {
+      const { parseUpiCode, buildUpiUri, buildGooglePayUri } = await import("/src/features/upi/upi.ts");
+      const raw =
+        "upi://pay?pa=store.1234@okhdfcbank&pn=Coffee%20House&mc=5814&tr=TX-9981&tid=TERM1" +
+        "&tn=Order%20241&am=249.50&cu=INR&url=https%3A%2F%2Fpay.example.com%2Fq%3Fx%3D1" +
+        "&sign=abc%2Bdef%3D%3D";
+      const parsed = parseUpiCode(raw);
+      if (!parsed.ok) return { error: parsed.reason };
+      const payment = {
+        pa: parsed.payee.pa,
+        pn: parsed.payee.pn,
+        amountCents: 24950,
+        note: "Order 241",
+        extra: parsed.payee.extra,
+      };
+      const link = buildUpiUri(payment);
+      const query = link.slice(link.indexOf("?") + 1);
+      const keys = query.split("&").map((pair) => pair.slice(0, pair.indexOf("=")));
+      return { link, keys, desktopGpay: buildGooglePayUri(payment) };
+    })()`)
+    assert(!seen?.error, `the code was refused as ${seen?.error}`)
+    const link = seen?.link ?? ""
+    // The VPA, in the spelling the code used.
+    assert(link.includes("pa=store.1234@okhdfcbank"), `the VPA in ${link}`)
+    assert(!link.includes("%40"), `an encoded @ in ${link}`)
+    // The merchant fields, verbatim and encoded exactly once.
+    for (const field of [
+      "mc=5814",
+      "tr=TX-9981",
+      "tid=TERM1",
+      "url=https%3A%2F%2Fpay.example.com%2Fq%3Fx%3D1",
+      "sign=abc%2Bdef%3D%3D",
+    ]) {
+      assert(link.includes(field), `${field} is missing from ${link}`)
+    }
+    // The owner's amount, not the code's, and INR as the spec requires.
+    assert(link.includes("am=249.50") && link.includes("cu=INR"), `the amount in ${link}`)
+    // One of each: a duplicated parameter is a code the apps read differently.
+    assertEqual(
+      seen.keys.length,
+      new Set(seen.keys).size,
+      `the parameters in ${link}`,
+    )
+    // A desktop has no app to open, so the Google Pay builder is the generic link — the same
+    // string the payment screen shows as its fallback.
+    assertEqual(seen.desktopGpay, link, "the desktop handoff")
+  })
+}
+
+/**
  * The door itself, checked where the suite can see it.
  *
  * The owner reported the login broken from the outside, so the suite asserts **the sign-in
@@ -1082,6 +1178,123 @@ async function flowFriendsPill(screen) {
   })
 }
 
+async function flowBudgets(screen) {
+  const cards = () =>
+    screen.cdp.evaluate(`[...document.querySelectorAll(${JSON.stringify(CARD)})]
+      .map((node) => node.getAttribute("aria-label").split(":")[0])`)
+  const dots = () =>
+    screen.cdp.evaluate(`[...document.querySelectorAll(${JSON.stringify(`${PAGES} button`)})]
+      .map((node) => node.getAttribute("aria-label"))`)
+  const activeDot = () =>
+    screen.cdp.evaluate(`document.querySelector(${JSON.stringify(`${PAGES} [aria-current="true"]`)})
+      ?.getAttribute("aria-label") ?? null`)
+
+  await check("budgets: the carousel creates, remembers, reorders and confirms deletion", async () => {
+    await screen.open(APP_URL)
+    await screen.until(`document.querySelectorAll(${JSON.stringify(CARD)}).length === 1`, "the default envelope")
+
+    // The first card's hold: two answers, and the arrangement row, where both moves and the
+    // delete are refused because there is only one envelope to arrange.
+    await screen.hold(CARD)
+    await screen.until(`document.querySelector(${JSON.stringify(ENVELOPE_MENU)}) !== null`, "the envelope menu")
+    assertEqual(JSON.stringify(await cards()), JSON.stringify(["F&B Budget"]), "the menu's cards")
+    assert(
+      await screen.cdp.evaluate(`document.querySelector('[aria-label="Move F&B Budget left"]')?.disabled === true
+        && document.querySelector('[aria-label="Move F&B Budget right"]')?.disabled === true
+        && document.querySelector('[aria-label="Delete F&B Budget"]')?.disabled === true`),
+      "the only envelope's move and delete answers are not all disabled",
+    )
+    const menuText = await screen.cdp.evaluate(`document.querySelector(${JSON.stringify(ENVELOPE_MENU)})?.textContent ?? ""`)
+    assert(menuText.includes("The last envelope stays"), `the last envelope note: ${JSON.stringify(menuText)}`)
+
+    // Create new writes the card before it opens the editor, so the carousel behind the
+    // panel already has two. Closing the editor leaves both.
+    await screen.pressText(ENVELOPE_MENU, "Create new")
+    await screen.until(
+      `document.querySelector('[role=dialog][aria-label="New budget"]') !== null`,
+      "the new envelope's editor",
+    )
+    await screen.press('[role=dialog][aria-label="New budget"] [aria-label="Close without saving"]', { index: 0 })
+    await screen.until(`document.querySelector('[role=dialog][aria-label="New budget"]') === null`, "the editor to close")
+    const created = await screen.until(
+      `[...document.querySelectorAll(${JSON.stringify(CARD)})].map((node) => node.getAttribute("aria-label").split(":")[0]).length === 2`,
+      "the second envelope",
+    )
+    assert(created, "two envelopes did not arrive behind the editor")
+    assertEqual(JSON.stringify(await cards()), JSON.stringify(["F&B Budget", "New budget"]), "the cards after Create new")
+
+    // **The whole point**: a reload opens on the card the owner last had, not the first one.
+    await screen.open(APP_URL)
+    await screen.until(`document.querySelectorAll(${JSON.stringify(CARD)}).length === 2`, "two envelopes after a reload")
+    assertEqual(await activeDot(), "New budget (2 of 2)", "the envelope the carousel reopened on")
+
+    // Make the first card active from its dot, so the move starts on a card that is on screen:
+    // a hold's `scrollIntoView` would otherwise change the active card on its way in.
+    await screen.press(`${PAGES} button`, { index: 0 })
+    await screen.until(
+      `document.querySelector(${JSON.stringify(`${PAGES} [aria-current="true"]`)})?.getAttribute("aria-label") === "F&B Budget (1 of 2)"`,
+      "the first card's dot to become active",
+    )
+
+    // Move right swaps it with the card after it, and the active card follows its own move.
+    await screen.hold(CARD, { index: 0 })
+    await screen.until(`document.querySelector(${JSON.stringify(ENVELOPE_MENU)}) !== null`, "the envelope menu")
+    await screen.pressText(ENVELOPE_MENU, "Move right")
+    const moved = await screen.until(
+      `JSON.stringify([...document.querySelectorAll(${JSON.stringify(`${PAGES} button`)})].map((node) => node.getAttribute("aria-label"))) === ${JSON.stringify(JSON.stringify(["New budget (1 of 2)", "F&B Budget (2 of 2)"]))}`,
+      "the dots after a move",
+    )
+    assert(moved, "the move did not change the order")
+    assertEqual(await activeDot(), "F&B Budget (2 of 2)", "the active card after a move")
+
+    // A reload is what proves the order was stored rather than drawn once.
+    await screen.open(APP_URL)
+    await screen.until(`document.querySelectorAll(${JSON.stringify(CARD)}).length === 2`, "two envelopes after the move")
+    assertEqual(JSON.stringify(await dots()), JSON.stringify(["New budget (1 of 2)", "F&B Budget (2 of 2)"]), "the dots after a reload")
+    assertEqual(await activeDot(), "F&B Budget (2 of 2)", "the remembered card after a reload")
+
+    // Delete asks once more. **Keep It** is an answer that writes nothing.
+    await screen.hold(CARD, { index: 1 })
+    await screen.until(`document.querySelector(${JSON.stringify(ENVELOPE_MENU)}) !== null`, "the envelope menu")
+    await screen.pressText(ENVELOPE_MENU, "Delete")
+    const question = await screen.until(
+      `(() => {
+        const text = document.querySelector(${JSON.stringify(`${ENVELOPE_MENU} h2`)})?.textContent?.trim() ?? "";
+        return text.startsWith("Delete ") ? text : null;
+      })()`,
+      "the delete question",
+    )
+    assertEqual(question, "Delete F&B Budget?", "the delete question's wording")
+    await screen.pressText(ENVELOPE_MENU, "Keep It")
+    await screen.until(
+      `document.querySelector('[aria-label="Delete F&B Budget"]') !== null`,
+      "the menu to come back from Keep It",
+    )
+    assertEqual(JSON.stringify(await cards()), JSON.stringify(["New budget", "F&B Budget"]), "the cards after Keep It")
+
+    // Then the same question, answered: the envelope goes and the carousel stays on one.
+    await screen.pressText(ENVELOPE_MENU, "Delete")
+    await screen.pressText(ENVELOPE_MENU, "Delete")
+    await screen.until(`document.querySelectorAll(${JSON.stringify(CARD)}).length === 1`, "the cards after a delete")
+    assertEqual(JSON.stringify(await cards()), JSON.stringify(["New budget"]), "the surviving card")
+
+    // The last card has no way out of the menu, so the dashboard always has one to open.
+    await screen.hold(CARD)
+    await screen.until(`document.querySelector(${JSON.stringify(ENVELOPE_MENU)}) !== null`, "the envelope menu")
+    assert(
+      await screen.cdp.evaluate(`document.querySelector('[aria-label="Delete New budget"]')?.disabled === true`),
+      "the last envelope's delete is not disabled",
+    )
+    await screen.pressPoint({ x: 8, y: 8 })
+
+    // And the store still proves it after a reload.
+    await screen.open(APP_URL)
+    await screen.until(`document.querySelectorAll(${JSON.stringify(CARD)}).length === 1`, "one envelope after a reload")
+    assertEqual(JSON.stringify(await cards()), JSON.stringify(["New budget"]), "the cards after the final reload")
+    assertEqual(await screen.cdp.evaluate(`document.querySelector(${JSON.stringify(PAGES)}) === null`), true, "dots on a single envelope")
+  })
+}
+
 async function flowDateCard(screen) {
   await check("date card: opens on the current moment, and only done closes it", async () => {
     await screen.open(APP_URL)
@@ -1269,8 +1482,10 @@ async function main() {
       const hasPortal = entry === "signed-in" || entry === "seeded"
       if (hasPortal) await flowSignIn(screen, entry)
       await flowMailLink(screen)
+      await flowUpiLink(screen)
       await flowAddRecordSwitch(screen)
       await flowFriendsPill(screen)
+      await flowBudgets(screen)
       await flowDateCard(screen)
       // Last, because it is the flow that signs the account out.
       if (hasPortal) await flowSession(screen)

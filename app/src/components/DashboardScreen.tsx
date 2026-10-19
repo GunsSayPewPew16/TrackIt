@@ -1,13 +1,15 @@
-import { Camera } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { ArrowLeft, ArrowRight, Camera, Pencil, Plus, Trash2 } from "lucide-react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { useLongPress } from "@/hooks/useLongPress"
 import type { GreetingLine } from "@/lib/greetings"
-import { lightTap } from "@/lib/haptics"
+import { heavyThud, lightTap, mediumClick } from "@/lib/haptics"
 import type { Theme } from "@/lib/theme"
-import type { DashboardModel } from "@/lib/view"
+import type { DashboardModel, EnvelopeModel } from "@/lib/view"
 
 /**
  * Screen 1 — the bento dashboard.
@@ -33,13 +35,22 @@ import type { DashboardModel } from "@/lib/view"
  *    `components/BalanceCards.tsx`;
  * 3. a 104px band pairing the scan square with the predictive quick-log tray;
  * 4. four cards on the 8px grid: pace and top category side by side, the envelope
- *    gauge, then the recent rows.
+ *    carousel, then the recent rows.
  *
  * The page column is the artboard's 390px with its 24/16/32 padding and its 8px
  * rhythm, centred rather than pinned left, so the same screen fits a phone exactly
  * and sits in the middle of a desktop window instead of stretching a mobile design
  * across it.
  */
+
+/** The artboard's small letterspaced label, which every chip and pill wears. */
+const pill =
+  "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
+/** The money figures, which are the display face at its tightest tracking. */
+const figure = "font-display text-[40px] leading-[48px] font-bold tracking-[-0.03em]"
+/** A card's title, at the reading face's medium weight. */
+const cardTitle = "font-display text-[14px] leading-5 font-medium tracking-[-0.01em]"
+
 export function DashboardScreen({
   model,
   greeting,
@@ -48,7 +59,12 @@ export function DashboardScreen({
   onScan,
   onAddRecord,
   onQuickLog,
-  onSetBudget,
+  activeEnvelopeId,
+  onViewEnvelope,
+  onEditBudget,
+  onCreateBudget,
+  onMoveBudget,
+  onDeleteBudget,
   onEditBalance,
 }: {
   model: DashboardModel
@@ -71,11 +87,27 @@ export function DashboardScreen({
    */
   onQuickLog: (category: string) => void
   /**
-   * A long press on the envelope card opens the budget editor
-   * (`features/budget/BudgetSheet.tsx`). The F&B limit is the owner's own number, and the
-   * card drawing it is the only place it can be changed.
+   * The envelope the carousel was last on, from the budget store. The screen opens there
+   * instead of always on the first card, so a reload puts the owner back on their card.
    */
-  onSetBudget: () => void
+  activeEnvelopeId: string
+  /** The carousel's own choice of card: a swipe, a dot, or a hold on a card. */
+  onViewEnvelope: (id: string) => void
+  /**
+   * A long press on an envelope offers **Edit**, which opens that budget's editor
+   * (`features/budget/BudgetSheet.tsx`). Every envelope's limit, name and categories are
+   * the owner's own numbers, and the card drawing them is the only place they change.
+   */
+  onEditBudget: (id: string) => void
+  /**
+   * The same hold's **Create new**: adds an envelope to the carousel and opens its editor, so
+   * the owner names the card they just made instead of being handed a mystery figure.
+   */
+  onCreateBudget: () => void
+  /** Move one envelope one place earlier or later in the carousel. */
+  onMoveBudget: (id: string, direction: -1 | 1) => void
+  /** Delete one envelope after the menu has asked once more; the last one is refused. */
+  onDeleteBudget: (id: string) => void
   /**
    * A hold on the front account card opens that account's balance editor
    * (`features/balance/BalanceSheet.tsx`). The stack is a drag, a tap and a hold at once —
@@ -83,19 +115,74 @@ export function DashboardScreen({
    */
   onEditBalance: (accountId: string) => void
 }) {
-  // The hold that edits the F&B limit. Both the whole card and its chips answer to it; a
-  // scroll cancels it (`hooks/useLongPress.ts`), which is what keeps the page draggable.
-  const holdEnvelope = useLongPress(onSetBudget)
+  /**
+   * The envelope whose hold is showing its two options. It is an id rather than the card, so
+   * a store write behind the menu cannot make it stale; the card is looked up for its name.
+   */
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const menuEnvelope = model.envelopes.find((envelope) => envelope.id === menuFor) ?? null
+  /** The carousel's scroll box and the card the store says is open. */
+  const scroller = useRef<HTMLDivElement>(null)
+  const count = model.envelopes.length
+  const activeIndex = Math.max(
+    0,
+    model.envelopes.findIndex((envelope) => envelope.id === activeEnvelopeId),
+  )
+  /** The order as one string, so reorders, inserts and deletes are the only things it sees. */
+  const orderKey = model.envelopes.map((envelope) => envelope.id).join("|")
+  const lastOrder = useRef("")
 
-  /** The artboard's small letterspaced label, which every chip and pill wears. */
-  const pill = "inline-flex items-center h-6 rounded-xl px-2 text-[10px] leading-4 font-bold tracking-[0.03em] whitespace-nowrap"
-  /** The money figures, which are the display face at its tightest tracking. */
-  const figure = "font-display text-[40px] leading-[48px] font-bold tracking-[-0.03em]"
-  /** A card's title, at the reading face's medium weight. */
-  const cardTitle = "font-display text-[14px] leading-5 font-medium tracking-[-0.01em]"
+  /**
+   * **Open where the owner left off, and follow a reorder.** This runs when the cards' order
+   * changes — on mount, after Create new, and after a move or a delete — and scrolls to the
+   * active card at its new index. It deliberately does not run when a swipe changes the active
+   * card: the finger is already doing the scrolling, and a second smooth scroll would fight
+   * the flick instead of letting it land.
+   */
+  useLayoutEffect(() => {
+    if (orderKey === lastOrder.current) return
+    const first = lastOrder.current === ""
+    lastOrder.current = orderKey
+    const box = scroller.current
+    if (!box) return
+    const card = box.firstElementChild as HTMLElement | null
+    const step = card ? card.offsetWidth + 8 : box.clientWidth
+    box.scrollTo({ left: activeIndex * step, behavior: first ? "instant" : "smooth" })
+  }, [orderKey, activeIndex])
 
-  // The gauge is twenty segments with a 2px gap, and 40% fills eight of them.
-  const filled = Math.round(model.envelope.pct / 5)
+  /** Which card the thumb is nearest, so the store and the dots follow a drag. */
+  const syncActive = () => {
+    const box = scroller.current
+    if (!box) return
+    const first = box.firstElementChild as HTMLElement | null
+    const step = first ? first.offsetWidth + 8 : box.clientWidth
+    const next = Math.max(0, Math.min(count - 1, Math.round(box.scrollLeft / step)))
+    const id = model.envelopes[next]?.id
+    if (id && id !== activeEnvelopeId) onViewEnvelope(id)
+  }
+
+  /** A dot is a way to reach a card without a swipe, at the same 8px gap the cards use. */
+  const showEnvelope = (index: number) => {
+    const box = scroller.current
+    const id = model.envelopes[index]?.id
+    if (!box || !id) return
+    lightTap()
+    onViewEnvelope(id)
+    const first = box.firstElementChild as HTMLElement | null
+    const step = first ? first.offsetWidth + 8 : box.clientWidth
+    box.scrollTo({ left: index * step, behavior: "smooth" })
+  }
+
+  /** A hold both opens the menu and makes that card the remembered one. */
+  const holdEnvelope = (id: string) => {
+    onViewEnvelope(id)
+    setMenuFor(id)
+  }
+
+  /** Where the menu's envelope sits, for the two move buttons' disabled states. */
+  const menuIndex = menuEnvelope
+    ? model.envelopes.findIndex((envelope) => envelope.id === menuEnvelope.id)
+    : -1
 
   return (
     <div className="mx-auto flex w-full max-w-[390px] flex-col gap-2 px-4 pt-safe pb-nav">
@@ -250,20 +337,22 @@ export function DashboardScreen({
       </div>
 
       {/*
-        The envelope — the F&B budget: what food has taken, what it allows, and where the line
-        sits.
+        The envelopes — the dashboard's budgets, as a carousel.
 
-        **This card is the Food & Beverages budget** (`lib/budget.ts`): the dimension's own
-        spend this month, out of the owner's own limit (₹1,500 until they change it), and the
-        chips below the bar are its subcategories — the figures come from `derive.ts`'s
-        `envelope`, not from an imported Wallet budget. It is deliberately **not** the same
-        figure as the stats dial, which answers the whole month against ₹5,000.
+        **Each card is one budget** (`lib/budget.ts`): the categories it counts, out of the
+        owner's own limit (the first starts at Food & Beverages, ₹1,500), and the chips below
+        the bar are what it spent them on — the figures come from `derive.ts`'s `envelope`,
+        not from an imported Wallet budget. The carousel is deliberately **not** the stats
+        dial, which answers the whole month against ₹5,000 on another screen.
 
-        **A hold on the card opens the editor — and the card's title is the owner's too.**
-        The limit and the name are both theirs, so both are edited where they are drawn:
-        `hooks/useLongPress.ts` gives the hold, the tick and a keyboard / right-click path
-        to it, and `onSetBudget` opens the panel whose first field is the name (`lib/budget.ts`
-        keeps it). A scroll cancels the hold, so the dashboard still scrolls under a thumb.
+        **A hold offers the card's two answers.** `hooks/useLongPress.ts` gives the hold, the
+        tick and a keyboard / right-click path; the menu it opens offers **Edit** (the editor
+        whose first field is this card's name) and **Create new** (adds an envelope after the
+        last card and opens its editor). A scroll cancels the hold, and the hold's 10px slop
+        is what keeps the carousel's own sideways swipe from opening the menu.
+
+        **The cards snap one at a time**, and the dots below are the count and a way to reach
+        a card without a swipe. A single envelope draws no dots: there is nothing to page.
 
         The artboard splits the card `2fr 3fr`, which is a ratio drawn around its own
         `$240` and `/ $600`. A rupee figure carries a symbol and thousands separators, so
@@ -274,69 +363,77 @@ export function DashboardScreen({
         the gauge takes what is left, which is the artboard's own intent. `whitespace-nowrap`
         is what keeps a longer number from ever doing that again.
       */}
-      <section
-        {...holdEnvelope}
-        role="group"
-        tabIndex={0}
-        aria-label={`${model.envelope.title}: ${model.envelope.spent} spent of ${model.envelope.limit}. Hold to rename it or change the budget`}
-        title="Hold to rename or change the budget"
-        className="grid h-40 grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4 select-none [-webkit-touch-callout:none]"
-      >
-        <div className="flex flex-col justify-between whitespace-nowrap">
-          <div className={cardTitle}>{model.envelope.title}</div>
-          <div>
-            <div className={`${figure} text-ink`}>{model.envelope.spent}</div>
-            <div className={`${figure} text-ink2`}>/ {model.envelope.limit}</div>
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col justify-between">
-          <span className={`${pill} self-start bg-clay text-on-clay`}>{model.envelope.badge}</span>
-          {/*
-            The gauge is twenty 2px-gapped segments with a 4px needle at the same
-            percentage the `N% USED` pill says, so the pill and the line can never
-            disagree. The needle's left offset is the one value here that cannot be a
-            utility: it is the model's own percentage, and a class built from data
-            would not exist in the stylesheet.
-          */}
-          <div
-            className="relative flex h-8 gap-0.5"
-            role="img"
-            aria-label={`${model.envelope.spent} spent of ${model.envelope.limit} — ${model.envelope.badge}`}
-          >
-            {Array.from({ length: 20 }, (_, index) => (
-              <span
-                key={index}
-                className={`flex-1 rounded-xs ${index < filled ? "bg-clay" : "bg-line"}`}
-                aria-hidden="true"
-              />
-            ))}
-            <span
-              className="absolute -top-1 -ml-0.5 h-10 w-1 rounded-xs bg-ink"
-              style={{ left: `${model.envelope.pct}%` }}
-              aria-hidden="true"
+      <div className="flex flex-col gap-1.5">
+        <div
+          ref={scroller}
+          onScroll={syncActive}
+          aria-label="Budget envelopes"
+          className="hide-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain"
+        >
+          {model.envelopes.map((envelope, index) => (
+            <EnvelopeCard
+              key={envelope.id}
+              envelope={envelope}
+              index={index}
+              count={count}
+              onHold={holdEnvelope}
             />
-          </div>
-          <div className="hide-scrollbar flex gap-2 overflow-x-auto">
-            {model.envelope.chips.map((chip) => {
-              // `Groceries: 80% full` — the envelope's name in the structural sans,
-              // the running figure after it in the editorial serif's italic.
-              const cut = chip.lastIndexOf(": ")
-              const name = cut > 0 ? chip.slice(0, cut) : chip
-              const detail = cut > 0 ? chip.slice(cut + 2) : ""
-              return (
-                <button key={chip} type="button" className="h-12 flex-none border-0 bg-transparent p-0">
-                  <span className="inline-flex h-6 items-center gap-1 rounded-xl bg-line px-2 whitespace-nowrap">
-                    <span className="font-sans text-[11px] leading-4 text-ink">{name}</span>
-                    {detail && (
-                      <span className="font-editorial text-[11px] leading-4 italic text-ink2">{detail}</span>
-                    )}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          ))}
         </div>
-      </section>
+
+        {count > 1 && (
+          <div
+            role="group"
+            aria-label="Budget envelope pages"
+            className="flex items-center justify-center gap-1"
+          >
+            {model.envelopes.map((envelope, index) => (
+              <button
+                key={envelope.id}
+                type="button"
+                aria-current={index === activeIndex ? "true" : undefined}
+                aria-label={`${envelope.title} (${index + 1} of ${count})`}
+                onClick={() => showEnvelope(index)}
+                className="grid size-6 place-items-center rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-ink"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${
+                    index === activeIndex ? "w-4 bg-clay" : "w-1.5 bg-line"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {menuEnvelope && (
+          <BudgetMenu
+            envelope={menuEnvelope}
+            onClose={() => setMenuFor(null)}
+            onEdit={() => {
+              const id = menuEnvelope.id
+              setMenuFor(null)
+              onEditBudget(id)
+            }}
+            onCreate={() => {
+              setMenuFor(null)
+              onCreateBudget()
+            }}
+            canMoveLeft={menuIndex > 0}
+            canMoveRight={menuIndex >= 0 && menuIndex < count - 1}
+            canDelete={count > 1}
+            onMove={(direction) => onMoveBudget(menuEnvelope.id, direction)}
+            onDelete={() => {
+              const id = menuEnvelope.id
+              setMenuFor(null)
+              onDeleteBudget(id)
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/*
         What just happened. The artboard puts a "See all" button in this header and
@@ -373,5 +470,302 @@ export function DashboardScreen({
         ))}
       </section>
     </div>
+  )
+}
+
+/**
+ * One card in the envelope carousel.
+ *
+ * It is a component of its own because `hooks/useLongPress.ts` is a hook: every card needs
+ * its own hold, and a hold on one card must know which budget it was made on. The card keeps
+ * the artboard's geometry — a 160px card split into the money column and the gauge — and its
+ * width is the carousel's own, so one card fills the band and the next waits off the right
+ * edge.
+ */
+function EnvelopeCard({
+  envelope,
+  index,
+  count,
+  onHold,
+}: {
+  envelope: EnvelopeModel
+  index: number
+  count: number
+  onHold: (id: string) => void
+}) {
+  const hold = useLongPress(() => onHold(envelope.id))
+  // The gauge is twenty segments with a 2px gap, and each 5% fills one of them.
+  const filled = Math.round(envelope.pct / 5)
+
+  return (
+    <section
+      {...hold}
+      role="group"
+      tabIndex={0}
+      aria-label={`${envelope.title}: ${envelope.spent} spent of ${envelope.limit}. ${index + 1} of ${count}. Hold to edit, arrange or delete it`}
+      title="Hold to edit, arrange or delete"
+      className="grid h-40 w-full flex-none snap-start grid-cols-[auto_1fr] gap-4 rounded-[20px] border border-line bg-card p-4 select-none [-webkit-touch-callout:none] focus-visible:ring-2 focus-visible:ring-ink focus-visible:outline-none"
+    >
+      <div className="flex flex-col justify-between whitespace-nowrap">
+        <div className={cardTitle}>{envelope.title}</div>
+        <div>
+          <div className={`${figure} text-ink`}>{envelope.spent}</div>
+          <div className={`${figure} text-ink2`}>/ {envelope.limit}</div>
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-col justify-between">
+        <span className={`${pill} self-start bg-clay text-on-clay`}>{envelope.badge}</span>
+        {/*
+          The gauge is twenty 2px-gapped segments with a 4px needle at the same percentage
+          the `N% USED` pill says, so the pill and the line can never disagree. The needle's
+          left offset is the one value here that cannot be a utility: it is the model's own
+          percentage, and a class built from data would not exist in the stylesheet.
+        */}
+        <div
+          className="relative flex h-8 gap-0.5"
+          role="img"
+          aria-label={`${envelope.spent} spent of ${envelope.limit} — ${envelope.badge}`}
+        >
+          {Array.from({ length: 20 }, (_, segment) => (
+            <span
+              key={segment}
+              className={`flex-1 rounded-xs ${segment < filled ? "bg-clay" : "bg-line"}`}
+              aria-hidden="true"
+            />
+          ))}
+          <span
+            className="absolute -top-1 -ml-0.5 h-10 w-1 rounded-xs bg-ink"
+            style={{ left: `${envelope.pct}%` }}
+            aria-hidden="true"
+          />
+        </div>
+        <div className="hide-scrollbar flex gap-2 overflow-x-auto">
+          {envelope.chips.map((chip) => {
+            // `Groceries: 80% of spend` — the category in the structural sans, the share
+            // after it in the editorial serif's italic.
+            const cut = chip.lastIndexOf(": ")
+            const name = cut > 0 ? chip.slice(0, cut) : chip
+            const detail = cut > 0 ? chip.slice(cut + 2) : ""
+            return (
+              <span
+                key={chip}
+                className="inline-flex h-6 flex-none items-center gap-1 rounded-xl bg-line px-2 whitespace-nowrap"
+              >
+                <span className="font-sans text-[11px] leading-4 text-ink">{name}</span>
+                {detail && (
+                  <span className="font-editorial text-[11px] leading-4 italic text-ink2">{detail}</span>
+                )}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * What a held envelope offers, in the same small panel a held ledger row uses.
+ *
+ * **Edit** is the card's own editor and **Create new** adds an envelope and opens its editor.
+ * Under them are the two ways to arrange the carousel — earlier and later — and **Delete**,
+ * which asks once more before it writes. The last envelope cannot be deleted: the dashboard
+ * always needs a card. The menu writes nothing itself, so closing it with the dim layer or
+ * Escape leaves the store exactly as it was.
+ */
+function BudgetMenu({
+  envelope,
+  onClose,
+  onEdit,
+  onCreate,
+  onMove,
+  onDelete,
+  canMoveLeft,
+  canMoveRight,
+  canDelete,
+}: {
+  envelope: EnvelopeModel
+  onClose: () => void
+  onEdit: () => void
+  onCreate: () => void
+  /** `-1` is one place earlier, `1` one place later. */
+  onMove: (direction: -1 | 1) => void
+  onDelete: () => void
+  canMoveLeft: boolean
+  canMoveRight: boolean
+  canDelete: boolean
+}) {
+  /** The panel's second page: the delete question, which is the only write in here. */
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  /** One of the three small arrangement buttons under the two main answers. */
+  const arrange =
+    "flex h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-transparent font-sans text-[11px] leading-4 font-medium tracking-[0.01em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-35"
+
+  return (
+    <>
+      <motion.div
+        key="dim"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.4 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+        aria-hidden="true"
+        className="fixed inset-0 z-50 bg-canvas"
+      />
+
+      <div className="pointer-events-none fixed inset-0 z-[55] grid place-items-center px-4">
+        <motion.div
+          key="panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="envelope-actions-title"
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
+          transition={{ type: "spring", stiffness: 420, damping: 32 }}
+          className="pointer-events-auto w-full max-w-[358px] rounded-[20px] border border-line bg-card p-4"
+        >
+          {confirming ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 flex-none place-items-center rounded-2xl bg-clay text-on-clay">
+                  <Trash2 strokeWidth={1.5} className="size-5" aria-hidden="true" />
+                </span>
+                <h2
+                  id="envelope-actions-title"
+                  className="min-w-0 flex-1 font-editorial text-[18px] leading-7 italic text-ink"
+                >
+                  Delete {envelope.title}?
+                </h2>
+              </div>
+
+              <p className="mt-3 text-[11px] leading-4 text-ink2">
+                Its limit and the categories it tracks go with it. The expenses already logged
+                stay in the ledger. This cannot be undone.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mediumClick()
+                    setConfirming(false)
+                  }}
+                  className="h-12 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  Keep It
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    heavyThud()
+                    onDelete()
+                  }}
+                  className="h-12 rounded-2xl border-0 bg-clay font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-clay outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2
+                id="envelope-actions-title"
+                className="truncate font-editorial text-[18px] leading-7 italic text-ink"
+              >
+                {envelope.title}
+              </h2>
+              <p className="mt-2 text-[11px] leading-4 text-ink2">
+                Edit changes this envelope's name, limit and what counts. Create new adds another
+                one beside it. The row below moves it, or deletes it.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mediumClick()
+                    onEdit()
+                  }}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  <Pencil strokeWidth={1.5} className="size-4" aria-hidden="true" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    lightTap() // must run synchronously inside the tap for iOS
+                    onCreate()
+                  }}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border-0 bg-sage font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  <Plus strokeWidth={1.5} className="size-4" aria-hidden="true" />
+                  Create new
+                </button>
+              </div>
+
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  disabled={!canMoveLeft}
+                  aria-label={`Move ${envelope.title} left`}
+                  onClick={() => {
+                    mediumClick()
+                    onMove(-1)
+                  }}
+                  className={arrange}
+                >
+                  <ArrowLeft strokeWidth={1.5} className="size-3.5" aria-hidden="true" />
+                  Move left
+                </button>
+                <button
+                  type="button"
+                  disabled={!canMoveRight}
+                  aria-label={`Move ${envelope.title} right`}
+                  onClick={() => {
+                    mediumClick()
+                    onMove(1)
+                  }}
+                  className={arrange}
+                >
+                  Move right
+                  <ArrowRight strokeWidth={1.5} className="size-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!canDelete}
+                  aria-label={`Delete ${envelope.title}`}
+                  onClick={() => {
+                    lightTap()
+                    setConfirming(true)
+                  }}
+                  className={`${arrange} text-clay`}
+                >
+                  <Trash2 strokeWidth={1.5} className="size-3.5" aria-hidden="true" />
+                  Delete
+                </button>
+              </div>
+
+              {!canDelete && (
+                <p className="mt-2 text-[10px] leading-4 text-ink2">
+                  The last envelope stays — create another before deleting this one.
+                </p>
+              )}
+            </>
+          )}
+        </motion.div>
+      </div>
+    </>
   )
 }

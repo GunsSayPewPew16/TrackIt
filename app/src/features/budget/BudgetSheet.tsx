@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 
 import { Keypad } from "@/features/manual-entry/Keypad"
 import { formatRaw, rawFromCents, useAmountInput } from "@/features/manual-entry/useAmountInput"
-import { BUDGET_COPY, BUDGET_NAME_MAX, type BudgetScope } from "@/lib/budget"
+import { BUDGET_NAME_MAX, type BudgetCopy } from "@/lib/budget"
 import { CATEGORY_GROUPS, categoryFor } from "@/lib/categories"
 import { join } from "@/lib/classes"
 import { wholeMoney } from "@/lib/format"
@@ -13,9 +13,10 @@ import { heavyThud, lightTap, mediumClick, primeHaptics } from "@/lib/haptics"
 /**
  * The budget editor, as the app's second sheet.
  *
- * It exists because both budget cards are **the owner's own number** rather than the
- * app's: a long press on either opens this, the keypad is the manual entry's own, and the
- * figure it starts on is the limit the card is drawing. Everything about the surface is
+ * It exists because every budget is **the owner's own number** rather than the app's: a
+ * long press on the dial, or on any envelope in the dashboard's carousel, opens this; the
+ * keypad is the manual entry's own, and the figure it starts on is the limit the card is
+ * drawing. Everything about the surface is
  * the manual entry's vocabulary — the same spring (380/32/0.8), the same 20px radii, the
  * same sage confirm at 48px — because it is the same kind of thing: a figure typed into a
  * panel that rose from the bottom of the screen.
@@ -59,8 +60,17 @@ const GROUPS = CATEGORY_GROUPS.map((group) => ({
 
 export type BudgetSheetProps = {
   isOpen: boolean
-  /** Which budget is being edited. Read even while closing, so it must not be `null`. */
-  scope: BudgetScope
+  /**
+   * The heading, label and one-line explanation for the budget being edited — the
+   * envelope's own name for a dashboard card, the dial's words for the stats budget. Read
+   * even while closing, so it must not be `null`.
+   */
+  copy: BudgetCopy
+  /**
+   * Whether this budget may count **every expense**. Only the stats dial may: an envelope
+   * is a dimension the owner chooses, so its picker always starts from a list of ids.
+   */
+  allowEveryExpense: boolean
   /**
    * What the card calls this budget, which is the app's own label until the owner names it.
    * It is edited here rather than on a screen of its own because the card is where a name is
@@ -125,7 +135,8 @@ function Chip({
 
 export function BudgetSheet({
   isOpen,
-  scope,
+  copy,
+  allowEveryExpense,
   name,
   onName,
   limitCents,
@@ -136,7 +147,6 @@ export function BudgetSheet({
   onTrack,
 }: BudgetSheetProps) {
   const { raw, value, press, reset } = useAmountInput()
-  const copy = BUDGET_COPY[scope]
   /** Which of the panel's two pages is showing: the figure, or what it counts. */
   const [view, setView] = useState<"limit" | "tracking">("limit")
   /**
@@ -370,7 +380,7 @@ export function BudgetSheet({
               <>
                 {/* The page's own height: the groups are many and the phone is not, so it scrolls. */}
                 <div className="mt-3 max-h-[52dvh] space-y-4 overflow-y-auto overscroll-contain pr-1">
-                  {scope === "total" && (
+                  {allowEveryExpense && (
                     <div className="flex flex-wrap gap-2">
                       <Chip
                         label="Every expense"

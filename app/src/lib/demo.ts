@@ -17,7 +17,7 @@
  * replaces it the moment there is something real to show.
  */
 
-import { BUDGET_NAME_DEFAULTS, BUDGET_TRACKED_DEFAULTS } from "./budget"
+import { defaultEnvelopes, type Envelope } from "./budget"
 import { initialsOf } from "./derive"
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
 import { filedName } from "./refile"
@@ -193,19 +193,22 @@ export const DEMO_DASHBOARD: DashboardModel = {
     value: wholeMoney(paise(1284)),
     caption: "26% of spending",
   },
-  envelope: {
-    // The dashboard's budget is Food & Beverages, ₹1,500 a month by default — `lib/budget.ts`,
-    // which the derived card reads too (and whose limit the owner can change from the card).
-    // The artboard's sample envelope (`$240 / $600`) is replaced by the same shape at the
-    // owner's own figures; the chips are the dimension's subcategories, as the derived card
-    // ranks them. Its ₹240 of ₹1,500 is the 16% below.
-    title: "F&B Budget",
-    spent: wholeMoney(paise(240)),
-    limit: wholeMoney(paise(1500)),
-    badge: "16% USED",
-    pct: 16,
-    chips: ["Restaurants: 42% of spend", "Groceries: 35% of spend", "Bar, cafe: 23% of spend"],
-  },
+  envelopes: [
+    {
+      id: "food",
+      // The dashboard's first budget is Food & Beverages, ₹1,500 a month by default —
+      // `lib/budget.ts`, which the derived card reads too (and whose limit the owner can
+      // change from the card). The artboard's sample envelope (`$240 / $600`) is replaced by
+      // the same shape at the owner's own figures; the chips are the dimension's
+      // subcategories, as the derived card ranks them. Its ₹240 of ₹1,500 is the 16% below.
+      title: "F&B Budget",
+      spent: wholeMoney(paise(240)),
+      limit: wholeMoney(paise(1500)),
+      badge: "16% USED",
+      pct: 16,
+      chips: ["Restaurants: 42% of spend", "Groceries: 35% of spend", "Bar, cafe: 23% of spend"],
+    },
+  ],
   recent: { title: "Recent transactions", rows: DEMO_RECENT },
 }
 
@@ -238,19 +241,9 @@ const DEMO_FOOD_PARTS: Record<string, number> = {
  * the account rather than a sample of it, so it is the one figure here that survives the demo.
  */
 export function demoDashboard(
-  foodLimitCents: number,
-  /** The categories the food budget counts, or `null` for every expense (`lib/budget.ts`). */
-  foodCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.food,
+  envelopes: Envelope[] = defaultEnvelopes(),
   openings: Record<string, number> = {},
-  /** What the owner calls the envelope: the card's title before anything is imported too. */
-  foodName: string = BUDGET_NAME_DEFAULTS.food,
 ): DashboardModel {
-  const tracked = foodCategories === null ? null : new Set(foodCategories)
-  const parts = Object.entries(DEMO_FOOD_PARTS)
-    .filter(([id]) => tracked === null || tracked.has(id))
-    .sort((a, b) => b[1] - a[1])
-  const spent = parts.reduce((total, [, cents]) => total + cents, 0)
-  const pct = foodLimitCents > 0 ? Math.min(100, Math.round((spent / foodLimitCents) * 100)) : 0
   return {
     ...DEMO_DASHBOARD,
     // With nothing imported there are no rows to carry a balance, so the opening *is* the
@@ -261,16 +254,24 @@ export function demoDashboard(
       const cents = Math.max(opening, 0)
       return { ...card, cents, balance: money(cents) }
     }),
-    envelope: {
-      ...DEMO_DASHBOARD.envelope,
-      title: foodName,
-      spent: wholeMoney(spent),
-      limit: wholeMoney(foodLimitCents),
-      pct,
-      badge: `${pct}% USED`,
-      // Shares of what the budget counted, which is the same question the derived chips
-      // answer: they sum with their siblings to the whole of what went out.
-      chips: parts.map(([id, cents]) => `${filedName(id)}: ${spent > 0 ? Math.round((cents / spent) * 100) : 0}% of spend`),
-    },
+    envelopes: envelopes.map((budget) => {
+      const tracked = budget.tracked === null ? null : new Set(budget.tracked)
+      const parts = Object.entries(DEMO_FOOD_PARTS)
+        .filter(([id]) => tracked === null || tracked.has(id))
+        .sort((a, b) => b[1] - a[1])
+      const spent = parts.reduce((total, [, cents]) => total + cents, 0)
+      const pct = budget.limitCents > 0 ? Math.min(100, Math.round((spent / budget.limitCents) * 100)) : 0
+      return {
+        id: budget.id,
+        title: budget.name,
+        spent: wholeMoney(spent),
+        limit: wholeMoney(budget.limitCents),
+        pct,
+        badge: `${pct}% USED`,
+        // Shares of what the budget counted, which is the same question the derived chips
+        // answer: they sum with their siblings to the whole of what went out.
+        chips: parts.map(([id, cents]) => `${filedName(id)}: ${spent > 0 ? Math.round((cents / spent) * 100) : 0}% of spend`),
+      }
+    }),
   }
 }

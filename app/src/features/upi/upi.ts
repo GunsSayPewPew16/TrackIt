@@ -12,6 +12,13 @@
  *   rather than through `URLSearchParams`, because that class encodes a space as
  *   `+` (an `application/x-www-form-urlencoded` convention). A `+` inside a
  *   payee name or a note is a character, not a space, once the UPI app reads it.
+ * - The VPA's `@` is left literal. `%40` is legal and decodes to the same address, but UPI
+ *   apps parse these links by hand and a literal `@` is what every code in the wild carries;
+ *   writing `pa=shop@okaxis` keeps this module's links in that same spelling.
+ * - **A merchant code is forwarded, not flattened.** A scanned code's `mc`, `tr`, `tid`,
+ *   `sign` and `url` are merchant context, and dropping them turns a merchant payment into
+ *   an ordinary transfer to the same VPA — which is how a valid payee ends up refused. They
+ *   are carried through `extra` and written back unchanged (see `UpiPayee.extra`).
  *
  * Nothing here touches the network: it is string work, which is why it can be
  * tested without a camera and why the manual-entry path in the scanner runs
@@ -28,6 +35,15 @@ export type UpiPayee = {
   amountCents: number | null
   /** The note the code carried (`tn`), if any. */
   note: string
+  /**
+   * The code's merchant fields — `mc`, `tr`, `mode`, `orgid`, `sign`, `url` and whatever
+   * else it carried — kept verbatim so a payment handed back to a UPI app is the same
+   * merchant payment the QR described. A merchant VPA asked to pay as a plain transfer can
+   * be refused even though the address is correct; Google Pay's Android sample carries
+   * `mc`, `tr` and `url` for exactly this reason. The five fields this app re-states
+   * (`pa`, `pn`, `am`, `cu`, `tn`) are left out.
+   */
+  extra: Record<string, string>
 }
 
 export type UpiParseError =
@@ -118,6 +134,15 @@ export function parseUpiCode(raw: string): UpiParseResult {
   if (!payeeAddress) return { ok: false, reason: 'no-payee' }
   if (!VPA.test(payeeAddress)) return { ok: false, reason: 'bad-payee' }
 
+  // Everything except the five fields this module rebuilds. A merchant code's `mc`, `tr`,
+  // `mode`, `orgid` and `sign` are what make it a merchant payment; dropping them and
+  // keeping only the VPA is how a valid merchant code becomes a refused payee.
+  const reserved = new Set(['pa', 'pn', 'am', 'cu', 'tn'])
+  const extra: Record<string, string> = {}
+  for (const [key, value] of params) {
+    if (!reserved.has(key)) extra[key] = value
+  }
+
   return {
     ok: true,
     payee: {
@@ -127,6 +152,7 @@ export function parseUpiCode(raw: string): UpiParseResult {
       pn: params.get('pn') || payeeAddress.split('@')[0],
       amountCents: amountToCents(params.get('am') ?? ''),
       note: params.get('tn') ?? '',
+      extra,
     },
   }
 }
@@ -147,6 +173,11 @@ export type UpiPayment = {
   note?: string
   /** Defaults to the app's own currency. */
   currency?: string
+  /**
+   * Merchant fields from the scanned code (`mc`, `tr`, `mode`, `orgid`, `sign`, `url`…).
+   * They are forwarded as they were read, except for the fields this module owns.
+   */
+  extra?: Record<string, string>
 }
 
 /** UPI's own note field is short; anything longer is truncated by the apps. */
@@ -154,6 +185,16 @@ const NOTE_LIMIT = 50
 
 /** Percent-encode one parameter value. See this module's header for why by hand. */
 const encode = (value: string): string => encodeURIComponent(value)
+
+/**
+ * Percent-encode a VPA, leaving its `@` literal.
+ *
+ * `encodeURIComponent('shop@okaxis')` is `shop%40okaxis`: valid, and decoded by any parser
+ * that follows the URI rules. The literal form is still the one every UPI code prints, and a
+ * query value may contain `@` unescaped, so this module writes the VPA the way the code it
+ * came from did rather than asking each app's parser to be correct.
+ */
+const encodeVpa = (value: string): string => encode(value).replace(/%40/g, "@")
 
 /**
  * The parameters of a payment link, in the order a human reads them: payee,
@@ -172,7 +213,20 @@ function upiQuery(payment: UpiPayment, currency: string): string {
     ['cu', payment.currency ?? currency],
   ]
   if (note) pairs.push(['tn', note])
-  return pairs.map(([key, value]) => `${key}=${encode(value)}`).join('&')
+  /*
+   * The scanned code's other fields, in its own order. The amount and payee are ours — the
+   * owner confirmed them on the payment screen — but a merchant code's `mc`, `tr`, `mode`,
+   * `orgid` and `sign` must survive the trip, or the app is asking Google Pay to pay a
+   * merchant VPA as an ordinary person-to-person transfer.
+   */
+  const stated = new Set(['pa', 'pn', 'am', 'cu', 'tn'])
+  for (const [key, value] of Object.entries(payment.extra ?? {})) {
+    if (stated.has(key)) continue
+    pairs.push([key, value])
+  }
+  return pairs
+    .map(([key, value]) => `${key}=${key === 'pa' ? encodeVpa(value) : encode(value)}`)
+    .join('&')
 }
 
 /**

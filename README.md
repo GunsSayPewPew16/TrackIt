@@ -48,12 +48,18 @@ sets what that account holds**: the balance is the owner's own figure, a startin
 ledger moves from there, and it survives a reload; a
 104px band pairing the scan square with the predictive quick-log tray; then four
 cards on the 8px grid — the pace of spending and the month's top category side by
-side, the **F&B budget** (what Food & Beverages has taken this month out of the owner's
-₹1,500, twenty segments and a needle at the same percentage as the pill above it, with the
-dimension's own subcategories as the chips under the bar — and a hold on the card opens the
-keypad that changes the limit, with a *Tracking* page behind it that chooses which categories
-and subcategories count against it, every tap written at once so the card and the page's own
-figure move on the same frame), and the recent rows. The ledger is opened from the header's
+side, the **budget envelopes** (a sideways carousel of cards, the first the F&B budget:
+what Food & Beverages has taken this month out of the owner's ₹1,500, twenty segments and a
+needle at the same percentage as the pill above it, with the dimension's own subcategories as
+the chips under the bar — and a hold on a card offers **Edit** and **Create new**, with a row
+under them to move the card earlier or later and to delete it after a second, named
+confirmation. Edit opens the keypad that changes that card's limit, with a *Tracking* page
+behind it that chooses which categories and subcategories count against it, every tap written
+at once so the card and the page's own figure move on the same frame; Create new appends
+another envelope to the carousel and opens its editor, so each card has its own name, limit and
+tracked set. The carousel remembers the card the owner last had and reopens on it after a
+reload; the last envelope cannot be deleted, because the dashboard always needs one), and the
+recent rows. The ledger is opened from the header's
 second circle, beside the theme toggle; the artboard's own "See all" button is gone
 from the recent card, where it would have been a second door to the same room.
 
@@ -289,7 +295,11 @@ nothing about what was paid, so a row written afterwards is a row a crash or a c
 payment can lose. The handoff names Google Pay rather than leaving it to `upi://` (which
 belongs to whichever app asked for the scheme last), and on an iPhone without Google Pay it
 falls back to the generic link once the page is still on screen. A desktop has nothing to
-hand the payment to, so nothing navigates. Scanning the same code and amount twice is the
+hand the payment to, so nothing navigates. **The link is built for the app that reads it**:
+the payee's `@` goes in literally, as the code itself spells it (`shop@okaxis`, not `%40`), and
+a merchant code's own `mc`, `tr`, `mode`, `orgid`, `sign` and `url` are carried through, so a
+merchant payment is not reduced to a personal VPA — the two things a rebuilt link can lose
+(`src/features/upi/upi.ts`). Scanning the same code and amount twice is the
 same row (`src/features/upi/logScan.ts`), and the status line says so.
 
 The artboard paints a stylised code inside the viewfinder, because a mockup cannot hold
@@ -470,8 +480,10 @@ tools/                  wallet-import.py, lucide-icons.py, make-icons.py, the tw
 Working: all three screens in both themes, the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
 the month menu that reaches the months past the one the wheel holds, hold-to-edit-or-delete on a
-card, the editable account balances, the two editable budgets (the card's F&B one and the stats
-dial's total) and what each of them tracks, the add-record
+card, the editable account balances, the dashboard's budget carousel (each envelope's own name,
+limit and tracked set, with Edit, Create new, reorder and confirmed delete on its hold, and the
+last card remembered across a reload) and the stats dial's total budget,
+the add-record
 sheet's date picker for an expense logged late, the Wallet import and both exports, the scanner (camera and manual entry, the payment screen as the add-record
 screen, and one row per code), the greeting in a different language every open, and the
 Pages deploy. **The vault is online on both hosts**: the default site

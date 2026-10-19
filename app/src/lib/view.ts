@@ -111,23 +111,11 @@ export type DashboardModel = {
     value: string
     caption: string
   }
-  envelope: {
-    /** `F&B Budget` — the dashboard's budget, see `lib/budget.ts`. */
-    title: string
-    /** What Food & Beverages has taken this month, `₹1,624`. */
-    spent: string
-    /** What it allows — the owner's own limit, `₹1,500` until they change it. */
-    limit: string
-    /** `32% USED`. */
-    badge: string
-    /** 0–100: the gauge's filled segments and the marker's position. */
-    pct: number
-    /**
-     * The dimension's subcategories, biggest first, as the artboard's little pills say them:
-     * `Groceries: 37% of spend` — each one's share of what food has cost this month.
-     */
-    chips: string[]
-  }
+  /**
+   * The dashboard's budget carousel, in the order the cards are drawn. It is never empty:
+   * a fresh store holds the F&B envelope and the owner adds to it from there.
+   */
+  envelopes: EnvelopeModel[]
   /**
    * What just happened. There is no "See all" action here on purpose: the ledger
    * is opened from the dashboard's header now, so the card holds the rows and
@@ -138,6 +126,30 @@ export type DashboardModel = {
     /** `sub` is the category; `subNote` is the clock that follows it, in serif italic. */
     rows: { id: string; title: string; sub: string; subNote?: string; amount: string }[]
   }
+}
+
+/**
+ * One budget card on the dashboard: what the owner calls it, what it has taken this month,
+ * what it allows and where the money went.
+ */
+export type EnvelopeModel = {
+  /** The store's id for this envelope; the carousel and its hold address it by this. */
+  id: string
+  /** `F&B Budget` — the envelope's own name, see `lib/budget.ts`. */
+  title: string
+  /** What the envelope's categories have taken this month, `₹1,624`. */
+  spent: string
+  /** What it allows — the owner's own limit, `₹1,500` until they change it. */
+  limit: string
+  /** `32% USED`. */
+  badge: string
+  /** 0–100: the gauge's filled segments and the marker's position. */
+  pct: number
+  /**
+   * The subcategories the envelope counted, biggest first, as the artboard's little pills
+   * say them: `Groceries: 37% of spend` — each one's share of what it has cost this month.
+   */
+  chips: string[]
 }
 
 /**

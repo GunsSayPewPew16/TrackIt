@@ -18,13 +18,13 @@
  * - **The little bar on a card measures a budget where one exists** (the envelope
  *   the export carried for that category) **and the category's share of the month
  *   otherwise**, and it says which, because "62%" with no noun is not a fact.
- * - **The dashboard's envelope is the Food & Beverages budget** from `lib/budget.ts`,
- *   and the limit **and the categories it tracks** are handed in rather than read, because
- *   the owner can change both from the card itself. It is not the export's own `Budget`
- *   documents — those stay on the ledger's per-row bars — and it counts the categories the
- *   owner chose, not the month, so a taxi can never make the food budget look full unless
- *   it was asked to. The stats dial is the *other* budget (all spending), which is why the
- *   two cards can no longer share one figure.
+ * - **The dashboard's envelopes are the budgets** from `lib/budget.ts`, and each one's
+ *   limit **and the categories it tracks** are handed in rather than read, because the
+ *   owner can change both from the card itself. They are not the export's own `Budget`
+ *   documents — those stay on the ledger's per-row bars — and each counts the categories
+ *   the owner chose, so a taxi can never make the food envelope look full unless it was
+ *   asked to. The stats dial is the *other* budget (all spending), which is why the cards
+ *   can no longer share one figure.
  *
  * **Balances come from the store, not from the table.** Each card's opening is handed in
  * (`lib/balances.ts`), because the owner can set what a card reads by holding it; what is
@@ -32,12 +32,7 @@
  */
 
 import { ACCOUNTS, accountFor } from "./accounts"
-import {
-  BUDGET_DEFAULTS,
-  BUDGET_NAME_DEFAULTS,
-  BUDGET_TRACKED_DEFAULTS,
-  budgetSpent,
-} from "./budget"
+import { budgetSpent, defaultEnvelopes, type Envelope } from "./budget"
 import { categoryFor } from "./categories"
 // The name a person reads, which is the new tree's where it renamed an envelope: see
 // `lib/refile.ts`. The table itself is still the source of the id and the icon.
@@ -291,47 +286,40 @@ function sparkline(rows: Row[], now: number): string {
 }
 
 /**
- * The Food & Beverages envelope: what the dimension has taken this month, how much of the
- * owner's food limit that is, and where it went.
+ * One envelope: what its categories have taken this month, how much of the owner's limit
+ * that is, and where it went.
  *
  * Both figures are the month's, and the limit is the one handed in from `lib/budget.ts`
- * (₹1,500 until the owner long-presses the card and changes it). The chips are the
- * dimension's own subcategories — Groceries, Restaurants, Bar & Café and the parent row —
- * each as its share of what has been spent on food. They are shares of the food spend and
- * not of the limit on purpose: a chip sums with its siblings to the whole of what went
- * out, which is the question the card's left-hand figure raises.
+ * (₹1,500 for a new envelope, until the owner changes it). The chips rank whatever the
+ * budget actually counted, and each is a share of what it has spent rather than of the
+ * limit on purpose: the chips sum with their siblings to the whole of what went out, which
+ * is the question the card's left-hand figure raises.
  */
-function envelope(
-  rows: Row[],
-  now: number,
-  limitCents: number,
-  /** The categories this budget counts, or `null` for every expense (`lib/budget.ts`). */
-  categories: string[] | null,
-  /** What the owner calls it (`lib/budget.ts`): the card's own title, defaulted. */
-  name: string,
-): DashboardModel["envelope"] {
+function envelope(rows: Row[], now: number, budget: Envelope): DashboardModel["envelopes"][number] {
   const monthStart = startOfMonth(now)
   const monthRows = inWindow(rows.filter(isExpense), monthStart, startOfNextMonth(now))
-  const spent = budgetSpent(rows, monthStart, startOfNextMonth(now), categories)
+  const spent = budgetSpent(rows, monthStart, startOfNextMonth(now), budget.tracked)
 
-  // The chips rank whatever the budget actually counted: with the default set that is the
-  // F&B dimension's four ids, and with the owner's own selection it is that selection.
-  const tracked = categories === null ? null : new Set(categories)
+  // The chips rank whatever the budget actually counted: with the first envelope's default
+  // set that is the F&B dimension's four ids, and with the owner's own selection it is
+  // that selection.
+  const tracked = budget.tracked === null ? null : new Set(budget.tracked)
   const byCategory = new Map<string, number>()
   for (const row of monthRows) {
     if (tracked !== null && !tracked.has(row.category)) continue
     byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amountCents)
   }
   const ranked = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
-  const pct = pctOf(spent, limitCents)
+  const pct = pctOf(spent, budget.limitCents)
 
   return {
+    id: budget.id,
     // The owner's own name for the envelope, which is `F&B Budget` until they change it.
-    title: name,
+    title: budget.name,
     // The gauge's own two figures are headlines, so they carry no paise — the
     // same reason the artboard writes `$240 / $600` and not `$240.00 / $600.00`.
     spent: wholeMoney(spent),
-    limit: wholeMoney(limitCents),
+    limit: wholeMoney(budget.limitCents),
     badge: `${pct}% USED`,
     pct,
     chips: ranked.map(([id, cents]) => `${filedName(id)}: ${pctOf(cents, spent)}% of spend`),
@@ -341,23 +329,22 @@ function envelope(
 /**
  * Everything the dashboard draws, from rows: the balance both accounts add up to,
  * this month's flow, the pace of the last week against the month behind it, the
- * category the money is actually going to, the Food & Beverages budget, and what just
+ * category the money is actually going to, the budget envelopes, and what just
  * happened.
  */
 export function dashboardModel(
   rows: Row[],
   now: number = Date.now(),
-  /** The Food & Beverages limit, in paise — the owner's own number (`lib/budget.ts`). */
-  foodLimitCents: number = BUDGET_DEFAULTS.food,
-  /** What that budget counts — the owner's own selection (`lib/budget.ts`). */
-  foodCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.food,
+  /**
+   * The dashboard's envelopes, in carousel order — the owner's own names, limits and
+   * categories (`lib/budget.ts`). Omitted, the app's first envelope is used.
+   */
+  envelopes: Envelope[] = defaultEnvelopes(),
   /**
    * The opening balance of each account, in paise (`lib/balances.ts`). Omitted, the import's
    * own openings are used, which is what every caller but the app wants.
    */
   openings: Record<string, number> = {},
-  /** What the owner calls the envelope (`lib/budget.ts`) — the card's title. */
-  foodName: string = BUDGET_NAME_DEFAULTS.food,
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -428,7 +415,7 @@ export function dashboardModel(
       value: wholeMoney(top?.[1] ?? 0),
       caption: `${pctOf(top?.[1] ?? 0, monthSpent)}% of spending`,
     },
-    envelope: envelope(rows, now, foodLimitCents, foodCategories, foodName),
+    envelopes: envelopes.map((budget) => envelope(rows, now, budget)),
     recent: {
       title: "Recent transactions",
       rows: recent.map((row) => ({

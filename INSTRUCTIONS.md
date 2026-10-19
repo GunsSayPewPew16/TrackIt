@@ -82,24 +82,33 @@ knows which producer filled them:
   spending, `High expense` is a share of the month rather than a threshold, and a card's
   little bar measures a budget where one exists and the category's share otherwise (and
   says which). If a figure is wrong, it is wrong in this file.
-- `app/src/lib/budget.ts` — **two budgets, because they answer two different questions**,
-  and the store both limits live in. `food` is the dashboard's envelope card: **Food &
-  Beverages, ₹1,500 a month**, counted through `categoryFor(id).group === "food-drinks"`
-  (`isBudgetCategory`), so a taxi, a rent payment or an income row never moves it. `total` is
-  the stats screen's dial: **every expense in the month, ₹5,000 a month**, whatever its
-  category. `budgetSpent(rows, from, to, scope)` is the one gate both go through; the models
-  take the limit as an argument (`dashboardModel`'s `foodLimitCents`, `gaugeModel`'s
-  `totalLimitCents`) so `derive.ts` and `analytics.ts` stay pure, and `hooks/useBudgets.ts`
-  subscribes the screens to the store. **Both limits are the owner's own**, changed by holding
-  the card that draws them (`features/budget/BudgetSheet.tsx`), and kept in `localStorage`
-  under `trackit-budgets`; `BUDGET_DEFAULTS` is the fallback, never a ceiling. The module
-  deliberately ignores the export's own `Budget` documents: those still drive the per-row bars
-  on the ledger, which is a different question — what one category has used up. The card is
+- `app/src/lib/budget.ts` — **the dashboard's envelopes and the stats dial**, because they
+  answer two different questions. `envelopes` is an ordered list of budgets, one card each:
+  the first is **Food & Beverages, ₹1,500 a month**, counted through
+  `categoryFor(id).group === "food-drinks"` (`isBudgetCategory`), so a taxi, a rent payment
+  or an income row never moves it. A hold on any card offers **Edit**, **Create new**, the
+  two move actions and **Delete** (confirmed once); a new envelope starts at ₹1,500 tracking
+  nothing, opens its editor at once, and is appended to the carousel. The last envelope can
+  never be deleted, because the dashboard would have no card left to open. `total` is the
+  stats screen's dial: **every expense in the month, ₹5,000
+  a month**, whatever its category. `budgetSpent(rows, from, to, tracked)` is the one gate
+  every budget goes through; the models take each envelope's limit, name and tracked set as
+  arguments (`dashboardModel`'s `envelopes`, `gaugeModel`'s `totalLimitCents`) so `derive.ts`
+  and `analytics.ts` stay pure, and `hooks/useBudgets.ts` subscribes the screens to the store.
+  **Every limit, name and category choice is the owner's own**, changed by holding the card
+  that draws it (`features/budget/BudgetSheet.tsx`), and kept in `localStorage` under
+  `trackit-budgets`; `BUDGET_DEFAULTS` is the fallback, never a ceiling. The store is
+  `{ envelopes: [{ id, name, limitCents, tracked }], total: { … }, activeId }`; `activeId` is
+  the card the carousel was last on, so a reload opens where the owner left off. A store
+  written before the carousel (`limits`/`tracked`/`names` keyed `food` and `total`) is read as
+  the first envelope and the dial, and the next write saves the new shape. The module deliberately
+  ignores the export's own `Budget` documents: those still drive the per-row bars on the
+  ledger, which is a different question — what one category has used up. The first card is
   titled **F&B Budget** and its chips are the dimension's own subcategories, biggest first,
-  each as a share of the food spend (they add up to 100%, not to the pill); the dial names the
-  month it is showing (*Total this month*, or *Total in Aug*), and the row under it is a
-  sideways carousel of the months with an expense logged — the year's history, not just this
-  month and last — because it is the whole month and not a dimension.
+  each as a share of what that envelope spent (they add up to 100%, not to the pill); the
+  dial names the month it is showing (*Total this month*, or *Total in Aug*), and the row
+  under it is a sideways carousel of the months with an expense logged — the year's history,
+  not just this month and last — because it is the whole month and not a dimension.
   The chips live in the card's sideways tray, so four subcategories are a scroll, not a clipped
   row — that is the design's tray, not an overflow bug.
 
@@ -261,28 +270,41 @@ left out and why.
   menu of the months the history touches (`LedgerModel.months`), each anchored on the
   newest day *in that month* rather than on its end, so picking one cannot open on an
   empty sheet. Selecting the month already showing is a no-op.
-- **The two budgets are two different questions, and both belong to the owner.** The
-  dashboard's envelope card is Food & Beverages out of **₹1,500**; the stats dial is every
-  expense out of **₹5,000**. They were one figure once (the card and the dial both counted food
-  against ₹5,000), and that is exactly the state the owner split apart — do not merge them
-  again, and do not derive one screen's figure from the other's. Each limit is changed where
-  it is drawn: a hold on the envelope card or on the dial opens
-  `features/budget/BudgetSheet.tsx`, which reuses the manual entry's keypad, haptics and 40px
-  money type, starts on the current limit, and writes `lib/budget.ts`'s store (`trackit-budgets`,
-  integer paise, cached snapshot). **What a budget counts is the owner's too**: the row under
-  the figure opens the sheet's second page, every category and subcategory as a chip, and a
-  chip writes its id through on the tap rather than on a save (`setBudgetTracked`) — the card
-  behind the panel moves on that frame, and because the card is usually below the fold by then
-  the page carries the month's own figure (*₹474 of ₹1,500 this month · 32% used*) so the move
-  is visible where the thumb is. An empty list is a real answer (₹0 of the limit) and so is
-  `null` for the total budget (every expense); the two must not collapse. Three details are load bearing: **the hold is
-  `hooks/useLongPress.ts` for both cards and for a ledger row** (500ms, 10px slop so a scroll
-  cancels it, a 20ms tick when it fires, and `contextmenu` / `Enter` as the desk and keyboard
-  paths — a hold must never be the only way in); **the models take the limit as an argument**,
-  so a save redraws only what changed and the derivation stays pure; and **the panel is fetched
-  on the first hold** like every other panel, because only the dashboard may be in the entry
-  chunk. The tick at the hold's moment is a timer rather than a touch, so iOS may stay silent —
-  the same accepted fallback as everywhere else.
+- **The dashboard's envelopes and the stats dial are different questions, and all of them
+  belong to the owner.** The first envelope is Food & Beverages out of **₹1,500**; the stats
+  dial is every expense out of **₹5,000**. They were one figure once (the card and the dial
+  both counted food against ₹5,000), and that is exactly the state the owner split apart — do
+  not merge them again, and do not derive one screen's figure from the other's. **The
+  dashboard holds a carousel of envelopes**, one card per budget, each with its own name,
+  limit and categories; only the envelope being held is edited, and the dial is never one of
+  the carousel's cards. Each budget is changed where it is drawn: a hold on an envelope offers
+  **Edit**, **Create new**, **Move left/right** and **Delete** (with a second, named
+  confirmation), a hold on the dial opens the same editor, and
+  `features/budget/BudgetSheet.tsx` reuses the manual entry's keypad, haptics and 40px money
+  type, starts on the current limit, and writes `lib/budget.ts`'s store (`trackit-budgets`,
+  integer paise, cached snapshot). **Create new adds a blank envelope** (₹1,500, nothing
+  tracked), appends it to the carousel, makes it active and opens its editor; the menu itself
+  writes nothing until Delete is confirmed. The carousel stores the active card's id, so a
+  reload — and a move or delete — opens on the card that is still there; the last card cannot
+  be deleted.
+  **What a budget counts is the owner's too**: the row under the figure opens the sheet's
+  second page, every category and subcategory as a chip, and a chip writes its id through on
+  the tap rather than on a save (`setEnvelopeTracked`) — the card behind the panel moves on
+  that frame, and because the card is usually below the fold by then the page carries the
+  month's own figure (*₹474 of ₹1,500 this month · 32% used*) so the move is visible where
+  the thumb is. An empty list is a real answer (₹0 of the limit) and so is `null` for the
+  total budget (every expense); the two must not collapse. Five details are load bearing:
+  **the hold is `hooks/useLongPress.ts` for every envelope, the dial and a ledger row**
+  (500ms, 10px slop so a scroll or the carousel's own swipe cancels it, a 20ms tick when it
+  fires, and `contextmenu` / `Enter` as the desk and keyboard paths — a hold must never be the
+  only way in); **the carousel snaps one card at a time** and its dots are the count, a way to
+  reach a card without a swipe, and the active card; **the active card is persisted** as
+  `activeId` and only repositions on mount and when the order changes — a swipe must not fight
+  a follow-up smooth scroll; **the models take each envelope as an argument**, so a save
+  redraws only what changed and the derivation stays pure; and **the panel is fetched on the
+  first hold** like every other panel, because only the dashboard may be in the entry chunk.
+  The tick at the hold's moment is a timer rather than a touch, so iOS may stay silent — the
+  same accepted fallback as everywhere else.
 - **A ledger row is held for its two answers, and nothing is written on the hold.**
   `components/LedgerScreen.tsx` opens *This entry* — the row restated with its amount, category
   and clock — offering **Edit** and **Delete**. Edit hands the row to the add-record sheet
@@ -632,7 +654,16 @@ left out and why.
   take it (`handOffToUpiApp` — a phone), because on a desktop there is nothing to open. The
   link names Google Pay (`gpay://` on iOS, an `intent://` pinned to its package on Android)
   and falls back to the generic `upi://` link on an iPhone that stays on screen, because a
-  custom scheme nothing claims is ignored silently. `features/upi/logScan.ts` is the only thing
+  custom scheme nothing claims is ignored silently. **The link is the code, not just its
+  payee**: the VPA is written as the code spelled it (`pa=shop@okaxis`, not `%40`), and a
+  scanned merchant code's own `mc`, `tr`, `mode`, `orgid`, `sign` and `url` are forwarded
+  through `UpiPayee.extra` / `UpiPayment.extra`, so a merchant payment stays a merchant
+  payment rather than being reduced to a personal VPA — dropping those fields is how a valid
+  merchant code becomes a refused payee. The amount is the owner's, so a signed merchant
+  request whose amount was changed cannot keep a valid signature; there is no way to
+  re-sign it in the browser, and forwarding the original fields is still the closest the app
+  can get to the payment the code described.
+  `features/upi/logScan.ts` is the only thing
   that writes a scanned row and returns the sentence the status line shows; keep the id the
   payee plus the amount, so re-paying a code is the same row rather than a second one. Do not
   reinstate an instant log for codes that carry an amount: the owner wants the screen. The
@@ -719,7 +750,7 @@ Then drive the app. What is worth exercising for a change in these areas:
 | The palettes | every palette in `PALETTES` has a stylesheet block and the boot table, and its `canvas` matches both; each block states **all twenty-one tokens** (a missing one silently inherits the block above it) and `color-scheme` agrees with the register's theme. For each one: canvas, card, hairline and ink by computed style (read *after* the 120ms repaint — a read in the same task catches the previous palette, because the tokens transition); the toggle's `aria-pressed`, its label, and the stored choice after a reload; a browser holding only the legacy `trackit-theme` lands on that theme's default palette; and **the dark palette picked before the toggle is still the one it comes back to** (`trackit-palette-<theme>`). Contrast, per palette: ink-on-canvas, ink-on-card, ink2-on-card, on-clay-on-clay and on-sage-on-sage — the artboards' own paper sits at 15.06 / 16.26 / 4.34 / 5.57 / 4.33, and a new sample should not be worse than the paper it is a variation of. **Timing:** every text element must start its repaint on the same frame and be finished inside 150ms — read `getComputedStyle(el).color` each animation frame *from inside the change* (start the sampler, then perform the change in the same task, so the zero point is the click rather than the round trip), compare each element against its own final value, and repeat across a toggle, a same-theme pick and a cross-theme pick. `documentElement` must list the colour tokens as its `transition-property`, and no text element may list `color` |
 | The date container | a real mouse drag: the row follows the finger mid-drag (read the active capsule's centre before release, not just after), a slow 48px drag lands on one day, a flick travels and still lands exactly on a capsule (centre error 0), dragging past either end holds at it, a tap selects the capsule tapped, the arrow/Home/End keys move and keep the focus, and **the first capsule is the 1st of the month** (Home reaches it, centred). On Android ticks are `navigator.vibrate` calls (count them by replacing it); with an iPhone user agent the switch is the only path — check `input[switch]` computes `display: block` rather than `none`, that `label.click()` toggles its `checked`, that a real drag counts one toggle per capsule crossed, and that `navigator.vibrate` is never called. With CDP: `Emulation.setSafeAreaInsetsOverride` at top 47 makes `pt-safe` compute 79px |
 | The ledger's month menu | with real rows: the months listed, the marked one, and that picking an older one moves the window |
-| The two budgets | with no stored limits: the dashboard card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the food spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on either opens the keypad editor on that card's own limit — Android `navigator.vibrate` 20ms for the hold, then **8ms per digit and 20ms for `.`/backspace** exactly as the entry keypad does (both sheets render the same `Keypad`, which ticks on `pointerdown`), iOS the switch clicks — and saving rewrites `trackit-budgets` and redraws the card and the dial. The food limit must not move the dial's figure or the reverse; a limit changed while the ledger is empty still shows on the demo card; the total saved from the dial survives a reload. **Tracking:** the row under the figure opens *What this budget counts*, every category and subcategory as a `checkbox`, the tracked ones already checked; unticking the one category with spend this month drops that amount from the month's figure on that frame — the panel's own readout and the card behind both move, and the card comes back when it is ticked again; the choice is in `trackit-budgets` under `tracked`, survives a reload, and unticking everything leaves ₹0 of the limit rather than a default |
+| The budgets | with no stored limits: the dashboard's first card reads **F&B Budget**, ₹1,500, and counts only `food-drinks` rows this month (a taxi or a rent payment must not move it) while the stats dial reads **Total this month** and counts every expense; the pill, the needle and the filled segments agree on the same percentage; the chips are the dimension's subcategories with their share of the envelope's spend; a month with no food spend draws ₹0 / 0% with no chips. A hold (or Enter / right-click) on an envelope opens a menu with **Edit** and **Create new** (not the keypad straight away) — Android `navigator.vibrate` 20ms for the hold, a 10px move cancels it — and **Edit** opens that card's keypad editor on its own limit; **Create new** makes a second card (₹1,500, nothing tracked), appends it to the carousel, scrolls to it and opens its editor, and the menu itself writes nothing. The menu's row moves the card one place with **Move left/right** (disabled at the ends, and the carousel follows it) and **Delete** asks **Delete <name>?** first: **Keep It** writes nothing, **Delete** removes the card and leaves the carousel on a surviving one, and the last envelope's Delete is disabled. **A reload reopens the carousel on the card that was last shown** — the same card after a reorder, and a surviving neighbour after a delete — because the store holds `activeId`. The carousel swipes one card at a time, the dots show the count and follow the active card, tapping a dot reaches that card, and a hold on the second card offers the same two answers; its editor renames it, changes its limit and tracks categories, and only that card and the envelope it draws move. A hold on the dial still opens the keypad editor directly. **Saving** rewrites `trackit-budgets`'s `envelopes` array and redraws the card and the dots; a reload keeps the order, names, limits and tracked sets, and the dial's own limit stays separate from every envelope. **Legacy store:** a `trackit-budgets` written with `limits`/`tracked`/`names` keyed `food` and `total` reads as the first envelope and the dial, and the first save writes the new shape. **Tracking:** the row under the figure opens *What this budget counts*, every category and subcategory as a `checkbox`, the tracked ones already checked; unticking the one category with spend this month drops that amount from the month's figure on that frame — the panel's own readout and the card behind both move, and the card comes back when it is ticked again; the choice is in `trackit-budgets` under that envelope's `tracked`, survives a reload, and unticking everything leaves ₹0 of the limit rather than a default |
 | A ledger card's hold | a hold on a ledger card (or Enter / right-click) opens **This entry** — the row's title, category, time and amount with **Edit** and **Delete** — and writes nothing itself; a scroll cancels the hold; Android vibrates 20ms on the hold. **Edit** opens the add-record sheet on that row: the amount, account, direction, category, merchant, note and the pill all read the row's own values, the pill says the day it happened rather than *Today*, and **Save changes** leaves `trackit-ledger` with the **same id and the same `at`** when the pill was not touched, with a moved `at` (same clock, new day) when it was, and with one row rather than two. **Delete** opens **Delete this entry?**; **Keep It** leaves the store untouched, **Delete** removes that id, shrinks the day's list and this month's totals, survives a reload, and leaves the wheel on the day it was showing; the confirm's Delete is the 45ms thud |
 | The account cards' balances | the front card reads opening + income − expenses from the ledger; a hold (or Enter / right-click) on it opens the panel named for that account, seeded with today's figure and its keypad; saving types a new figure that the card then reads, and `trackit-balances` stores the **opening** that produces it (so a row logged after the save moves the card again) and the figure survives a reload; a 140px pull still pages the stack to the other account with no panel opening, and holding the card that paged into front opens **that** account's panel |
 | The importer | with `DataSheet` unwired, drive `readHistory` + `appendToLedger` in the page (Vite serves them as ES modules: `await import('/src/lib/history.ts')`), then check the stored row count and work the balance out from the stored rows by hand |

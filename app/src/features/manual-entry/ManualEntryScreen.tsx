@@ -393,6 +393,9 @@ export function ManualEntryScreen({
         pn: payee.pn,
         amountCents,
         note: written,
+        // A merchant QR's own fields, so Google Pay sees the same merchant payment. They
+        // include the merchant category, terminal reference and signature when present.
+        extra: payee.extra,
       })
     }
     reset()

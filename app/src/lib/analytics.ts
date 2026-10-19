@@ -300,13 +300,13 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
  * The dial: one month of spending at a time, against the owner's total-spending budget, and
  * the months there are to turn back through.
  *
- * This is deliberately **not** the dashboard's envelope card. The two cards track two
- * different things — the card on the dashboard is Food & Beverages out of ₹1,500, and this
- * dial is the whole month out of ₹5,000 (`lib/budget.ts` holds both) — so the dial counts
- * each row once, and `GaugeCard` says *Total this month* rather than naming a dimension.
- * Its categories are the owner's too: left alone, "whole month" means every expense; a
- * chosen set means exactly that set. Both limits and both sets are editable from the card
- * drawing them, which is why both are arguments here rather than constants.
+ * This is deliberately **not** one of the dashboard's envelopes. The dashboard's carousel
+ * tracks whatever each envelope is about — the first is Food & Beverages out of ₹1,500 —
+ * while this dial is the whole month out of ₹5,000 (`lib/budget.ts` holds both) — so the dial
+ * counts each row once, and `GaugeCard` says *Total this month* rather than naming a
+ * dimension. Its categories are the owner's too: left alone, "whole month" means every
+ * expense; a chosen set means exactly that set. Every limit and every set is editable from
+ * the card drawing it, which is why this one is an argument here rather than a constant.
  *
  * The months are the ones with an **expense** logged (income does not make a spending month)
  * plus the current month, oldest first, so the carousel reads forwards in time and opens on

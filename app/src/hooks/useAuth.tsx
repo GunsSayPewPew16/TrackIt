@@ -327,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!live) return
       setProfile({ id: userId, name: confirmed })
       // The account now owns this device's history, so it takes the figures that were set
-      // beside that history too — balances and both budgets. Another account is left at zero.
+      // beside that history too — balances and the budgets. Another account is left at zero.
       adoptDeviceSettings(userId, confirmed)
       void claimDeviceLedger(userId, confirmed)
     })

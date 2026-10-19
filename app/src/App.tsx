@@ -30,7 +30,7 @@ import { demoDashboard, DEMO_LEDGER } from "@/lib/demo"
 import { DEFAULT_CATEGORY } from "@/lib/categories"
 import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
-import { budgetSpent, type BudgetScope } from "@/lib/budget"
+import { BUDGET_COPY, budgetSpent, envelopeCopy } from "@/lib/budget"
 import { startOfMonth, startOfNextMonth } from "@/lib/format"
 import { appendToLedger } from "@/lib/ledger"
 import type { Row } from "@/lib/types"
@@ -133,6 +133,9 @@ const screens = {
 
 type View = "dashboard" | "ledger" | "scan" | "stats" | "settings"
 
+/** Which budget the editor is open on: one carousel envelope, or the stats dial. */
+type BudgetTarget = { kind: "envelope"; id: string } | { kind: "total" }
+
 /** Whichever of the lazy screens has arrived — normally all of them, from the idle fetch. */
 type Arrived = {
   ledger?: ComponentType<LedgerProps>
@@ -152,7 +155,21 @@ function TrackIt() {
   // imported, while an account's empty ledger is just that — empty.
   const { mode } = useAuth()
   const { rows, budgets, remove, update } = useLedger()
-  const { limits, tracked, names, save: saveBudget, saveTracked, saveName } = useBudgets()
+  const {
+    envelopes,
+    total,
+    activeEnvelopeId,
+    saveEnvelopeLimit,
+    saveEnvelopeTracked,
+    saveEnvelopeName,
+    createEnvelope,
+    viewEnvelope,
+    moveBudget,
+    deleteBudget,
+    saveTotalLimit,
+    saveTotalTracked,
+    saveTotalName,
+  } = useBudgets()
   const { openings, setBalance } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
@@ -180,8 +197,11 @@ function TrackIt() {
    */
   const [BudgetEditor, setBudgetEditor] = useState<ComponentType<BudgetSheetProps> | null>(null)
   const [budgetOpen, setBudgetOpen] = useState(false)
-  /** Which of the two budgets the editor is about. Read while the panel closes, too. */
-  const [budgetScope, setBudgetScope] = useState<BudgetScope>("food")
+  /**
+   * Which budget the editor is about. Read while the panel closes, too, so it stays set
+   * until another card is held — and the dashboard's carousel keeps its cards by id.
+   */
+  const [budgetTarget, setBudgetTarget] = useState<BudgetTarget>({ kind: "envelope", id: "food" })
   /**
    * The account whose balance is being edited, if any: the front card's hold. It is the id
    * rather than the card, because the card is a formatted view of the account and the panel
@@ -396,13 +416,13 @@ function TrackIt() {
   )
 
   /**
-   * Open the budget editor for one of the two budgets, fetching the panel first if this is
-   * the first hold. The scope is set before the await, so a first hold still opens the panel
-   * on the budget it was made on.
+   * Open the budget editor on one target, fetching the panel first if this is the first
+   * hold. The target is set before the await, so a first hold still opens the panel on the
+   * budget it was made on.
    */
   const editBudget = useCallback(
-    async (scope: BudgetScope) => {
-      setBudgetScope(scope)
+    async (target: BudgetTarget) => {
+      setBudgetTarget(target)
       if (!BudgetEditor) {
         const module = await import("@/features/budget/BudgetSheet")
         setBudgetEditor(() => module.BudgetSheet)
@@ -410,6 +430,29 @@ function TrackIt() {
       setBudgetOpen(true)
     },
     [BudgetEditor],
+  )
+
+  /**
+   * The carousel's **Create new**: add an envelope, then open its editor on it. Creating first
+   * is what makes the card exist behind the panel — the owner sees it arrive in the carousel
+   * and names it in the same gesture — rather than opening an editor for something unsaved.
+   */
+  const createBudget = useCallback(() => {
+    const id = createEnvelope()
+    void editBudget({ kind: "envelope", id })
+  }, [createEnvelope, editBudget])
+
+  /**
+   * A deleted envelope can no longer be the editor's target. The card that takes its place
+   * is the store's choice; closing the panel here is what keeps it from drawing a budget the
+   * owner just removed.
+   */
+  const deleteEnvelope = useCallback(
+    (id: string) => {
+      deleteBudget(id)
+      if (budgetTarget.kind === "envelope" && budgetTarget.id === id) setBudgetOpen(false)
+    },
+    [budgetTarget, deleteBudget],
   )
 
   /** Closing without confirming is an answer too: the scanner's hint comes back. */
@@ -464,11 +507,8 @@ function TrackIt() {
   const imported = hasHistory(rows)
   const demo = mode === "device" && !imported
   const dashboard = useMemo(
-    () =>
-      demo
-        ? demoDashboard(limits.food, tracked.food, openings, names.food)
-        : dashboardModel(rows, now, limits.food, tracked.food, openings, names.food),
-    [demo, rows, now, limits.food, tracked.food, openings, names.food],
+    () => (demo ? demoDashboard(envelopes, openings) : dashboardModel(rows, now, envelopes, openings)),
+    [demo, rows, now, envelopes, openings],
   )
   const ledger = useMemo(
     () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor)),
@@ -479,6 +519,21 @@ function TrackIt() {
     () => Object.values(openings).reduce((total, cents) => total + cents, 0),
     [openings],
   )
+
+  /**
+   * What the budget editor is drawing: one envelope from the carousel, or the stats dial.
+   * The envelope is looked up by id because the carousel can add cards behind the panel;
+   * the first card is the fallback for a target that no longer exists, rather than a blank
+   * panel with somebody else's figures.
+   */
+  const targetEnvelope =
+    budgetTarget.kind === "envelope"
+      ? (envelopes.find((envelope) => envelope.id === budgetTarget.id) ?? envelopes[0] ?? null)
+      : null
+  const budgetCopy = targetEnvelope ? envelopeCopy(targetEnvelope) : BUDGET_COPY.total
+  const budgetLimit = targetEnvelope ? targetEnvelope.limitCents : total.limitCents
+  const budgetTracked = targetEnvelope ? targetEnvelope.tracked : total.tracked
+  const budgetName = targetEnvelope ? targetEnvelope.name : total.name
 
   const Ledger = arrived.ledger
   const Scan = arrived.scan
@@ -504,7 +559,12 @@ function TrackIt() {
               onScan={() => void goTo("scan")}
               onAddRecord={() => void openEntry()}
               onQuickLog={(category) => void openEntry(category)}
-              onSetBudget={() => void editBudget("food")}
+              activeEnvelopeId={activeEnvelopeId}
+              onViewEnvelope={viewEnvelope}
+              onEditBudget={(id) => void editBudget({ kind: "envelope", id })}
+              onCreateBudget={createBudget}
+              onMoveBudget={moveBudget}
+              onDeleteBudget={deleteEnvelope}
               onEditBalance={(accountId) => void editBalance(accountId)}
             />
           ) : view === "ledger" && Ledger ? (
@@ -525,10 +585,10 @@ function TrackIt() {
               rows={rows}
               theme={theme}
               onToggleTheme={toggleTheme}
-              budgetCents={limits.total}
-              budgetCategories={tracked.total}
+              budgetCents={total.limitCents}
+              budgetCategories={total.tracked}
               openingCents={openingCents}
-              onSetBudget={() => void editBudget("total")}
+              onSetBudget={() => void editBudget({ kind: "total" })}
             />
         ) : view === "scan" && Scan ? (
             <Scan
@@ -573,30 +633,38 @@ function TrackIt() {
       )}
 
       {/*
-        The budget editor. A long press on either budget card opens it on that budget — the
-        dashboard's envelope is `food`, the stats dial is `total` — and the save writes the
-        owner's number to `lib/budget.ts`, which is what redraws both cards.
+        The budget editor. A long press on any envelope in the dashboard's carousel opens it
+        on that card, and the stats dial opens it on `total`; the save writes the owner's
+        number to `lib/budget.ts`, which redraws whichever cards draw it.
       */}
       {BudgetEditor && (
         <BudgetEditor
           isOpen={budgetOpen}
-          scope={budgetScope}
-          limitCents={limits[budgetScope]}
-          tracked={tracked[budgetScope]}
+          copy={budgetCopy}
+          allowEveryExpense={targetEnvelope === null}
+          limitCents={budgetLimit}
+          tracked={budgetTracked}
           // The envelope's own name, which the card behind this panel prints as its title.
-          name={names[budgetScope]}
-          onName={(value) => saveName(budgetScope, value)}
+          name={budgetName}
+          onName={(value) => {
+            if (targetEnvelope) saveEnvelopeName(targetEnvelope.id, value)
+            else saveTotalName(value)
+          }}
           // What the budget has counted so far this month, so the picker's own figure moves
           // on every toggle — re-derived here because the rows do not leave the app.
-          spentCents={budgetSpent(rows, startOfMonth(now), startOfNextMonth(now), tracked[budgetScope])}
+          spentCents={budgetSpent(rows, startOfMonth(now), startOfNextMonth(now), budgetTracked)}
           onClose={() => setBudgetOpen(false)}
           onSave={(cents) => {
-            saveBudget(budgetScope, cents)
+            if (targetEnvelope) saveEnvelopeLimit(targetEnvelope.id, cents)
+            else saveTotalLimit(cents)
             setBudgetOpen(false)
           }}
           // Written on every toggle rather than on the save: the card behind the panel is
           // the answer to what a choice does, so it has to move while the panel is open.
-          onTrack={(categories) => saveTracked(budgetScope, categories)}
+          onTrack={(categories) => {
+            if (targetEnvelope) saveEnvelopeTracked(targetEnvelope.id, categories)
+            else saveTotalTracked(categories)
+          }}
         />
       )}
 
