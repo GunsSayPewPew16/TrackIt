@@ -1,12 +1,12 @@
-import { useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { Switch } from "radix-ui"
 
 import { CountUp } from "@/components/CountUp"
 import { Tile } from "@/features/analytics/Tile"
 import { useLongPress } from "@/hooks/useLongPress"
 import { gaugeModel } from "@/lib/analytics"
-import { wholeMoney } from "@/lib/format"
+import { join } from "@/lib/classes"
+import { startOfMonth, wholeMoney } from "@/lib/format"
 import { lightTap } from "@/lib/haptics"
 import type { Row } from "@/lib/types"
 
@@ -40,15 +40,38 @@ export function GaugeCard({
   onSetBudget: () => void
 }) {
   const maskId = useId().replace(/:/g, "")
-  const [lastMonth, setLastMonth] = useState(false)
   const model = useMemo(
     () => gaugeModel(rows, now, budgetCents, budgetCategories),
     [rows, now, budgetCents, budgetCategories],
   )
-  const spent = lastMonth ? model.lastMonth : model.thisMonth
+  /**
+   * The month the dial is showing, or `null` for the newest one — the current month.
+   *
+   * Stored as the month's own midnight rather than an index: the carousel grows as months
+   * are logged, and an index would quietly start pointing at a different month when one
+   * arrives in front of it.
+   */
+  const [selectedAt, setSelectedAt] = useState<number | null>(null)
+  const found = selectedAt === null ? -1 : model.months.findIndex((month) => month.at === selectedAt)
+  const index = found >= 0 ? found : model.months.length - 1
+  const month = model.months[index]
+  const spent = month.cents
+  const thisMonth = startOfMonth(now)
+  const isCurrent = month.at === thisMonth
+  const caption = isCurrent ? "Total this month" : `Total in ${month.name}`
   const fraction = model.target > 0 ? Math.min(1, spent / model.target) : 0
   // A dial is a thing to hold: the hold is the only control on it, and it opens the editor.
   const hold = useLongPress(onSetBudget)
+
+  /*
+   * The carousel is a normal sideways scroller, so a finger swipes it the way the ledger's
+   * date row moves. When the month changes under it — a tap, or the newest month on arrival —
+   * the strip brings that pill into view without moving the page around it.
+   */
+  const pills = useRef(new Map<number, HTMLButtonElement>())
+  useEffect(() => {
+    pills.current.get(month.at)?.scrollIntoView({ inline: "nearest", block: "nearest" })
+  }, [month.at])
 
   return (
     <Tile className="flex h-56 flex-col">
@@ -56,7 +79,7 @@ export function GaugeCard({
         {...hold}
         role="button"
         tabIndex={0}
-        aria-label={`${lastMonth ? "Total last month" : "Total this month"}: ${wholeMoney(spent)} of ${wholeMoney(model.target)}. Hold to change the budget`}
+        aria-label={`${isCurrent ? caption : `Total in ${month.label}`}: ${wholeMoney(spent)} of ${wholeMoney(model.target)}. Hold to change the budget`}
         title="Hold to change the budget"
         className="relative size-[139px] cursor-pointer touch-manipulation select-none [-webkit-touch-callout:none]"
       >
@@ -78,17 +101,18 @@ export function GaugeCard({
               />
             </mask>
           </defs>
-          <path d={TICKS} fill="none" strokeWidth={1} className="stroke-line" />
+          {/* The ring's own ticks are secondary ink rather than the hairline: at 1px they were
+              too pale to read as a dial, and the colour is the only thing that moves here. */}
+          <path d={TICKS} fill="none" strokeWidth={1} className="stroke-ink2" />
           <path d={TICKS} fill="none" strokeWidth={1} className="stroke-sage" mask={`url(#${maskId})`} />
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           {/* The dial is the **total** budget, not the food one: the dashboard's envelope card
               is where Food & Beverages is measured, and two dials saying "F&B" over two
-              different denominators is the confusion this label removes. */}
-          <p className="w-[104px] text-[10px] leading-3 tracking-[0.01em] text-ink2">
-            {lastMonth ? "Total last month" : "Total this month"}
-          </p>
+              different denominators is the confusion this label removes. The month is the
+              carousel's: this one when it is the month we are in, its name otherwise. */}
+          <p className="w-[104px] text-[10px] leading-3 tracking-[0.01em] text-ink2">{caption}</p>
           <CountUp
             cents={spent}
             format={wholeMoney}
@@ -98,19 +122,43 @@ export function GaugeCard({
         </div>
       </div>
 
-      <label className="flex h-12 items-center justify-between gap-2 text-[10px] leading-3 tracking-[0.01em] text-ink2">
-        Show last month
-        <Switch.Root
-          checked={lastMonth}
-          onCheckedChange={(v) => {
-            lightTap()
-            setLastMonth(v)
-          }}
-          className="relative h-4 w-7 shrink-0 rounded-full bg-line outline-none focus-visible:ring-2 focus-visible:ring-ink data-[state=checked]:bg-sage"
-        >
-          <Switch.Thumb className="block size-3 translate-x-0.5 rounded-full bg-ink transition-transform duration-[120ms] ease-[ease] data-[state=checked]:translate-x-[14px] data-[state=checked]:bg-card" />
-        </Switch.Root>
-      </label>
+      {/*
+        The months with something in them, as one sideways carousel rather than the old
+        this/last switch: the year's history is usually more than two months, and a month
+        is chosen by tapping it or swiping the strip. A month with no expense logged is not
+        a stop — only the current month is always there, so the dial has somewhere to open.
+      */}
+      <div
+        role="group"
+        aria-label="Months with spending"
+        className="hide-scrollbar -mx-1 flex h-12 snap-x items-center gap-1 overflow-x-auto px-1"
+      >
+        {model.months.map((entry) => {
+          const active = entry.at === month.at
+          return (
+            <button
+              key={entry.at}
+              ref={(node) => {
+                if (node) pills.current.set(entry.at, node)
+                else pills.current.delete(entry.at)
+              }}
+              type="button"
+              onClick={() => {
+                lightTap()
+                setSelectedAt(entry.at)
+              }}
+              aria-pressed={active}
+              aria-label={entry.label}
+              className={join(
+                "h-7 flex-none snap-center rounded-full px-2 text-[10px] leading-3 tracking-[0.02em]",
+                active ? "bg-sage text-on-sage" : "border border-line text-ink2",
+              )}
+            >
+              {entry.short}
+            </button>
+          )
+        })}
+      </div>
     </Tile>
   )
 }

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react"
 
 import { Tile, tileTitle } from "@/features/analytics/Tile"
-import { SHEET_WEEKS, heatmapModel, type HeatCell } from "@/lib/analytics"
+import { HEAT_WEEKS, heatmapModel, type HeatCell } from "@/lib/analytics"
 import { join } from "@/lib/classes"
 import { wholeMoney } from "@/lib/format"
 import { lightTap } from "@/lib/haptics"
@@ -43,7 +43,13 @@ export function HeatmapCard({ rows, now }: { rows: Row[]; now: number }) {
   /** 0 is the newest weeks; each page further back is one more window. */
   const [page, setPage] = useState(0)
   const [expanded, setExpanded] = useState(false)
-  const model = useMemo(() => heatmapModel(rows, page, now), [rows, page, now])
+  // The card and the sheet are one window: `HEAT_WEEKS` is what makes their squares agree.
+  const model = useMemo(() => heatmapModel(rows, page, now, HEAT_WEEKS), [rows, page, now])
+  /** Closing hands the sheet's page back, so the card is left showing what was just read. */
+  const closeSheet = useCallback((next: number) => {
+    setPage(next)
+    setExpanded(false)
+  }, [])
 
   const step = (delta: number) => {
     lightTap()
@@ -117,30 +123,53 @@ export function HeatmapCard({ rows, now }: { rows: Row[]; now: number }) {
       </div>
 
       <AnimatePresence>
-        {expanded && <DailySpendSheet rows={rows} now={now} onClose={() => setExpanded(false)} />}
+        {expanded && <DailySpendSheet rows={rows} now={now} page={page} onClose={closeSheet} />}
       </AnimatePresence>
     </Tile>
   )
 }
 
 /**
- * The two-month overlay: the same grid as the card, drawn with wider squares. Pressing a day
- * reads out that day's total and nothing else. Escape, the close button and a tap on the
- * backdrop all close it, and the page underneath does not scroll while it is open.
+ * The two-month overlay: the same grid as the card, drawn with wider squares and opened on
+ * the card's own page. Pressing a day reads out that day's total and nothing else. Escape, the
+ * close button and a tap on the backdrop all close it, and the page underneath does not scroll
+ * while it is open.
  */
-function DailySpendSheet({ rows, now, onClose }: { rows: Row[]; now: number; onClose: () => void }) {
+function DailySpendSheet({
+  rows,
+  now,
+  page,
+  onClose,
+}: {
+  rows: Row[]
+  now: number
+  /** The page the card is showing: the sheet opens on the same range it draws. */
+  page: number
+  onClose: (page: number) => void
+}) {
   // Portalled to the body: the screen's cards are transformed, which would otherwise pin the overlay to them.
-  return createPortal(<DailySpendOverlay rows={rows} now={now} onClose={onClose} />, document.body)
+  return createPortal(<DailySpendOverlay rows={rows} now={now} initialPage={page} onClose={onClose} />, document.body)
 }
 
-function DailySpendOverlay({ rows, now, onClose }: { rows: Row[]; now: number; onClose: () => void }) {
-  const [page, setPage] = useState(0)
+function DailySpendOverlay({
+  rows,
+  now,
+  initialPage,
+  onClose,
+}: {
+  rows: Row[]
+  now: number
+  initialPage: number
+  onClose: (page: number) => void
+}) {
+  const [page, setPage] = useState(initialPage)
   const [picked, setPicked] = useState<HeatCell | null>(null)
-  const model = useMemo(() => heatmapModel(rows, page, now, SHEET_WEEKS), [rows, page, now])
+  const model = useMemo(() => heatmapModel(rows, page, now, HEAT_WEEKS), [rows, page, now])
+  const close = useCallback(() => onClose(page), [onClose, page])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") close()
     }
     window.addEventListener("keydown", onKey)
     const { overflow } = document.body.style
@@ -149,7 +178,7 @@ function DailySpendOverlay({ rows, now, onClose }: { rows: Row[]; now: number; o
       window.removeEventListener("keydown", onKey)
       document.body.style.overflow = overflow
     }
-  }, [onClose])
+  }, [close])
 
   const step = (delta: number) => {
     lightTap()
@@ -170,7 +199,7 @@ function DailySpendOverlay({ rows, now, onClose }: { rows: Row[]; now: number; o
       exit={{ opacity: 0 }}
       transition={{ duration: 0.25 }}
     >
-      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-canvas/70 backdrop-blur-sm" />
+      <div aria-hidden="true" onClick={close} className="absolute inset-0 bg-canvas/70 backdrop-blur-sm" />
 
       <motion.section
         role="dialog"
@@ -189,7 +218,7 @@ function DailySpendOverlay({ rows, now, onClose }: { rows: Row[]; now: number; o
             </h2>
             <p className="font-serif text-[15px] leading-5 text-ink2 italic">The last two months</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close daily spend" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line text-ink">
+          <button type="button" onClick={close} aria-label="Close daily spend" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line text-ink">
             <X strokeWidth={1.5} className="size-5" aria-hidden="true" />
           </button>
         </header>

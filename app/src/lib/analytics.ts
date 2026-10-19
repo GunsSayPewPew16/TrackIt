@@ -10,10 +10,17 @@ import type { Row } from "./types"
  * hold together, which is income and expense alike.
  */
 
-/** The heatmap's window: ten weeks, which is what fits beside the gauge. */
-export const HEAT_WEEKS = 10
-/** The expanded daily-spend view: nine weeks, about two months, drawn with wider squares. */
-export const SHEET_WEEKS = 9
+/**
+ * The heatmap's window: nine weeks, about two months, and **the same window in both views**.
+ *
+ * The card used to hold ten weeks while the expanded sheet held nine, and each page is scaled
+ * to its own busiest day. So the card's extra week could be the page's heaviest one (a rent
+ * day, say), and every square the two views shared was then drawn at a fraction of the tint
+ * the sheet gave it — the same day, two colours, and the card looked empty. One window means
+ * one set of days and one scale: a square keeps its column and its colour wherever it is
+ * drawn.
+ */
+export const HEAT_WEEKS = 9
 /** The allocation's window: the months it stacks, ending this one. */
 export const ALLOCATION_MONTHS = 12
 /** How many groups get their own colour in the allocation; the rest are one grey band. */
@@ -51,7 +58,11 @@ export interface HeatCell {
 export interface HeatmapModel {
   /** `weeks` × 7 cells, a week to a column, Monday first. */
   cells: HeatCell[]
-  /** Midnight of the first cell and of the last day the window shows. */
+  /**
+   * Midnight of the first cell and of the last day the window **shows**: today on the newest
+   * page, whose trailing cells are still in the future, and the window's own last Sunday on
+   * an earlier one, where every cell is a day that has happened.
+   */
   start: number
   end: number
   /** Whether any row is older than this window, so an earlier page has something on it. */
@@ -99,13 +110,27 @@ export interface AllocationModel {
   segments: AllocationSegment[]
 }
 
+export interface GaugeMonth {
+  /** Local midnight of the month's first day, which is also its key. */
+  at: number
+  /** `OCT` — the pill in the carousel. Carries the year (`OCT ’25`) outside this one. */
+  short: string
+  /** `Oct` — what the dial calls the month when it is not this one. */
+  name: string
+  /** `October 2026` — the pill's accessible name and the dial's aria-label. */
+  label: string
+  /** Everything this budget counts in the month, in paise. */
+  cents: number
+}
+
 export interface GaugeModel {
   /**
-   * Every expense this month and last, in paise, whatever its category: the dial answers
-   * "what has the month cost me?", which is the whole of the spending and not one dimension.
+   * The months the dial can be turned to, oldest first: every month with an expense logged,
+   * plus this one even when it has none, so the dial always opens somewhere. A month between
+   * two busy ones with nothing in it is not a stop — the carousel is the history, not a
+   * calendar. Whatever the category, the figure is the whole of that month's spending.
    */
-  thisMonth: number
-  lastMonth: number
+  months: GaugeMonth[]
   /**
    * What the gauge measures against: the owner's total-spending budget (`lib/budget.ts`),
    * handed in by the screen so the dial and the card that edits it read one number.
@@ -138,8 +163,12 @@ function mondayOnOrBefore(at: number): number {
 
 export function heatmapModel(rows: Row[], page: number, now: number, weeks: number = HEAT_WEEKS): HeatmapModel {
   const today = startOfDay(now)
-  const end = addDays(today, -page * weeks * 7)
-  const start = mondayOnOrBefore(addDays(end, -(weeks - 1) * 7))
+  const anchor = addDays(today, -page * weeks * 7)
+  const start = mondayOnOrBefore(addDays(anchor, -(weeks - 1) * 7))
+  // The current page ends on today; an earlier one ends on the Sunday of its own last week,
+  // which is six days after the anchor. Printing the anchor instead would leave a week of the
+  // window out of the dates above it.
+  const end = page === 0 ? today : addDays(start, weeks * 7 - 1)
   const byDay = spendByDay(rows)
 
   const days = Array.from({ length: weeks * 7 }, (_, i) => {
@@ -268,8 +297,8 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
 }
 
 /**
- * The dial: every expense the month has taken, and the same for the month before it, against
- * the owner's total-spending budget.
+ * The dial: one month of spending at a time, against the owner's total-spending budget, and
+ * the months there are to turn back through.
  *
  * This is deliberately **not** the dashboard's envelope card. The two cards track two
  * different things — the card on the dashboard is Food & Beverages out of ₹1,500, and this
@@ -278,6 +307,11 @@ export function allocationModel(rows: Row[], now: number): AllocationModel {
  * Its categories are the owner's too: left alone, "whole month" means every expense; a
  * chosen set means exactly that set. Both limits and both sets are editable from the card
  * drawing them, which is why both are arguments here rather than constants.
+ *
+ * The months are the ones with an **expense** logged (income does not make a spending month)
+ * plus the current month, oldest first, so the carousel reads forwards in time and opens on
+ * the live one. A month with no expense is skipped rather than shown as a ₹0 stop: the card
+ * is a history of what was spent, not a calendar with blanks in it.
  */
 export function gaugeModel(
   rows: Row[],
@@ -288,10 +322,26 @@ export function gaugeModel(
   totalCategories: string[] | null = BUDGET_TRACKED_DEFAULTS.total,
 ): GaugeModel {
   const thisMonth = startOfMonth(now)
-  const lastMonth = startOfMonth(addDays(thisMonth, -1))
-  return {
-    thisMonth: budgetSpent(rows, thisMonth, startOfNextMonth(now), totalCategories),
-    lastMonth: budgetSpent(rows, lastMonth, thisMonth, totalCategories),
-    target: totalLimitCents,
-  }
+  const logged = new Set<number>([thisMonth])
+  for (const row of rows) if (isExpense(row)) logged.add(startOfMonth(row.at))
+
+  const thisYear = new Date(thisMonth).getFullYear()
+  const months = [...logged]
+    .sort((a, b) => a - b)
+    .map((at): GaugeMonth => {
+      const first = new Date(at)
+      const short = first.toLocaleDateString("en-US", { month: "short" })
+      // A month from another year keeps its year on the pill; twelve `JAN`s in a row would
+      // otherwise be indistinguishable.
+      const year = first.getFullYear() === thisYear ? null : ` ’${String(first.getFullYear()).slice(-2)}`
+      return {
+        at,
+        short: `${short}${year ?? ""}`.toUpperCase(),
+        name: short,
+        label: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+        cents: budgetSpent(rows, at, startOfNextMonth(at), totalCategories),
+      }
+    })
+
+  return { months, target: totalLimitCents }
 }

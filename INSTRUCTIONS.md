@@ -96,8 +96,10 @@ knows which producer filled them:
   deliberately ignores the export's own `Budget` documents: those still drive the per-row bars
   on the ledger, which is a different question — what one category has used up. The card is
   titled **F&B Budget** and its chips are the dimension's own subcategories, biggest first,
-  each as a share of the food spend (they add up to 100%, not to the pill); the dial's label is
-  *Total this month* / *Total last month*, because it is the whole month and not a dimension.
+  each as a share of the food spend (they add up to 100%, not to the pill); the dial names the
+  month it is showing (*Total this month*, or *Total in Aug*), and the row under it is a
+  sideways carousel of the months with an expense logged — the year's history, not just this
+  month and last — because it is the whole month and not a dimension.
   The chips live in the card's sideways tray, so four subcategories are a scroll, not a clipped
   row — that is the design's tray, not an overflow bug.
 
