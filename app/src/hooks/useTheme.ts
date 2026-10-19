@@ -30,7 +30,7 @@ import {
  * default table and the app would disagree with its own state.
  *
  * **The toggle is the other side of the same name.** Flipping while Monaco Blue is worn lands on
- * Monaco's light companion, not on Sage's Paper: a theme is an identity, and the sun/moon is
+ * Monaco's light companion, not on Archival Earth's light side: a theme is an identity, and the sun/moon is
  * asking for that identity in the other mode. Only a table no theme names falls back to the old
  * rule — the palette the owner last used in that theme, or that theme's default.
  */
@@ -63,7 +63,7 @@ export function useTheme() {
     setPalette((current) => {
       const other: Theme = current.theme === "dark" ? "light" : "dark"
       const choice = themeOfPalette(current.id)
-      // The name decides what the other side is: Sage flips to Paper, Monaco to its light side.
+      // The name decides what the other side is: Archival Earth flips to its light side, Monaco to its own.
       if (choice) return paletteFor(choice[other]) ?? current
       // A table no theme names keeps the old rule.
       return rememberedPalette(other) ?? defaultPaletteOf(other)

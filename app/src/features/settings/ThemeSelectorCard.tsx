@@ -117,12 +117,25 @@ export function ThemeSelectorCard({ palette, onChooseTheme }: Props) {
                     className="absolute inset-0 rounded-full border border-sage bg-canvas"
                   />
                 )}
-                {/* The theme itself: its dark canvas against its light one. */}
+                {/*
+                  The theme itself: **its two dominant colours**, which are the two
+                  grounds it is worn on — the dark side's canvas against the light side's,
+                  split down the middle.
+
+                  The halves are divided by a hairline as well as by their own difference,
+                  because on the *selected* capsule one of them can be the same colour as
+                  the fill behind it (the overlay is the palette's own canvas when the dark
+                  side is worn, and that is exactly what the left half is painted): without
+                  the divider the swatch reads as one colour with a crescent cut out of it.
+                */}
                 <span
                   aria-hidden="true"
                   className="relative z-10 flex size-6 shrink-0 overflow-hidden rounded-full border border-line"
                 >
-                  <span className="flex-1" style={{ background: choice.dot[0] }} />
+                  <span
+                    className="flex-1 border-r border-line"
+                    style={{ background: choice.dot[0] }}
+                  />
                   <span className="flex-1" style={{ background: choice.dot[1] }} />
                 </span>
                 <span className="relative z-10 truncate">{choice.label}</span>
@@ -132,10 +145,14 @@ export function ThemeSelectorCard({ palette, onChooseTheme }: Props) {
         })}
       </RadioGroup.Root>
 
-      {/* Both halves are Anthropic Serif Text in the roman cut: the label and the name are one
-          sentence of the same voice, and the italic is kept for the app's notes elsewhere. */}
+      {/*
+        The caption is one sentence in two cuts: the label in Anthropic Serif Text's roman,
+        the theme's name in its **italic**, so the word that changes is the word that is
+        drawn differently. The label is the app's own two words and the name is the owner's
+        theme, which is the split the masthead's greeting makes as well.
+      */}
       <p className="mt-3 font-editorial text-[13px] leading-5 text-ink2" aria-live="polite">
-        Currently rendering{" "}
+        Currently Rendering:{" "}
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={worn.id}
@@ -143,7 +160,7 @@ export function ThemeSelectorCard({ palette, onChooseTheme }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="inline-block text-ink"
+            className="inline-block italic text-ink"
           >
             {worn.title}
           </motion.span>

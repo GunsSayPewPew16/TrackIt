@@ -137,17 +137,17 @@ left out and why.
 - **The colours are palettes, and `data-palette` is the only switch.** `app/src/index.css`
   has one block per **palette**, each stating the whole table (canvas, surfaces and their 1px
   border, ink and ink2, the warning and chart accents, the date capsule, the dock, the data
-  colours, the tint numbers). Six named themes, each a **pair**: Sage & Sandstone (the
-  default), Kyoto Atelier, The Basel Archive, British Racing, Titanium & Monaco Blue and
-  Nordic Obsidian. `:root` alone carries Sage's dark, so a document that names nothing is the
+  colours, the tint numbers). Six named themes, each a **pair**: Archival Earth (the
+  default), Kyoto Atelier, Alpine Willows, Tuscany Terracotta, Titanium & Monaco Blue and
+  Nordic Obsidian. `:root` alone carries Archival Earth's dark, so a document that names nothing is the
   design of record. **This is the modularity the owner asked for**: the settings grid is a
   list over `lib/theme.ts`'s `THEME_CHOICES` calling `useTheme().chooseTheme(id)`, and adding
   a theme is two CSS blocks, one register row and two lines in the boot table — nothing in a
   component and no per-theme CSS ever again. There is **no `data-theme`**: a palette declares
   its own theme (`color-scheme`, and which way the sun/moon toggle goes), and the toggle flips
   to **the other side of the name on screen**, so Monaco's dark lands on Monaco's light rather
-  than on Sage. A browser that stored an older id still gets its side — `ink` / `paper` and the
-  old `midnight` / `parchment` samples are read once and mapped to Sage's pair. Three things
+  than on Archival Earth. A browser that stored an older id still gets its side — `ink` / `paper` and the
+  old `midnight` / `parchment` samples are read once and mapped to Archival Earth's pair. Three things
   must be kept in step by hand, and `lib/theme.ts` is the one to edit first: the register, the
   stylesheet blocks, and `app/index.html`'s boot table of id → canvas (the one value a script
   needs before the stylesheet has run, because a `<meta>` cannot read CSS). A palette that

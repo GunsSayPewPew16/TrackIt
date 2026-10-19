@@ -175,11 +175,11 @@ repository, and never in a bundle, which is the one rule that has not changed.
 ## The theme
 
 One set of colour roles, **a palette to a block**, switched by `data-palette` on `<html>`.
-The register is **six named themes, each a dark table and a light companion**: Sage &
-Sandstone (the app's own, and the default — `#0D1310` canvas, `#1A2420` cards, `#2A3832`
-hairlines, `#F4F0EA` ink, `#D4A373` warning, `#A3B19B` chart, with `#FBF9F5` / `#FFFFFF` /
-`#E6E2D8` / `#1A2420` / `#C58B54` / `#6B7F64` on the light side), Kyoto Atelier, The Basel
-Archive, British Racing, Titanium & Monaco Blue and Nordic Obsidian. A name is offered once
+The register is **six named themes, each a dark table and a light companion**: Archival
+Earth (the app's own, and the default — `#2C3639` canvas, `#3F4E4F` cards, `#536768`
+hairlines, `#DCD7C9` ink, `#A27B5C` warning, `#84968C` chart, with `#FAF7F0` / `#FFFFFF` /
+`#E8E2D6` / `#2C3639` / `#A27B5C` / `#5A6B62` on the light side), Kyoto Atelier, Alpine
+Willows, Tuscany Terracotta, Titanium & Monaco Blue and Nordic Obsidian. A name is offered once
 because a theme is an identity, so the sun/moon flips between its two sides rather than
 between the app's defaults. No component knows which palette it is drawn in — it says
 `bg-card` and `text-ink2` and gets that palette's pair — and every surface repaints over the
@@ -194,7 +194,7 @@ over it calling `chooseTheme(id)`. The **chart hue** is what the analytics scree
 the balance spline, the daily-spend squares and the allocation stack all move with the theme,
 while the `--data-*` colours stay put because those are the owner's categories. A browser
 that stored a palette before the six-theme register keeps its side (`ink` / `paper` and the
-old `midnight` / `parchment` samples are read once and mapped to Sage's pair).
+old `midnight` / `parchment` samples are read once and mapped to Archival Earth's pair).
 
 The repaint is **one clock for the whole page**. The colour roles are registered with
 `@property` as `<color>` and the *tokens* — not the elements — are what transition, so

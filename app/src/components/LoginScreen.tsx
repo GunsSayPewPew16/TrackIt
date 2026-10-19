@@ -21,7 +21,7 @@ import { SIGNUPS_OPEN } from "@/lib/portal"
  * **The two faces of the header.** "Access your financial" is the reading serif in italic at 60%
  * — the app's quiet voice — and **Vault** is the display face at 100%, which is the one word on
  * the screen that is a thing rather than a sentence. That split is the owner's own request
- * (`Sage & Sandstone`, `Forest Void`), and it is the same pairing the greeting and the ledger's
+ * (`Archival Earth`, `Forest Void`), and it is the same pairing the greeting and the ledger's
  * titles use.
  *
  * **Two steps, one screen.** The password is followed by the **six digits Supabase mails**, and

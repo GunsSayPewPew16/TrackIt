@@ -26,7 +26,7 @@
  * a document wears one palette, and the switch's old question ("dark or light?") is now
  * answered by what the chosen palette is. The toggle flips to the other side of the name
  * being worn — so choosing Kyoto and pressing the toggle lands on Kyoto's light companion,
- * and pressing it again comes back to its dark one rather than resetting to Sage.
+ * and pressing it again comes back to its dark one rather than resetting to Archival Earth.
  */
 
 /** The two themes the palettes are drawn for. A component that draws a sun or a moon needs this. */
@@ -51,35 +51,35 @@ export type Palette = {
 /**
  * Every table the app can wear, **dark ones first**, each named theme's two sides in the same
  * order as `THEME_CHOICES` below. `defaultPaletteOf` reads the first of each group, so the order
- * here is load bearing: Sage & Sandstone — the app's own pair — leads both halves.
+ * here is load bearing: Archival Earth — the app's own pair — leads both halves.
  *
  * A name in the settings selector is not one table but **two**, one per mode, and that is the
  * whole reason this register is a flat list of tables while the selector reads a list of names:
  * the pair is offered once, and the header's sun/moon moves between its two sides.
  */
 export const PALETTES: Palette[] = [
-  { id: "sage-dark", label: "Sage & Sandstone", theme: "dark", canvas: "#0d1310" },
-  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#0b0c0e" },
-  { id: "basel-dark", label: "The Basel Archive", theme: "dark", canvas: "#120e0c" },
-  { id: "british-dark", label: "British Racing", theme: "dark", canvas: "#040d09" },
-  { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#080b11" },
-  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#0d0e12" },
-  { id: "sage-light", label: "Sage & Sandstone", theme: "light", canvas: "#fbf9f5" },
-  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f7f5f0" },
-  { id: "basel-light", label: "The Basel Archive", theme: "light", canvas: "#faf7f0" },
-  { id: "british-light", label: "British Racing", theme: "light", canvas: "#f5f7f4" },
-  { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#eff3f7" },
-  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f1f3f9" },
+  { id: "sage-dark", label: "Archival Earth", theme: "dark", canvas: "#2c3639" },
+  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#161b2f" },
+  { id: "basel-dark", label: "Alpine Willows", theme: "dark", canvas: "#022e24" },
+  { id: "british-dark", label: "Tuscany Terracotta", theme: "dark", canvas: "#4c362d" },
+  { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#0a1931" },
+  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#190019" },
+  { id: "sage-light", label: "Archival Earth", theme: "light", canvas: "#faf7f0" },
+  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f5f1eb" },
+  { id: "basel-light", label: "Alpine Willows", theme: "light", canvas: "#e9efea" },
+  { id: "british-light", label: "Tuscany Terracotta", theme: "light", canvas: "#e8e1d5" },
+  { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#e6eef4" },
+  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f3eff5" },
 ]
 
 /**
  * The themes the selector offers, under the owner's own names — and **each name is a pair of
- * tables, one per mode**, because a theme is an identity rather than a single screen: The Basel
- * Archive is the same theme in its espresso dark and its cotton-cream light, and the sun/moon in
+ * tables, one per mode**, because a theme is an identity rather than a single screen: Alpine
+ * Willows is the same theme in its forest dark and its sage-mist light, and the sun/moon in
  * the header flips between those two rather than between the register's defaults
  * (`hooks/useTheme.ts`).
  *
- * **Sage is the app's own** and the pair every fresh install wears.
+ * **Archival Earth is the app's own** and the pair every fresh install wears.
  *
  * **A name is not a table.** A pair pointing at palettes that do not exist would be an option that
  * changes nothing when it is chosen, so a new theme arrives as this row *plus* its tables — a block
@@ -98,12 +98,21 @@ export type ThemeChoice = {
   light: string
 }
 
-/** The six themes the selector offers, in the order it lists them. */
+/**
+ * The six themes the selector offers, in the order it lists them.
+ *
+ * **The `id` is a key, and the `label` and `title` are what the owner reads.** Three of these
+ * themes were renamed (`Sage` became Archival, `Basel` Alpine, `Racing` Tuscany) and **the ids
+ * were deliberately left where they were**: `trackit-palette` holds a table id in the owner's
+ * own browser, so an id is a promise and a name is a label — nobody sees an id, and a theme
+ * can be renamed without a migration. `title` is the name in full, which the selector reads
+ * out under the grid; `label` is the short form the capsule itself says.
+ */
 export const THEME_CHOICES: ThemeChoice[] = [
-  { id: "sage", label: "Sage", title: "Sage & Sandstone", dark: "sage-dark", light: "sage-light" },
+  { id: "sage", label: "Archival", title: "Archival Earth", dark: "sage-dark", light: "sage-light" },
   { id: "kyoto", label: "Kyoto", title: "Kyoto Atelier", dark: "kyoto-dark", light: "kyoto-light" },
-  { id: "basel", label: "Basel", title: "The Basel Archive", dark: "basel-dark", light: "basel-light" },
-  { id: "british", label: "Racing", title: "British Racing", dark: "british-dark", light: "british-light" },
+  { id: "basel", label: "Alpine", title: "Alpine Willows", dark: "basel-dark", light: "basel-light" },
+  { id: "british", label: "Tuscany", title: "Tuscany Terracotta", dark: "british-dark", light: "british-light" },
   { id: "monaco", label: "Monaco", title: "Titanium & Monaco Blue", dark: "monaco-dark", light: "monaco-light" },
   { id: "nordic", label: "Nordic", title: "Nordic Obsidian", dark: "nordic-dark", light: "nordic-light" },
 ]
@@ -137,7 +146,7 @@ export const LEGACY_THEME_STORAGE_KEY = "trackit-theme"
 /**
  * Table ids from releases before the register had six names. A browser that stored one of these
  * is moved to the pair that replaced it rather than dropped onto the default in the wrong mode:
- * `ink` and `paper` were the artboard's own pair (Sage's), and the two samples land on the same
+ * `ink` and `paper` were the artboard's own pair (Archival Earth's), and the two samples land on the same
  * sides. This is read-only history; nothing writes these ids again.
  */
 const LEGACY_PALETTES: Record<string, string> = {
@@ -165,7 +174,7 @@ export function palettesOf(theme: Theme): Palette[] {
 }
 
 /**
- * The palette a theme falls back to: its first in the register. Sage & Sandstone leads each
+ * The palette a theme falls back to: its first in the register. Archival Earth leads each
  * group, so the app's own design is what a theme means until the owner says otherwise.
  */
 export function defaultPaletteOf(theme: Theme): Palette {

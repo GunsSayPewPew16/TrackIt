@@ -19,8 +19,8 @@
  * register of their ids, labels and themes; `index.html` puts the remembered one on before
  * the first paint.
  *
- * The register is **six named themes, each a pair**: Sage & Sandstone (the artboard's own, and
- * also what `:root` alone carries), Kyoto Atelier, The Basel Archive, British Racing,
+ * The register is **six named themes, each a pair**: Archival Earth (the artboard's own, and
+ * also what `:root` alone carries), Kyoto Atelier, Alpine Willows, Tuscany Terracotta,
  * Titanium & Monaco Blue and Nordic Obsidian. A name is offered against both modes at once —
  * the settings selector lists it once — so each arrives as a dark table and its light
  * companion, and the header's sun/moon flips between the two sides of the name being worn
@@ -174,7 +174,7 @@
 }
 
 /*
- * 1. Sage & Sandstone, dark side — the app's own pair, and the default.
+ * 1. Archival Earth, dark side — the app's own pair, and the default.
  *
  * Six themes, two tables each: a named theme is an identity, so the settings selector lists it
  * once and the header's sun/moon flips between its dark and light companions. Each table states
@@ -187,31 +187,31 @@
  * secondary label dims rather than changes hue; --on-clay and --on-sage are whichever of the
  * canvas and white actually reads on the accent; the dock is one step above the card so the
  * floating bar still separates from the list behind it; and the data colours stay put, because
- * those are the owner's categories and not a theme's. Sage is the chart hue: the positive side
- * of a figure and the line a graph draws are the same green by design.
+ * those are the owner's categories and not a theme's. The chart hue is sage patina here: the
+ * positive side of a figure and the line a graph draws are the same green by design.
  */
 :root,
 :root[data-palette="sage-dark"] {
-  --canvas: #0d1310;
-  --card: #1a2420;
-  --line: #2a3832;
-  --ink: #f4f0ea;
+  --canvas: #2c3639;
+  --card: #3f4e4f;
+  --line: #536768;
+  --ink: #dcd7c9;
   /* 60% of the primary ink: the artboards' own --ink2, written out as a pair. */
-  --ink2: #f4f0ea99;
-  --clay: #d4a373;
-  --chart: #a3b19b;
-  --sage: #a3b19b;
-  --on-clay: #0d1310;
-  --on-sage: #0d1310;
+  --ink2: #dcd7c999;
+  --clay: #a27b5c;
+  --chart: #84968c;
+  --sage: #84968c;
+  --on-clay: #ffffff;
+  --on-sage: #2c3639;
   /*
    * A date capsule at rest: the one surface that sits *on* the panel rather than beside it, so
    * it needs its own pair. Dark rests on the card itself, outlined by the hairline; light rests
    * on the canvas, a shade under the white panel it is drawn on.
    */
-  --pill: #1a2420;
-  --pill-ink: #f4f0ea99;
-  --dock: #222d28;
-  --dock-line: #33443c;
+  --pill: #3f4e4f;
+  --pill-ink: #dcd7c999;
+  --dock: #4a5a5b;
+  --dock-line: #5d7273;
   /* The category colours: the same reds, golds and indigo in every theme. */
   --data-red: #c95a49;
   --data-gold: #d9a74a;
@@ -225,25 +225,25 @@
 }
 
 /*
- * 2. Sage & Sandstone, light companion — the same roles over the warmest white the pair allows,
- * with the clay taken deeper (a light ochre cannot carry a small label) and the chart green
- * darkened so its line still reads on white.
+ * 2. Archival Earth, light companion — texturised soft linen under pure silk alabaster, with the
+ * dark side's inkwell charcoal as the ink. The sandstone is the same toasted tone in both modes
+ * (it carries a white label on paper), and the sage deepens a step so a chart line stays a line.
  */
 :root[data-palette="sage-light"] {
-  --canvas: #fbf9f5;
+  --canvas: #faf7f0;
   --card: #ffffff;
-  --line: #e6e2d8;
-  --ink: #1a2420;
-  --ink2: #1a242099;
-  --clay: #c58b54;
-  --chart: #6b7f64;
-  --sage: #6b7f64;
-  --on-clay: #1a2420;
+  --line: #e8e2d6;
+  --ink: #2c3639;
+  --ink2: #2c363999;
+  --clay: #a27b5c;
+  --chart: #5a6b62;
+  --sage: #5a6b62;
+  --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #fbf9f5;
-  --pill-ink: #1a242099;
+  --pill: #faf7f0;
+  --pill-ink: #2c363999;
   --dock: #ffffff;
-  --dock-line: #ded9cd;
+  --dock-line: #ebe4d8;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -257,25 +257,26 @@
 }
 
 /*
- * 3. Kyoto Atelier, dark side — sumi-ink charcoal with slate tatami panels, toasted-rice ink,
- * a hojicha-amber warning and a withered-bamboo chart. Deliberately flatter than the other
- * darks, because its whole job is logging at midnight without a white flash.
+ * 3. Kyoto Atelier, dark side — midnight indigo ink under lacquer panels, warm peach for the
+ * numbers and a vermilion that only ever means “mind this”. The trend token is the deep
+ * maroon of the same family, which is a tint first and a line second; on this canvas it sits
+ * just above the ground, so a graph reads as a watermark rather than a stripe.
  */
 :root[data-palette="kyoto-dark"] {
-  --canvas: #0b0c0e;
-  --card: #17191d;
-  --line: #262a32;
-  --ink: #f7f4ef;
-  --ink2: #f7f4ef99;
-  --clay: #e65a4b;
-  --chart: #8ca382;
-  --sage: #8ca382;
-  --on-clay: #0b0c0e;
-  --on-sage: #0b0c0e;
-  --pill: #17191d;
-  --pill-ink: #f7f4ef99;
-  --dock: #1f2227;
-  --dock-line: #2e333b;
+  --canvas: #161b2f;
+  --card: #242f49;
+  --line: #384358;
+  --ink: #ffa586;
+  --ink2: #ffa58699;
+  --clay: #b51a2b;
+  --chart: #541a2e;
+  --sage: #541a2e;
+  --on-clay: #ffffff;
+  --on-sage: #ffffff;
+  --pill: #242f49;
+  --pill-ink: #ffa58699;
+  --dock: #2c3854;
+  --dock-line: #3d4a60;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -288,25 +289,26 @@
 }
 
 /*
- * 4. Kyoto Atelier, light companion — bleached washi paper with alabaster panels. The coral
- * warning is roasted down to a vermilion that can carry white, and the bamboo is a moss that
- * reads on paper without turning grey.
+ * 4. Kyoto Atelier, light companion — soft bleached washi under alabaster silk panels, with the
+ * dark side's own indigo as the ink. The vermilion is the same heritage crimson, which carries
+ * a white label on paper; the trend turns to toasted amber coral, the one warm stroke that
+ * stays readable on a light ground without shouting.
  */
 :root[data-palette="kyoto-light"] {
-  --canvas: #f7f5f0;
+  --canvas: #f5f1eb;
   --card: #ffffff;
-  --line: #e5e1d7;
-  --ink: #0b0c0e;
-  --ink2: #0b0c0e99;
-  --clay: #c84335;
-  --chart: #5f7556;
-  --sage: #5f7556;
+  --line: #e6ded1;
+  --ink: #161b2f;
+  --ink2: #161b2f99;
+  --clay: #b51a2b;
+  --chart: #c96e53;
+  --sage: #c96e53;
   --on-clay: #ffffff;
-  --on-sage: #ffffff;
-  --pill: #f7f5f0;
-  --pill-ink: #0b0c0e99;
+  --on-sage: #161b2f;
+  --pill: #f5f1eb;
+  --pill-ink: #161b2f99;
   --dock: #ffffff;
-  --dock-line: #dbd6ca;
+  --dock-line: #e2d9cb;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -319,24 +321,29 @@
 }
 
 /*
- * 5. The Basel Archive, dark side — deep espresso ink, brushed-walnut panels and archival
- * ivory. The ochre is the accent a budget alert wears; the olive patina is the chart's line.
+ * 5. Alpine Willows, dark side — a deep forest void under moss-shadow panels, outlined by a
+ * eucalyptus hairline. The ink is a cool pale lichen, the alert accent a soft sage mist, and the
+ * chart a structured mid-tone eucalyptus: three greens that separate by value, not by hue.
+ *
+ * Pale Lichen is the swatch card's own reading rather than the string printed on it: the card
+ * labels the token `#77F1EC` but lists it as RGB 231/241/236 and paints that off-white, which is
+ * `#E7F1EC` — read back from the RGB triple and confirmed with the owner.
  */
 :root[data-palette="basel-dark"] {
-  --canvas: #120e0c;
-  --card: #1f1a17;
-  --line: #332b27;
-  --ink: #f8f6f0;
-  --ink2: #f8f6f099;
-  --clay: #e3b462;
-  --chart: #969f7d;
-  --sage: #969f7d;
-  --on-clay: #120e0c;
-  --on-sage: #120e0c;
-  --pill: #1f1a17;
-  --pill-ink: #f8f6f099;
-  --dock: #29231f;
-  --dock-line: #3a322c;
+  --canvas: #022e24;
+  --card: #1f4d3a;
+  --line: #316851;
+  --ink: #e7f1ec;
+  --ink2: #e7f1ec99;
+  --clay: #9fc3b2;
+  --chart: #4f8f75;
+  --sage: #4f8f75;
+  --on-clay: #022e24;
+  --on-sage: #022e24;
+  --pill: #1f4d3a;
+  --pill-ink: #e7f1ec99;
+  --dock: #275e48;
+  --dock-line: #367056;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -349,25 +356,25 @@
 }
 
 /*
- * 6. The Basel Archive, light companion — heavy cotton cream with pure ivory panels, which is
- * this theme's own Bento Surfaces token: the one pair where the card is a shade lighter than
- * the canvas rather than darker. The ochre is antique rather than vintage, the olive aged.
+ * 6. Alpine Willows, light companion — a soft sage-mist canvas under pure ceramic white, with the
+ * dark side's deep forest as the ink. The accent is the moss shadow itself, which carries a white
+ * label, and the eucalyptus deepens until a gauge or a spline reads as a line on paper.
  */
 :root[data-palette="basel-light"] {
-  --canvas: #faf7f0;
+  --canvas: #e9efea;
   --card: #ffffff;
-  --line: #e8e3d5;
-  --ink: #120e0c;
-  --ink2: #120e0c99;
-  --clay: #bd8f3e;
-  --chart: #66704d;
-  --sage: #66704d;
-  --on-clay: #120e0c;
+  --line: #d5dfd7;
+  --ink: #022e24;
+  --ink2: #022e2499;
+  --clay: #1f4d3a;
+  --chart: #366e57;
+  --sage: #366e57;
+  --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #faf7f0;
-  --pill-ink: #120e0c99;
+  --pill: #e9efea;
+  --pill-ink: #022e2499;
   --dock: #ffffff;
-  --dock-line: #dfd8c8;
+  --dock-line: #dde5df;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -380,25 +387,26 @@
 }
 
 /*
- * 7. British Racing, dark side — the darkest canvas in the register, a racing-green panel and
- * a mint chart. The warning is a warm tan, because a red alert on this green would be the one
- * hue this theme is built around and would read as decoration rather than a warning.
+ * 7. Tuscany Terracotta, dark side — a deep-umber soil canvas under baked terracotta panels,
+ * framed by a warm 1px earthen line. The linen white is the ink and the alert accent is a soft
+ * toasted almond, so nothing in the frame competes with the clay; the trend is a muted sage that
+ * reads as a plant in the soil rather than a stripe on it.
  */
 :root[data-palette="british-dark"] {
-  --canvas: #040d09;
-  --card: #0d2118;
-  --line: #183d2c;
-  --ink: #faf8f2;
-  --ink2: #faf8f299;
-  --clay: #de9c5d;
-  --chart: #7ec4a4;
-  --sage: #7ec4a4;
-  --on-clay: #040d09;
-  --on-sage: #040d09;
-  --pill: #0d2118;
-  --pill-ink: #faf8f299;
-  --dock: #122a1f;
-  --dock-line: #1e4835;
+  --canvas: #4c362d;
+  --card: #a46447;
+  --line: #bf7e61;
+  --ink: #e8e1d5;
+  --ink2: #e8e1d599;
+  --clay: #ceb59e;
+  --chart: #88937b;
+  --sage: #88937b;
+  --on-clay: #4c362d;
+  --on-sage: #4c362d;
+  --pill: #a46447;
+  --pill-ink: #e8e1d599;
+  --dock: #b4734f;
+  --dock-line: #c58a6c;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -411,25 +419,25 @@
 }
 
 /*
- * 8. British Racing, light companion — a cool mist white rather than cream, so the green
- * panels read as paint on paper instead of as foliage. The chart green is deepened to
- * #398563 and its label goes white; the tan warning darkens enough to carry dark ink.
+ * 8. Tuscany Terracotta, light companion — linen white under bleached ceramic silk, with the dark
+ * side's deep umber as the ink. The terracotta is baked rather than soft so it can carry a white
+ * label, and the sage deepens until a gauge or a spline still reads as a line on paper.
  */
 :root[data-palette="british-light"] {
-  --canvas: #f5f7f4;
+  --canvas: #e8e1d5;
   --card: #ffffff;
-  --line: #d3ddd7;
-  --ink: #040d09;
-  --ink2: #040d0999;
-  --clay: #b57438;
-  --chart: #398563;
-  --sage: #398563;
-  --on-clay: #040d09;
+  --line: #d6cdbc;
+  --ink: #4c362d;
+  --ink2: #4c362d99;
+  --clay: #a46447;
+  --chart: #5b6651;
+  --sage: #5b6651;
+  --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #f5f7f4;
-  --pill-ink: #040d0999;
+  --pill: #e8e1d5;
+  --pill-ink: #4c362d99;
   --dock: #ffffff;
-  --dock-line: #d6dfd9;
+  --dock-line: #ddd4c5;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -442,25 +450,26 @@
 }
 
 /*
- * 9. Titanium & Monaco Blue, dark side — obsidian stealth, smoked-gunmetal panels, frost
- * silver ink and the one cool accent in the register. The warning *is* the blue here, so the
- * chart takes the platinum tone instead: two blues would blur into one instruction.
+ * 9. Titanium & Monaco Blue, dark side — an ultra-deep midnight sapphire canvas, deep-sea
+ * panels outlined in executive aero blue, and illuminated off-white for the numbers. The
+ * warning *is* the blue here, so the chart takes the pale ice tone instead: two blues at the
+ * same weight would blur into one instruction, and a graph must never read as an alert.
  */
 :root[data-palette="monaco-dark"] {
-  --canvas: #080b11;
-  --card: #131924;
-  --line: #20293b;
-  --ink: #f3f6f9;
-  --ink2: #f3f6f999;
-  --clay: #3b82f6;
-  --chart: #a3b4c6;
-  --sage: #a3b4c6;
+  --canvas: #0a1931;
+  --card: #1a3d63;
+  --line: #2b527e;
+  --ink: #f6fafd;
+  --ink2: #f6fafd99;
+  --clay: #4a7fa7;
+  --chart: #b3cfe5;
+  --sage: #b3cfe5;
   --on-clay: #ffffff;
-  --on-sage: #080b11;
-  --pill: #131924;
-  --pill-ink: #f3f6f999;
-  --dock: #1a2230;
-  --dock-line: #2a3549;
+  --on-sage: #0a1931;
+  --pill: #1a3d63;
+  --pill-ink: #f6fafd99;
+  --dock: #22496f;
+  --dock-line: #2e5783;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -473,25 +482,26 @@
 }
 
 /*
- * 10. Titanium & Monaco Blue, light companion — anodized platinum over matte frost white.
- * Both accents are dark enough for white ink, and the platinum chart turns to brushed iron
- * so the spline is a line rather than a highlight.
+ * 10. Titanium & Monaco Blue, light companion — anodized platinum under matte frost white
+ * panels, with the dark side's own midnight navy as the ink. The aero blue is deepened to
+ * executive blue so it can carry a white label, and the chart steps down to slate horizon
+ * blue, which is dark enough that the spline is a line rather than a highlight.
  */
 :root[data-palette="monaco-light"] {
-  --canvas: #eff3f7;
+  --canvas: #e6eef4;
   --card: #ffffff;
-  --line: #cbd5e1;
-  --ink: #080b11;
-  --ink2: #080b1199;
-  --clay: #1d63d8;
-  --chart: #64748b;
-  --sage: #64748b;
+  --line: #cfdeea;
+  --ink: #0a1931;
+  --ink2: #0a193199;
+  --clay: #2b527e;
+  --chart: #4a7fa7;
+  --sage: #4a7fa7;
   --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #eff3f7;
-  --pill-ink: #080b1199;
+  --pill: #e6eef4;
+  --pill-ink: #0a193199;
   --dock: #ffffff;
-  --dock-line: #d6dfe9;
+  --dock-line: #d6e2ec;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -504,26 +514,25 @@
 }
 
 /*
- * 11. Nordic Obsidian, dark side — a blue-black canvas with indigo-violet warning and a
- * sky-blue chart. The pair is the coolest in the register and the only one whose two accents
- * sit on the same side of the wheel, so the chart is lightened a full step to keep a graph
- * from reading as an alert.
+ * 11. Nordic Obsidian, dark side — a volcanic plum void under sub-arctic violet panels, with
+ * frosted-linen numbers and a muted rose-clay that only ever means “look here”. The trend is
+ * a deep glacial heather, one step brighter than a tint so a sparkline can still be followed.
  */
 :root[data-palette="nordic-dark"] {
-  --canvas: #0d0e12;
-  --card: #181a22;
-  --line: #282c3a;
-  --ink: #f4f5f7;
-  --ink2: #f4f5f799;
-  --clay: #c4b5fd;
-  --chart: #93c5fd;
-  --sage: #93c5fd;
-  --on-clay: #0d0e12;
-  --on-sage: #0d0e12;
-  --pill: #181a22;
-  --pill-ink: #f4f5f799;
-  --dock: #1f222c;
-  --dock-line: #313648;
+  --canvas: #190019;
+  --card: #2b124c;
+  --line: #522b5b;
+  --ink: #fbe4d8;
+  --ink2: #fbe4d899;
+  --clay: #dfb6b2;
+  --chart: #854f6c;
+  --sage: #854f6c;
+  --on-clay: #190019;
+  --on-sage: #ffffff;
+  --pill: #2b124c;
+  --pill-ink: #fbe4d899;
+  --dock: #351859;
+  --dock-line: #5e3468;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -536,25 +545,26 @@
 }
 
 /*
- * 12. Nordic Obsidian, light companion — a cool paper white with the violet and blue both
- * deepened until they carry white labels. This is the one light pair whose canvas is grey
- * rather than warm, which is what keeps it a companion to an obsidian screen.
+ * 12. Nordic Obsidian, light companion — glacial melt white under pure frosted-silica panels,
+ * with the dark side's own plum as the ink. The warmed rose of the dark theme becomes arctic
+ * deep heather, which carries a white label, and the trend turns to toasted nordic rose so a
+ * sparkline is a line rather than a highlight.
  */
 :root[data-palette="nordic-light"] {
-  --canvas: #f1f3f9;
+  --canvas: #f3eff5;
   --card: #ffffff;
-  --line: #d2d6e4;
-  --ink: #0d0e12;
-  --ink2: #0d0e1299;
-  --clay: #7c3aed;
-  --chart: #2563eb;
-  --sage: #2563eb;
+  --line: #e4dce9;
+  --ink: #190019;
+  --ink2: #19001999;
+  --clay: #854f6c;
+  --chart: #a67e7a;
+  --sage: #a67e7a;
   --on-clay: #ffffff;
-  --on-sage: #ffffff;
-  --pill: #f1f3f9;
-  --pill-ink: #0d0e1299;
+  --on-sage: #190019;
+  --pill: #f3eff5;
+  --pill-ink: #19001999;
   --dock: #ffffff;
-  --dock-line: #dde1ec;
+  --dock-line: #e6dfea;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
