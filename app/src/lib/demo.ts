@@ -18,6 +18,8 @@
  */
 
 import { defaultEnvelopes, type Envelope } from "./budget"
+import type { CustomCard } from "./customCards"
+import { customCardsOf } from "./customCards"
 import { initialsOf } from "./derive"
 import { money, signedMoney, timeOfDayWord, wholeMoney } from "./format"
 import { filedName } from "./refile"
@@ -243,17 +245,18 @@ const DEMO_FOOD_PARTS: Record<string, number> = {
 export function demoDashboard(
   envelopes: Envelope[] = defaultEnvelopes(),
   openings: Record<string, number> = {},
+  custom: CustomCard[] = [],
 ): DashboardModel {
   return {
     ...DEMO_DASHBOARD,
     // With nothing imported there are no rows to carry a balance, so the opening *is* the
     // figure — the same sum `lib/derive.ts` does with an empty ledger.
-    cards: DEMO_DASHBOARD.cards.map((card) => {
+    cards: [...DEMO_DASHBOARD.cards.map((card) => {
       const opening = openings[card.id]
       if (opening === undefined) return card
       const cents = Math.max(opening, 0)
       return { ...card, cents, balance: money(cents) }
-    }),
+    }), ...customCardsOf(custom, openings)],
     envelopes: envelopes.map((budget) => {
       const tracked = budget.tracked === null ? null : new Set(budget.tracked)
       const parts = Object.entries(DEMO_FOOD_PARTS)

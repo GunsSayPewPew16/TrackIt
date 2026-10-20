@@ -35,6 +35,7 @@ import { filedName } from "@/lib/refile"
 import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 import { BUDGET_COPY, budgetSpent, envelopeCopy } from "@/lib/budget"
 import { startOfMonth, startOfNextMonth } from "@/lib/format"
+import { ACCOUNTS } from "@/lib/accounts"
 import { appendToLedger } from "@/lib/ledger"
 import { TAB_VIEWS, type NavTab } from "@/lib/tabs"
 import type { Row } from "@/lib/types"
@@ -182,7 +183,7 @@ function TrackIt() {
     saveTotalTracked,
     saveTotalName,
   } = useBudgets()
-  const { openings, setBalance } = useBalances(rows)
+  const { openings, setBalance, customCards, addCard } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   const [arrived, setArrived] = useState<Arrived>({})
@@ -227,6 +228,13 @@ function TrackIt() {
    */
   const [BalanceEditor, setBalanceEditor] = useState<ComponentType<BalanceSheetProps> | null>(null)
   /**
+   * A hold on a balance card opens its choice first: edit the card, or add one. The choice and the
+   * add-card sheet are one module, fetched on that first hold (`features/balance/CardSheets.tsx`).
+   */
+  const [choiceFor, setChoiceFor] = useState<string | null>(null)
+  const [addingCard, setAddingCard] = useState(false)
+  const [cardSheets, setCardSheets] = useState<typeof import("@/features/balance/CardSheets") | null>(null)
+  /**
    * The category the sheet opens on, when it was opened from a quick-log chip rather than
    * from the add-record pill: `null` for a blank entry, which is what the pill means.
    */
@@ -267,6 +275,7 @@ function TrackIt() {
       void import("@/features/manual-entry")
       void import("@/features/budget/BudgetSheet")
       void import("@/features/balance/BalanceSheet")
+      void import("@/features/balance/CardSheets")
     }
     if (typeof window.requestIdleCallback === "function") {
       const idle = window.requestIdleCallback(warm, { timeout: 2000 })
@@ -526,6 +535,15 @@ function TrackIt() {
     [BalanceEditor],
   )
 
+  /** A balance card's hold: fetch the choice on the first one, then open it on that card. */
+  const holdCard = useCallback(
+    async (cardId: string) => {
+      setChoiceFor(cardId)
+      if (!cardSheets) setCardSheets(await import("@/features/balance/CardSheets"))
+    },
+    [cardSheets],
+  )
+
   /**
    * Both models are rebuilt when the ledger changes and not on every render: the
    * derivation walks every row, and a screen that re-renders for a hover must not
@@ -541,8 +559,11 @@ function TrackIt() {
   const imported = hasHistory(rows)
   const demo = mode === "device" && !imported
   const dashboard = useMemo(
-    () => (demo ? demoDashboard(envelopes, openings) : dashboardModel(rows, now, envelopes, openings)),
-    [demo, rows, now, envelopes, openings],
+    () =>
+      demo
+        ? demoDashboard(envelopes, openings, customCards)
+        : dashboardModel(rows, now, envelopes, openings, customCards),
+    [demo, rows, now, envelopes, openings, customCards],
   )
   const ledger = useMemo(
     () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor, openings)),
@@ -550,7 +571,7 @@ function TrackIt() {
   )
   /** What both accounts opened with, for the stats trend — the dashboard's own figures. */
   const openingCents = useMemo(
-    () => Object.values(openings).reduce((total, cents) => total + cents, 0),
+    () => ACCOUNTS.reduce((total, account) => total + (openings[account.id] ?? 0), 0),
     [openings],
   )
 
@@ -599,7 +620,7 @@ function TrackIt() {
               onCreateBudget={createBudget}
               onMoveBudget={moveBudget}
               onDeleteBudget={deleteEnvelope}
-              onEditBalance={(accountId) => void editBalance(accountId)}
+              onHoldCard={(cardId) => void holdCard(cardId)}
               canShowPayCode={isOwnerEmail(email)}
             />
           ) : view === "ledger" && Ledger ? (
@@ -717,6 +738,34 @@ function TrackIt() {
             setBalanceAccount(null)
           }}
         />
+      )}
+
+      {/** The balance card's choice, and the sheet that adds a card to the stack. */}
+      {cardSheets && (
+        <>
+          <cardSheets.CardChoiceSheet
+            isOpen={choiceFor !== null}
+            name={dashboard.cards.find((card) => card.id === choiceFor)?.name ?? "Card"}
+            onEdit={() => {
+              const id = choiceFor
+              setChoiceFor(null)
+              if (id) void editBalance(id)
+            }}
+            onAdd={() => {
+              setChoiceFor(null)
+              setAddingCard(true)
+            }}
+            onClose={() => setChoiceFor(null)}
+          />
+          <cardSheets.AddCardSheet
+            isOpen={addingCard}
+            onClose={() => setAddingCard(false)}
+            onSave={(card) => {
+              addCard(card)
+              setAddingCard(false)
+            }}
+          />
+        </>
       )}
 
     </>

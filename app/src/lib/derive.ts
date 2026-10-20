@@ -56,6 +56,8 @@ import {
 } from "./format"
 
 import type { Budget, Row } from "./types"
+import type { CustomCard } from "./customCards"
+import { customCardsOf } from "./customCards"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
 
 /** The sparkline's own box, from the artboard: points are written into 174×56. */
@@ -399,6 +401,7 @@ export function dashboardModel(
    * own openings are used, which is what every caller but the app wants.
    */
   openings: Record<string, number> = {},
+  custom: CustomCard[] = [],
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -447,7 +450,7 @@ export function dashboardModel(
   })
 
   return {
-    cards,
+    cards: [...cards, ...customCardsOf(custom, openings)],
     quickLog: {
       title: "Quick log",
       context: timeOfDayWord(now),

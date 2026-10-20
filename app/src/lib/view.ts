@@ -12,6 +12,7 @@
  * "Yesterday", and a screen never divides by 100.
  */
 
+import type { CardIconName, CardTone } from "./customCards"
 import type { CardStyle } from "./types"
 
 /** One card in the ledger list, and one row in the dashboard's recent list. */
@@ -171,8 +172,13 @@ export type BalanceCard = {
   id: string
   /** The account's name in Wallet, which is also its label on the card: `UPI`. */
   name: string
-  /** Which glyph the card carries in its top-left: the UPI code, or a banknote. */
-  icon: "qr" | "cash"
+  /**
+   * Which glyph the card carries in its top-left: the UPI code, a banknote, or one of the icons
+   * the owner picked for a card of their own (`lib/customCards.ts`).
+   */
+  icon: "qr" | "cash" | CardIconName
+  /** A card of the owner's own wears one of the palette's colours; the two accounts do not. */
+  tone?: CardTone
   /** The account's own balance in paise: what the figure counts up to. */
   cents: number
   /** The account's own balance, `₹18,420.50`. */

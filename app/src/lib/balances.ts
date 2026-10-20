@@ -62,7 +62,10 @@ let owner: string | null = null
 /** The device's figures, captured on the way into an account so the owner's can adopt them. */
 let carried: AccountOpenings | null = null
 
-const storageKey = (): string => (owner === null ? STORAGE_KEY : `${STORAGE_KEY}:u:${owner}`)
+/** A key under the current owner's name: the device's own, or `<base>:u:<uuid>` once signed in. */
+export const ownerStorageKey = (base: string): string => (owner === null ? base : `${base}:u:${owner}`)
+
+const storageKey = (): string => ownerStorageKey(STORAGE_KEY)
 
 const defaults = (): AccountOpenings => (owner === null ? DEFAULTS : ZERO)
 
@@ -73,11 +76,6 @@ const announce = (): void => {
   for (const listener of listeners) listener()
 }
 
-/** A stored opening is kept only if it is a whole, finite number of paise. */
-function openingFrom(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? Math.round(value) : fallback
-}
-
 function read(): AccountOpenings {
   const fallback = defaults()
   const openings: AccountOpenings = { ...fallback }
@@ -86,9 +84,10 @@ function read(): AccountOpenings {
     if (!raw) return openings
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== "object" || parsed === null) return openings
-    const store = parsed as Record<string, unknown>
-    for (const account of ACCOUNTS) {
-      openings[account.id] = openingFrom(store[account.id], fallback[account.id])
+    // Every stored opening is kept, not only the two accounts': a custom card has one too
+    // (`lib/customCards.ts`). A value that is not a whole, finite number of paise is dropped.
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isFinite(value)) openings[id] = Math.round(value)
     }
     return openings
   } catch {

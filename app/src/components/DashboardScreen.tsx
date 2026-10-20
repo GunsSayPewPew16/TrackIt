@@ -66,7 +66,7 @@ export function DashboardScreen({
   onCreateBudget,
   onMoveBudget,
   onDeleteBudget,
-  onEditBalance,
+  onHoldCard,
   canShowPayCode = false,
 }: {
   model: DashboardModel
@@ -111,11 +111,11 @@ export function DashboardScreen({
   /** Delete one envelope after the menu has asked once more; the last one is refused. */
   onDeleteBudget: (id: string) => void
   /**
-   * A hold on the front account card opens that account's balance editor
-   * (`features/balance/BalanceSheet.tsx`). The stack is a drag, a tap and a hold at once —
+   * A hold on the front card asks what to do with it: edit its balance, or add a card to the
+   * stack (`features/balance/CardSheets.tsx`). The stack is a drag, a tap and a hold at once —
    * all three are told apart by the same 10px of travel (`hooks/useLongPress.ts`).
    */
-  onEditBalance: (accountId: string) => void
+  onHoldCard: (cardId: string) => void
   /** Whether the signed-in account is the owner whose payment code the name opens. */
   canShowPayCode?: boolean
 }) {
@@ -252,7 +252,7 @@ export function DashboardScreen({
       </div>
 
       {/* The accounts, as the newer artboard's stack of cards. */}
-      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} onEditBalance={onEditBalance} />
+      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} onHoldCard={onHoldCard} />
 
       {canShowPayCode && (
         <UpiQrOverlay isOpen={payOpen} name={greeting.name} onClose={() => setPayOpen(false)} />

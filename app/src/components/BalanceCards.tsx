@@ -1,124 +1,145 @@
 import { animate, motion, motionValue, useReducedMotion, type MotionValue } from "framer-motion"
-import { Banknote, Plus, QrCode } from "lucide-react"
+import {
+  Banknote,
+  Coins,
+  CreditCard,
+  Gift,
+  Landmark,
+  PiggyBank,
+  Plane,
+  Plus,
+  QrCode,
+  ShoppingBag,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
 import { CountUp } from "@/components/CountUp"
 import { useLongPress } from "@/hooks/useLongPress"
 import { useTick } from "@/hooks/useTick"
 import { money } from "@/lib/format"
+import type { CardIconName, CardTone } from "@/lib/customCards"
 import type { BalanceCard } from "@/lib/view"
 
 /**
- * The dashboard's first band: one card per account, in a stack you pull down.
+ * The dashboard's first band: one card per account, and the owner's own cards after them,
+ * in a stack you pull down.
  *
- * This is the newer dashboard artboard's replacement for the single "total available
- * balance" box, and the balance box's figures are gone with it — the money is shown
- * per account now, which is what `lib/accounts.ts` has always known and the screen
- * never said.
+ * **The stack.** A 224px band holds the cards. The front card is 358×184 at the band's 40px
+ * top inset; every card behind it peeks out above the front one. The peek is **fixed at
+ * 40px**, however many cards there are: with two cards the one behind peeks the whole 40px,
+ * and each extra card shares that same 40px, so more cards means less of each and fewer
+ * means more. `restFor` is the whole of that rule — card `rank` behind the front sits at
+ * `-40 × rank / (count − 1)`, so the furthest one is always at the top of the band and the
+ * nearest one always just above the front card.
  *
- * **The stack.** A 288px band holds the cards at its own 40px offset, each 358×184
- * with a step cut out of its bottom-right corner. The card behind is lifted 40px so it
- * peeks above the front one — the artboard's two treatments, not a shadow. Pulling the
- * front card down shows the next one; pull it past 40px and it **goes to the back of
- * the stack**, while the card behind rises into the front seat. Under 40px it springs
- * back. The band's first 40px — the strip where the card behind is visible — is the
- * artboard's own tap target for the same move.
+ * **A card's colour belongs to the card, not the seat.** UPI is always the ink card and Cash
+ * always the clay one; a card the owner made wears the palette colour it was given. The text
+ * and the shape travel together (`skinOf`), and the only thing a seat decides is depth — its
+ * `y`, its z-order, and which card the thumb can grab.
  *
- * **A card's colour belongs to the account, not to the seat.** The artboard paints
- * whichever card is in front in ink and whichever is behind in clay, so cycling the
- * stack made UPI and Cash swap colours — the owner read that as the cards changing
- * under them. Now UPI is always the ink card and Cash always the clay one, whichever
- * seat they are in: `SKIN_OF` is the whole of that decision, the text and the shape
- * travel with it, and the only thing a seat still decides is depth — `y`, the z-order,
- * and which card the thumb can grab.
+ * **The pill stays put.** "Add Record" is one element pinned to the band, in the notch at the
+ * front card's bottom-right, so a drag cannot carry it. It opens the manual-entry sheet.
  *
- * **The pill stays put, and it is now the way in.** In the artboard each card draws its
- * own pill in the notch at its bottom-right, so the pill travels with the card. The owner
- * asked for the opposite: the cards move, the pill does not — so it is one element,
- * pinned to the band, above the cards. It reads **Add Record** and opens the manual-entry
- * sheet, which is the first action the design's pill has ever had.
+ * **Nothing is ever drawn below the band.** A release is the re-stack: the pulled card travels
+ * to the back seat while the card behind travels into the front one, in one movement with no
+ * drop and no timer.
  *
- * **Its bottom edge is the cards' bottom edge.** The pill sits in the step the card cuts
- * out of its bottom-right corner, 8px in from the card's right edge — the artboard's own
- * inset — so the band is exactly as tall as the card (224px: 40px of card behind, then
- * 184 of card) and the pill ends on that edge rather than below it. The notch is there to
- * hold it: a pill that hung under the stack left a gap the artboard never drew, and made
- * the band 64px taller than its own card.
+ * **The movement starts on the frame the finger lifts.** The seats are motion values written
+ * directly; the release starts them in the handler *and* in a layout effect that runs before
+ * the browser paints the new front card, so colours and z-order never change before the cards
+ * move. The movement uses the artboard's own overshoot, `cubic-bezier(.34,1.3,.5,1)` over
+ * 0.55s.
  *
- * **Nothing is ever drawn below the band.** The artboard's own cycle drops the front
- * card 160px over the quick-log row and only re-indexes 300ms later, which reads as the
- * card falling out of the stack and onto the rest of the page — that is what it looked
- * like on the owner's phone. Here the release *is* the re-stack: the pulled card travels
- * up to the back seat (−40px) while the card behind travels into the front seat (0), in
- * one movement. There is no drop, no timer, and no intermediate "falling" state, so no
- * frame of the cycle draws a card below its seat.
+ * **The detent.** Each crossing of the 40px threshold plays the light haptic the date wheel
+ * plays (`hooks/useTick.ts`), fired from the pointer handler, which is the only place iOS will
+ * tick for its hidden switch.
  *
- * **The movement starts on the frame the finger lifts.** The seats are motion values
- * this component writes directly, and the release starts them in the handler *and* in a
- * layout effect (which runs before the browser paints the new front card), so there is no
- * frame where the colours and the z-order have swapped but the cards have not moved.
- * The seats then travel with the artboard's own overshoot,
- * `cubic-bezier(.34,1.3,.5,1)` over 0.55s.
- *
- * **The detent.** Every crossing of the 40px threshold plays the same light haptic the
- * date wheel plays (`hooks/useTick.ts` — a buzz on Android, the system's switch click on
- * iOS), and the tap strip plays it too. It is fired from the pointer handler itself,
- * which is the only place iOS will tick for its hidden switch.
- *
- * **A hold edits the card's balance.** The front card is also the way in to
- * `features/balance/BalanceSheet.tsx`: a 500ms hold (or a right-click, or Enter on the
- * focused card) opens the panel that sets what the account holds. It shares the card's own
- * pointer handlers rather than replacing them, and both gestures cancel on the same 10px of
- * travel (`hooks/useLongPress.ts`), so a pull is still a pull and a scroll is still a
- * scroll — the hold only ever fires on a finger that stayed where it landed.
+ * **A hold opens the card's choice.** The front card is also the way in to the balance editor
+ * and to adding a card: a 500ms hold (or a right-click, or Enter on the focused card) calls
+ * `onHoldCard` with the card's id, and the app decides what that opens
+ * (`features/balance/CardSheets.tsx`). The hold shares the card's pointer handlers and cancels
+ * on the same 10px of travel (`hooks/useLongPress.ts`), so a pull is still a pull.
  */
 
-/** The two card treatments, as the colours each one's parts wear. */
-type Skin = {
-  /** The card's fill and hairline. */
-  shape: string
-  /** The glyph and the account's name in the top corner. */
-  title: string
-  /** The word "Balance". */
-  label: string
-  /** The money. */
-  figure: string
-  /** The "spent out of" line. */
-  foot: string
-}
-
-const SKINS: Record<"ink" | "clay", Skin> = {
-  ink: {
-    shape: "fill-card stroke-line",
-    title: "text-ink2",
-    label: "text-ink2",
-    figure: "text-ink",
-    foot: "text-ink",
-  },
-  clay: {
-    shape: "fill-clay stroke-clay",
-    title: "text-on-clay",
-    label: "text-on-clay",
-    figure: "text-on-clay",
-    foot: "text-on-clay",
-  },
+/** The icons a card of the owner's own can wear, by the names `lib/customCards.ts` stores. */
+export const CARD_ICONS: Record<CardIconName, LucideIcon> = {
+  Wallet,
+  CreditCard,
+  PiggyBank,
+  Landmark,
+  Coins,
+  Gift,
+  Plane,
+  ShoppingBag,
 }
 
 /**
- * Which account wears which treatment. The two accounts the owner keeps are named
- * here rather than inferred from their seat, and an account this table has never
- * heard of wears the ink one — the card a new balance would look right on.
+ * The colours a card of the owner's own can be, each a token of the current palette. `ink` is
+ * what sits on the fill; it is the palette's own pairing where there is one (`--on-sage`,
+ * `--on-clay`), and the canvas for the two data colours, which are light enough to read dark on.
  */
-const SKIN_OF: Record<string, keyof typeof SKINS> = { upi: "ink", cash: "clay" }
+export const TONES: Record<CardTone, { fill: string; ink: string }> = {
+  sage: { fill: "var(--sage)", ink: "var(--on-sage)" },
+  clay: { fill: "var(--clay)", ink: "var(--on-clay)" },
+  gold: { fill: "var(--data-gold)", ink: "var(--canvas)" },
+  red: { fill: "var(--data-red)", ink: "var(--canvas)" },
+}
 
-const skinOf = (id: string) => SKINS[SKIN_OF[id] ?? "ink"]
+/**
+ * The colours a card is drawn in, as CSS values: the shape's fill and hairline, the accent (the
+ * glyph, the account name and the word "Balance"), and the money and its "spent out of" line.
+ */
+type Skin = {
+  fill: string
+  stroke: string
+  accent: string
+  figure: string
+  foot: string
+}
+
+const INK: Skin = {
+  fill: "var(--card)",
+  stroke: "var(--line)",
+  accent: "var(--ink2)",
+  figure: "var(--ink)",
+  foot: "var(--ink)",
+}
+
+const CLAY: Skin = {
+  fill: "var(--clay)",
+  stroke: "var(--clay)",
+  accent: "var(--on-clay)",
+  figure: "var(--on-clay)",
+  foot: "var(--on-clay)",
+}
+
+/** The two accounts Wallet imported wear fixed treatments; any other account wears ink. */
+const ACCOUNT_SKIN: Record<string, Skin> = { upi: INK, cash: CLAY }
+
+/** Which treatment a card wears. A card of the owner's own wears the colour it was given. */
+function skinOf(card: BalanceCard): Skin {
+  if (card.tone) {
+    const tone = TONES[card.tone]
+    return { fill: tone.fill, stroke: tone.fill, accent: tone.ink, figure: tone.ink, foot: tone.ink }
+  }
+  return ACCOUNT_SKIN[card.id] ?? INK
+}
+
+/** The glyph a card carries in its top-left corner. */
+function glyphOf(card: BalanceCard): LucideIcon {
+  if (card.icon === "qr") return QrCode
+  if (card.icon === "cash") return Banknote
+  return CARD_ICONS[card.icon] ?? Wallet
+}
 
 /** The artboard's card outline: a 358×184 card with the notch for the pill. */
 const CARD_PATH =
   "M20 0H338Q358 0 358 20V100Q358 120 338 120H234Q214 120 214 140V164Q214 184 194 184H20Q0 184 0 164V20Q0 0 20 0Z"
 
-/** Where a card sits when it is not the front one, in pixels above it. */
-const REST = -40
+/** The whole band's peek, in pixels above the front card. It is fixed; the cards share it. */
+const PEEK = 40
 
 /** How far the pulled card is allowed to travel before it stops following. */
 const PULL = 120
@@ -131,15 +152,26 @@ const STACK = { duration: 0.55, ease: [0.34, 1.3, 0.5, 1] } as const
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value))
 
+/** How many places a card is behind the front one: 0 is the front, `count - 1` the furthest. */
+const rankOf = (position: number, front: number, count: number): number => (position - front + count) % count
+
+/**
+ * Where a card of a given rank sits. The front card is at 0; the rest share the band's fixed
+ * peek, so the nearest one is `PEEK / (count − 1)` above the front and the furthest is at
+ * `-PEEK`, the top of the band.
+ */
+const restFor = (rank: number, count: number): number =>
+  rank === 0 || count < 2 ? 0 : -(PEEK * rank) / (count - 1)
+
 export function BalanceCards({
   cards,
   onAddRecord,
-  onEditBalance,
+  onHoldCard,
 }: {
   cards: BalanceCard[]
   onAddRecord?: () => void
-  /** A hold on the front card opens its balance editor, by account id. */
-  onEditBalance?: (accountId: string) => void
+  /** A hold on the front card, by its id. The app opens the choice for it. */
+  onHoldCard?: (cardId: string) => void
 }) {
   const count = cards.length
   const [index, setIndex] = useState(0)
@@ -150,23 +182,21 @@ export function BalanceCards({
   const reduceMotion = useReducedMotion()
 
   /**
-   * The hold, armed once for whichever card is in front.
-   *
-   * One hook rather than one per card, because the front seat is the only one a thumb can
-   * reach (`pointer-events-none` on the rest) — and the card it fires for is read at the
-   * moment it fires, so a stack that has cycled since the finger landed still opens the
-   * card that is actually under it.
+   * The hold, armed once for whichever card is in front. The card it fires for is read at the
+   * moment it fires, so a stack that has cycled since the finger landed still acts on the card
+   * that is actually under it.
    */
-  const hold = useLongPress(() => {
-    const card = cards[front]
-    if (card) onEditBalance?.(card.id)
-  }, { disabled: !onEditBalance })
+  const hold = useLongPress(
+    () => {
+      const card = cards[front]
+      if (card) onHoldCard?.(card.id)
+    },
+    { disabled: !onHoldCard },
+  )
 
   /**
-   * One `y` per card, kept across renders. A card's seat changes when it becomes the
-   * front one or when it is demoted, and each card has to travel between those seats on
-   * its own — a single shared value could not show the old card leaving while the new
-   * one arrives.
+   * One `y` per card, kept across renders. Each card travels between its seats on its own, so
+   * a single shared value could not show the old card leaving while the new one arrives.
    */
   const [seats] = useState(() => new Map<string, MotionValue<number>>())
   /** The pointer's first `clientY`, while a pull is in progress. */
@@ -187,18 +217,17 @@ export function BalanceCards({
   )
 
   /**
-   * Every card travels to its seat: 0 for the front one, `REST` for the rest.
+   * Every card travels to the seat its rank gives it under `frontIndex`.
    *
-   * Called from the release handler *and* from the layout effect below. The handler
-   * starts the movement without waiting for React at all; the effect re-targets the
-   * same seats once the new front is rendered, before the frame paints. Both calls
-   * name the same destination, so the second one is the same movement, not a second
-   * animation.
+   * Called from the release handler *and* from the layout effect below. The handler starts the
+   * movement without waiting for React; the effect re-targets the same seats once the new front
+   * is rendered, before the frame paints. Both name the same destinations, so the second call is
+   * the same movement, not a second animation.
    */
   const settle = useCallback(
     (frontIndex: number) => {
       cards.forEach((card, position) => {
-        const target = position === frontIndex ? 0 : REST
+        const target = restFor(rankOf(position, frontIndex, cards.length), cards.length)
         const seat = seatOf(card.id, target)
         if (reduceMotion) {
           seat.stop()
@@ -211,7 +240,8 @@ export function BalanceCards({
     [cards, reduceMotion, seatOf],
   )
 
-  // Before paint, so the frame that shows the new front card already has it moving.
+  // Before paint, so the frame that shows the new front card already has it moving. It also runs
+  // when a card is added, so the stack re-spaces itself to the fixed peek.
   useLayoutEffect(() => {
     settle(front)
   }, [settle, front])
@@ -236,8 +266,8 @@ export function BalanceCards({
     const pulled = clamp(event.clientY - grabbedAt.current, 0, PULL)
     seat.set(pulled)
 
-    // The 40px detent, fired from the gesture itself: this is the one place iOS plays
-    // its switch click for us. Crossing it either way is a border, not a release.
+    // The 40px detent, fired from the gesture itself: this is the one place iOS plays its switch
+    // click for us. Crossing it either way is a border, not a release.
     const over = pulled > THRESHOLD
     if (over !== pastThreshold.current) {
       pastThreshold.current = over
@@ -246,8 +276,8 @@ export function BalanceCards({
   }
 
   /**
-   * The finger leaves. Past the threshold the card is demoted, under it the card goes
-   * back where it was — either way on this frame, never after a timer.
+   * The finger leaves. Past the threshold the card is demoted, under it the card goes back where
+   * it was — either way on this frame, never after a timer.
    */
   const release = (commit: boolean) => {
     if (grabbedAt.current === null) return
@@ -271,32 +301,29 @@ export function BalanceCards({
   const next = count > 1 ? cards[(front + 1) % count] : undefined
 
   return (
-    // The band is the card's own 224px (40px of card behind, then 184 of card). The pill
-    // lives inside that footprint, in the notch, so it neither spills onto the quick-log
-    // row below nor adds a gap of its own between the two bands.
+    // The band is the card's own 224px (40px of card behind, then 184 of card). The pill lives
+    // inside that footprint, in the notch, so it neither spills onto the quick-log row below nor
+    // adds a gap of its own between the two bands.
     <div role="group" aria-label="Accounts" className="relative h-[224px]">
       {cards.map((card, position) => {
-        const isFront = position === front
-        const seat = seatOf(card.id, position === 0 ? 0 : REST)
-        const Glyph = card.icon === "qr" ? QrCode : Banknote
-        // Fixed to the account, never to `isFront`: the colour is the card's identity.
-        const skin = skinOf(card.id)
+        const rank = rankOf(position, front, count)
+        const isFront = rank === 0
+        const seat = seatOf(card.id, restFor(rank, count))
+        const Glyph = glyphOf(card)
+        const skin = skinOf(card)
         return (
           <motion.div
             key={card.id}
             aria-hidden={!isFront}
-            style={{
-              y: seat,
-              zIndex: isFront ? 3 : position === (front + 1) % count ? 2 : 1,
-            }}
-            role={isFront && onEditBalance ? "button" : undefined}
-            tabIndex={isFront && onEditBalance ? 0 : undefined}
+            style={{ y: seat, zIndex: count - rank }}
+            role={isFront && onHoldCard ? "button" : undefined}
+            tabIndex={isFront && onHoldCard ? 0 : undefined}
             aria-label={
-              isFront && onEditBalance
-                ? `${card.name} balance ${card.balance}. Hold to edit, drag down for the next account`
+              isFront && onHoldCard
+                ? `${card.name} balance ${card.balance}. Hold to edit or add a card, drag down for the next account`
                 : undefined
             }
-            title={isFront && onEditBalance ? "Hold to edit this balance" : undefined}
+            title={isFront && onHoldCard ? "Hold to edit this card or add one" : undefined}
             onPointerDown={
               isFront
                 ? (event) => {
@@ -344,62 +371,48 @@ export function BalanceCards({
               className="absolute inset-0 h-full w-full overflow-visible"
               preserveAspectRatio="none"
             >
-              <path d={CARD_PATH} strokeWidth={1} className={skin.shape} />
+              <path d={CARD_PATH} strokeWidth={1} fill={skin.fill} stroke={skin.stroke} />
             </svg>
 
-            <div className={`absolute inset-x-4 top-4 flex h-6 items-center justify-between ${skin.title}`}>
+            <div
+              className="absolute inset-x-4 top-4 flex h-6 items-center justify-between"
+              style={{ color: skin.accent }}
+            >
               <span className="flex">
                 <Glyph className="size-6" strokeWidth={1.5} aria-hidden="true" />
               </span>
-              <span className="text-[13px] leading-4">{card.name}</span>
+              <span className="max-w-[60%] truncate text-[13px] leading-4">{card.name}</span>
             </div>
 
             <div
-              className={`absolute top-12 left-4 font-display text-sm leading-5 font-medium tracking-[-0.01em] ${skin.label}`}
+              className="absolute top-12 left-4 font-display text-sm leading-5 font-medium tracking-[-0.01em]"
+              style={{ color: skin.accent }}
             >
               Balance
             </div>
 
             <div
-              className={`absolute top-[68px] left-4 font-display text-[40px] leading-[48px] font-medium tracking-[-0.03em] whitespace-nowrap ${skin.figure}`}
+              className="absolute top-[68px] left-4 font-display text-[40px] leading-[48px] font-medium tracking-[-0.03em] whitespace-nowrap"
+              style={{ color: skin.figure }}
             >
               <CountUp cents={card.cents} format={money} />
             </div>
 
             {/*
-              The card's bottom row: the money that has gone out of this account on the left,
-              and the Add Record capsule's own slot on the right.
-
-              It is a flex row rather than a text block because the two belong to one line — and
-              it is `flex-nowrap`, so that line cannot become two: `items-center` puts both on
-              the same baseline whatever the figures do, and neither half may wrap under the
-              other. The two frames are explicit. The **left frame** takes the room that is left
-              (`flex-1 min-w-0`) but is capped at `max-w-[60%]`, and its text truncates with an
-              ellipsis: the figures cannot stretch out and push the capsule anywhere. The
-              **right frame** is `flex-shrink-0`, so no length of figures can squish, compress or
-              wrap the capsule, at any viewport width. The connector between the two figures is
-              the editorial serif italic at 60%: the money is the content, the words between it
-              are the sentence. The figures themselves stay at the reading face's own weight —
-              bold ones measure 2px wider than the room the restored capsule leaves them, and a
-              marked-up sentence that ellipsises its own balance is worse than a quiet one.
-
-              The slot is *reserved*, not drawn: the capsule is pinned to the band instead of to
-              this card (the owner's rule — a drag must not carry it), and a row that ignored it
-              would let the figures grow underneath it. Its 136px is the pill's 128 minimum plus
-              the 8px inset the pill keeps from the card's right edge, and it carries the pill's
-              own 48px so the row is the pill's height: that is what puts `items-center` — and so
-              the metrics — on the capsule's centre line rather than on the card's last pixel.
+              The card's bottom row: the money that has gone out of this account on the left, and
+              the Add Record capsule's own slot on the right. It is a flex row that does not wrap,
+              the left frame truncates rather than pushing the capsule, and the right frame is a
+              reserved 136px — the pill's own width plus its 8px inset — so the capsule is never
+              covered by the figures.
             */}
             <div
-              className={`absolute inset-x-0 bottom-2 flex w-full flex-nowrap items-center justify-between gap-3 px-4 ${skin.foot}`}
+              className="absolute inset-x-0 bottom-2 flex w-full flex-nowrap items-center justify-between gap-3 px-4"
+              style={{ color: skin.foot }}
             >
               <div className="flex max-w-[60%] min-w-0 flex-1 items-baseline justify-start select-none">
                 <p className="truncate font-sans text-[13px] leading-4">
                   {card.spent}{" "}
-                  {/* The connector is the editorial serif at 60%: the figures are the content
-                      and the words between them are the sentence. */}
-                  <span className="font-serif italic opacity-60">spent out of</span>{" "}
-                  {card.balance}
+                  <span className="font-serif italic opacity-60">spent out of</span> {card.balance}
                 </p>
               </div>
               <div className="flex flex-shrink-0 items-center">
@@ -411,14 +424,9 @@ export function BalanceCards({
       })}
 
       {/*
-        The add-record pill, pinned: 128×48 as the artboard draws it, outside every card so
-        a drag cannot carry it, and **on** the card's bottom edge — `bottom-0` of a band that
-        is the card's own height — rather than hanging under the stack. Its 8px right inset
-        is the artboard's and is what keeps it inside the notch, whose step begins at the
-        card's 120th pixel; the extra 4px on its left is what keeps the plus from sitting
-        against that step. It was the design's control with no action behind it; it now opens
-        the manual entry sheet (`features/manual-entry`), which is the one place a row can be
-        typed rather than imported or scanned.
+        The add-record pill, pinned: 128×48 as the artboard draws it, outside every card so a drag
+        cannot carry it, and on the card's bottom edge. Its 8px right inset is the artboard's and
+        keeps it inside the notch, whose step begins at the card's 120th pixel.
       */}
       <button
         type="button"

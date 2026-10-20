@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react"
 
 import { openingSnapshot, setAccountBalance, subscribeBalances } from "@/lib/balances"
+import { addCustomCard, customCardsSnapshot, subscribeCustomCards, type CustomCard } from "@/lib/customCards"
 import type { Row } from "@/lib/types"
 
 /**
@@ -14,14 +15,22 @@ import type { Row } from "@/lib/types"
  * `setBalance` is given the **rows**, because what gets stored is not the figure the owner
  * typed but the opening that produces it — see `lib/balances.ts` for why that is the only
  * way a card can keep being a balance after the next row is logged.
+ *
+ * The owner's own cards (`lib/customCards.ts`) come through the same hook: a card is added
+ * here, and its figure is then set with `setBalance` like the two accounts' are.
  */
 export function useBalances(rows: Row[]) {
   const openings = useSyncExternalStore(subscribeBalances, openingSnapshot, openingSnapshot)
+  const customCards: CustomCard[] = useSyncExternalStore(
+    subscribeCustomCards,
+    customCardsSnapshot,
+    customCardsSnapshot,
+  )
 
   const setBalance = useCallback(
     (accountId: string, cents: number) => setAccountBalance(accountId, cents, rows),
     [rows],
   )
 
-  return { openings, setBalance }
+  return { openings, setBalance, customCards, addCard: addCustomCard }
 }
