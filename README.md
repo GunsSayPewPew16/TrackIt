@@ -477,7 +477,9 @@ tools/                  wallet-import.py, lucide-icons.py, make-icons.py, the tw
 
 ## Status
 
-Working: all three screens in both themes, the account cards' stack (the drag, the
+Working: all four tab screens in both themes, a sideways swipe between them in the dock's order
+(with the date wheel, the budget carousel, the quick-log and month trays keeping their own
+drags), the account cards' stack (the drag, the
 re-stack, the pinned pill and the haptic at its detent), the wheel's drag/snap/haptics/keys,
 the month menu that reaches the months past the one the wheel holds, hold-to-edit-or-delete on a
 card, the editable account balances, the dashboard's budget carousel (each envelope's own name,

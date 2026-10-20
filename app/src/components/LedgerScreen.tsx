@@ -116,8 +116,13 @@ function Card({
         <path d={CARD_PATH} strokeWidth={1} className={skin.shape} />
       </svg>
 
-      {/* The faces on the notch's step. The category's own label is not drawn: the
-          owner asked for the top of the card to carry nothing. */}
+      {/* The notch's own label: how big the row is against its account, and whether it is
+          money in or out. It sits in the card's top-left lobe, which the faces do not reach. */}
+      <span className={`absolute left-4 top-2 whitespace-nowrap text-[10px] leading-4 font-medium ${skin.fg}`}>
+        {card.tag}
+      </span>
+
+      {/* The faces on the notch's step. */}
       <div className="absolute left-[148px] top-0 flex items-center">
         {card.people.map((initials, position) => (
           <span

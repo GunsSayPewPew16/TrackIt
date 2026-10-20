@@ -96,11 +96,13 @@ const WALLET_TITLES: Record<string, string[]> = {
  * *Restaurants*, `internet` is *Internet & Mobile*, and the two dimensions a re-homed row
  * can land on keep their own names. `food-drinks` is the one *renamed* rather than
  * re-homed — the owner calls that dimension **Food & Beverages** now, and the name is here
- * so the ledger says what the picker says. The ids the matrix splits between two pills — a
- * `bar-cafe` row is a coffee shop *or* a bar, `tv-streaming` is Spotify *or* a film, and
- * `financial-investments` is stocks *or* funds — are deliberately absent: the row is
- * where it belongs, but only the owner knows which of the two it was, and a title is not
- * something this pass is allowed to guess.
+ * so the ledger says what the picker says. The cafe and the bar are two envelopes now
+ * (`coffee-cafe`, `bar-alcohol`), so they are named here too. The ids the matrix still
+ * splits between two pills — `tv-streaming` is Spotify *or* a film, and
+ * `financial-investments` is stocks *or* funds — are deliberately absent: the row is where
+ * it belongs, but only the owner knows which of the two it was, and a title is not something
+ * this pass is allowed to guess. A legacy `bar-cafe` row is in that position too, so it keeps
+ * Wallet's own "Bar, cafe" name.
  */
 const NEW_NAME: Record<string, string> = {
   restaurant: "Restaurants",
@@ -114,6 +116,8 @@ const NEW_NAME: Record<string, string> = {
   "vehicle-maintenance": "Maintenance",
   allowance: "Allowance",
   "food-drinks": "Food & Beverages",
+  "coffee-cafe": "Coffee & Cafes",
+  "bar-alcohol": "Bar & Alcohol",
   housing: "Housing & Utilities",
   shopping: "Shopping",
   transportation: "Transportation",

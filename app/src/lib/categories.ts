@@ -52,7 +52,7 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
     id: "food-drinks",
     label: "Food & Drinks",
     color: "#f44336",
-    categories: ["food-drinks", "groceries", "restaurant", "bar-cafe"],
+    categories: ["food-drinks", "groceries", "restaurant", "coffee-cafe", "bar-alcohol", "bar-cafe"],
   },
   {
     id: "shopping",
@@ -184,6 +184,8 @@ const ROWS: readonly (readonly [id: string, label: string, group: string])[] = [
   ["food-drinks", "Food & Drinks", "food-drinks"],
   ["groceries", "Groceries", "food-drinks"],
   ["restaurant", "Restaurant, fast-food", "food-drinks"],
+  ["coffee-cafe", "Coffee & Cafes", "food-drinks"],
+  ["bar-alcohol", "Bar & Alcohol", "food-drinks"],
   ["bar-cafe", "Bar, cafe", "food-drinks"],
   ["shopping", "Shopping", "shopping"],
   ["clothes-shoes", "Clothes & shoes", "shopping"],

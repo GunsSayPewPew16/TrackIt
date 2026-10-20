@@ -62,7 +62,7 @@ export function AnalyticsScreen({
       variants={stagger}
       initial="hidden"
       animate="show"
-      className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pt-6 pb-nav"
+      className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pt-safe pb-nav"
     >
       <motion.header variants={rise} className="flex items-start justify-between">
         <h1 className="font-serif text-[28px] leading-8 tracking-[-0.01em]">

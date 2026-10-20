@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
+import { isOwnerEmail } from "@/lib/owner"
 import { LoginScreen } from "@/components/LoginScreen"
 import { useAuth } from "@/hooks/useAuth"
 // Types only, and that is what keeps the two screens below out of the entry chunk: an
@@ -25,7 +26,9 @@ import { useBalances } from "@/hooks/useBalances"
 import { useBudgets } from "@/hooks/useBudgets"
 import { useGreeting } from "@/hooks/useGreeting"
 import { useLedger } from "@/hooks/useLedger"
+import { useSwipeScreens } from "@/hooks/useSwipeScreens"
 import { useTheme } from "@/hooks/useTheme"
+import { lightTap } from "@/lib/haptics"
 import { demoDashboard, DEMO_LEDGER } from "@/lib/demo"
 import { DEFAULT_CATEGORY } from "@/lib/categories"
 import { filedName } from "@/lib/refile"
@@ -33,6 +36,7 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 import { BUDGET_COPY, budgetSpent, envelopeCopy } from "@/lib/budget"
 import { startOfMonth, startOfNextMonth } from "@/lib/format"
 import { appendToLedger } from "@/lib/ledger"
+import { TAB_VIEWS, type NavTab } from "@/lib/tabs"
 import type { Row } from "@/lib/types"
 
 /**
@@ -66,8 +70,8 @@ import type { Row } from "@/lib/types"
  * builds that month around it and opens the wheel on its day. With no anchor the anchor
  * is the newest row, which is what the owner came to see.
  *
- * **Where a screen starts.** At its top, every time. Every way between screens is the
- * dock, and on a short window any screen scrolls, so the
+ * **Where a screen starts.** At its top, every time. The dock and a sideways swipe are
+ * the ways between screens, and on a short window any screen scrolls, so the
  * browser would otherwise hand the new one the old one's scroll offset — the dashboard
  * opening halfway down its cards, or the ledger past a day the owner has not seen.
  * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
@@ -95,6 +99,14 @@ import type { Row } from "@/lib/types"
  * — the tab keys are view names, so a tab is a screen — and the scanner is the one
  * view that is not a tab, so the circle holds its place while the camera is up and
  * slides from there when the owner goes back.
+ *
+ * **A sideways swipe pages the same order the dock lays out.** `hooks/useSwipeScreens.ts`
+ * turns a horizontal gesture into the next or previous tab, with the dock's own list as the
+ * order (`TAB_VIEWS`), so a screen added to the dock is a screen the thumb can reach. A
+ * gesture that starts in a control which reads sideways itself — the budget carousel, the
+ * ledger's date wheel, the trend plot — stays with that control, and a vertical drag is a
+ * scroll; the scanner is not a page, so there a swipe is the camera's. The cross-fade is the
+ * same one a tab press gets: the gesture chooses the screen, not a second transition.
  *
  * **Only the dashboard is in the file that must arrive before the first pixel.** Nothing
  * renders until this module runs, so everything it imports is a cost the owner pays before
@@ -153,7 +165,7 @@ function TrackIt() {
   const [now] = useState(() => Date.now())
   // Which build this is: the device-only tracker draws the artboards until something is
   // imported, while an account's empty ledger is just that — empty.
-  const { mode } = useAuth()
+  const { mode, email } = useAuth()
   const { rows, budgets, remove, update } = useLedger()
   const {
     envelopes,
@@ -282,6 +294,28 @@ function TrackIt() {
     setView(next)
     window.scrollTo({ top: 0, left: 0, behavior: "instant" })
   }, [])
+
+  /**
+   * The thumb's way between screens: the same four tabs, in the dock's order. `canSwipe`
+   * keeps the first and last pages from being swiped past (the dock has no wrap either), and
+   * the tick is the dock's own `lightTap`, fired inside the gesture that asked for the page.
+   * The scanner is not a page in the order; its swipe belongs to the camera.
+   */
+  useSwipeScreens({
+    enabled: view !== "scan",
+    canSwipe: (direction) => {
+      const index = TAB_VIEWS.indexOf(view as NavTab)
+      return index >= 0 && index + direction >= 0 && index + direction < TAB_VIEWS.length
+    },
+    onSwipe: (direction) => {
+      const index = TAB_VIEWS.indexOf(view as NavTab)
+      const next = index >= 0 ? TAB_VIEWS[index + direction] : undefined
+      if (!next) return
+      // Must run synchronously inside the gesture for iOS, like every other tap in the app.
+      lightTap()
+      void goTo(next)
+    },
+  })
 
   /**
    * Open the sheet, fetching its module first if this is the first press.
@@ -511,8 +545,8 @@ function TrackIt() {
     [demo, rows, now, envelopes, openings],
   )
   const ledger = useMemo(
-    () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor)),
-    [demo, rows, budgets, anchor],
+    () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor, openings)),
+    [demo, rows, budgets, anchor, openings],
   )
   /** What both accounts opened with, for the stats trend — the dashboard's own figures. */
   const openingCents = useMemo(
@@ -566,6 +600,7 @@ function TrackIt() {
               onMoveBudget={moveBudget}
               onDeleteBudget={deleteEnvelope}
               onEditBalance={(accountId) => void editBalance(accountId)}
+              canShowPayCode={isOwnerEmail(email)}
             />
           ) : view === "ledger" && Ledger ? (
             <Ledger

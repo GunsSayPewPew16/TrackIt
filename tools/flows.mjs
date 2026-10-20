@@ -24,7 +24,10 @@
  *      fields (`mc`, `tr`, `tid`, `url`, `sign`) intact, a literal `@` in the VPA, and the
  *      amount the owner confirmed — the difference between paying the merchant and asking a
  *      UPI app to transfer money to a merchant's address.
- *   6. **The session** — on a build with a portal, the account that got in is still there after
+ *   6. **The sideways swipe** — a horizontal drag pages through the dock's order, stops at
+ *      the last screen, and leaves a control that reads sideways itself alone (the ledger's
+ *      date wheel; the dashboard's budget carousel). A vertical drag is still a scroll.
+ *   7. **The session** — on a build with a portal, the account that got in is still there after
  *      a reload, and **Sign out** ends it for good: the portal is back, `trackit-auth` and the
  *      portal's mark are gone, and a reload does not open the vault again. It runs last,
  *      because it is the only flow that ends what the others need.
@@ -489,6 +492,32 @@ class Screen {
     }
     await this.cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", clickCount: 1, buttons: 0 })
     await sleep(700)
+  }
+
+  /**
+   * A real touch drag, for the path a phone takes. Pointer emulation is switched on for the
+   * gesture and off again afterwards so later mouse input is unaffected; the app ignores the
+   * touch pointers and reads the touch events, which is the point of the check.
+   */
+  async touchDrag(from, to, steps = 8) {
+    await this.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 })
+    await this.cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: from.x, y: from.y }],
+    })
+    for (let step = 1; step <= steps; step += 1) {
+      await this.cdp.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{
+          x: Math.round(from.x + ((to.x - from.x) * step) / steps),
+          y: Math.round(from.y + ((to.y - from.y) * step) / steps),
+        }],
+      })
+      await sleep(16)
+    }
+    await this.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    await sleep(700)
+    await this.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false })
   }
 
   /**
@@ -1295,6 +1324,124 @@ async function flowBudgets(screen) {
   })
 }
 
+/**
+ * The thumb's way between screens: one gesture, the dock's order, and no page turn from a
+ * control that is already sideways.
+ *
+ * Every drag here is real mouse input over CDP. The greeting is used as the starting point on
+ * each screen because it is text rather than a control — a swipe that began on a button would
+ * have to swallow that button's click, which is a different thing to assert. The two sideways
+ * controls are the point of the negative cases: the ledger's date wheel owns a drag of its own
+ * (`data-swipe-ignore`), and the budget carousel is a native horizontal scroller — dragging
+ * across either must not page the screen out from under the thumb.
+ */
+async function flowSwipe(screen) {
+  const current = () =>
+    screen.cdp.evaluate(
+      `document.querySelector('nav[aria-label="Primary"] [aria-current="page"]')?.getAttribute('aria-label') ?? null`,
+    )
+  /** A screen's middle, for a control that should receive the drag rather than the page. */
+  const middleOf = (selector) =>
+    screen.cdp.evaluate(`(() => {
+      const box = document.querySelector(${JSON.stringify(selector)});
+      if (!box) return null;
+      const rect = box.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    })()`)
+
+  /** A left swipe (the next screen) at the header, where every screen has only its title. */
+  const pageForward = () => screen.drag({ x: 340, y: 60 }, { x: 60, y: 60 })
+  const pageBack = () => screen.drag({ x: 60, y: 60 }, { x: 340, y: 60 })
+
+  await check("swipe: a sideways drag pages the dock's order, and sideways controls keep their own", async () => {
+    await screen.open(APP_URL)
+    await screen.until(`document.querySelector('h1') !== null`, "the dashboard")
+    assertEqual(await current(), "Home", "the dock before any swipe")
+    // The swipe begins on the header's theme toggle at x=340. A page turn swallows the click
+    // it ends with, so that toggle must not have fired as well.
+    const themeBefore = await screen.cdp.evaluate(
+      `document.querySelector('button[aria-label^="Switch to"]')?.getAttribute('aria-pressed')`,
+    )
+
+    await pageForward()
+    await screen.until(
+      `document.querySelector('h1')?.textContent?.includes('Daily ledger')`,
+      "the ledger after a swipe",
+    )
+    assertEqual(await current(), "Ledger", "the dock after a swipe to the ledger")
+    assertEqual(
+      await screen.cdp.evaluate(
+        `document.querySelector('button[aria-label^="Switch to"]')?.getAttribute('aria-pressed')`,
+      ),
+      themeBefore,
+      "the theme after a swipe that began on its toggle",
+    )
+
+    // The date wheel is the ledger's own sideways control. A drag on it is a day, not a page.
+    const wheel = await middleOf('[aria-label="Select a date"]')
+    assert(wheel !== null, "the ledger has no date wheel to drag")
+    await screen.drag({ x: wheel.x + 100, y: wheel.y }, { x: wheel.x - 100, y: wheel.y })
+    assertEqual(await current(), "Ledger", "the dock after a drag on the date wheel")
+
+    // Back to the dashboard, then drag across the carousel: it is a native horizontal
+    // scroller, so the gesture belongs to the cards rather than to the screen.
+    await pageBack()
+    await screen.until(
+      `document.querySelector('[aria-label="Budget envelopes"]') !== null`,
+      "the dashboard after the swipe back",
+    )
+    assertEqual(await current(), "Home", "the dock after a swipe back")
+    const carousel = await middleOf('[aria-label="Budget envelopes"]')
+    assert(carousel !== null, "the dashboard has no carousel to drag")
+    await screen.drag({ x: carousel.x + 140, y: carousel.y }, { x: carousel.x - 140, y: carousel.y })
+    assertEqual(await current(), "Home", "the dock after a drag across the carousel")
+
+    // And on through Stats and Settings, in the dock's order.
+    await pageForward()
+    await screen.until(`document.querySelector('h1')?.textContent?.includes('Daily ledger')`, "the ledger")
+    await pageForward()
+    await screen.until(`document.querySelector('h1')?.textContent?.includes('Insights')`, "the stats screen")
+    assertEqual(await current(), "Stats", "the dock after a swipe to stats")
+    await pageForward()
+    await screen.until(
+      `document.querySelector('nav[aria-label="Primary"] [aria-current="page"]')?.getAttribute('aria-label') === "Settings"`,
+      "the settings screen",
+    )
+    assertEqual(await current(), "Settings", "the dock after a swipe to settings")
+
+    // The last page is the last page: another left swipe changes nothing, and does not wrap
+    // round to Home.
+    await pageForward()
+    assertEqual(await current(), "Settings", "the dock after swiping past the last page")
+
+    // A right swipe is the way back, one page per gesture.
+    await pageBack()
+    await screen.until(
+      `document.querySelector('nav[aria-label="Primary"] [aria-current="page"]')?.getAttribute('aria-label') === "Stats"`,
+      "stats after a swipe back",
+    )
+    assertEqual(await current(), "Stats", "the dock after a swipe back from settings")
+
+    // A drag that is mostly down is a scroll, not a page turn: the ledger is the longest
+    // screen, and a thumb reading it must not arrive on Stats by accident.
+    await pageBack()
+    await screen.until(
+      `document.querySelector('nav[aria-label="Primary"] [aria-current="page"]')?.getAttribute('aria-label') === "Ledger"`,
+      "the ledger after a second swipe back",
+    )
+    await screen.drag({ x: 300, y: 300 }, { x: 120, y: 460 })
+    assertEqual(await current(), "Ledger", "the dock after a mostly-down drag")
+
+    // The phone's path is touch, not a mouse pointer. A right touch swipe is the way home.
+    await screen.touchDrag({ x: 60, y: 60 }, { x: 340, y: 60 })
+    await screen.until(
+      `document.querySelector('nav[aria-label="Primary"] [aria-current="page"]')?.getAttribute('aria-label') === "Home"`,
+      "the dashboard after a touch swipe",
+    )
+    assertEqual(await current(), "Home", "the dock after a touch swipe")
+  })
+}
+
 async function flowDateCard(screen) {
   await check("date card: opens on the current moment, and only done closes it", async () => {
     await screen.open(APP_URL)
@@ -1486,6 +1633,7 @@ async function main() {
       await flowAddRecordSwitch(screen)
       await flowFriendsPill(screen)
       await flowBudgets(screen)
+      await flowSwipe(screen)
       await flowDateCard(screen)
       // Last, because it is the flow that signs the account out.
       if (hasPortal) await flowSession(screen)

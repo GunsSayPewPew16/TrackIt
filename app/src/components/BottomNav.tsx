@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { join } from "@/lib/classes"
 import { lightTap, primeHaptics } from "@/lib/haptics"
+import { TAB_VIEWS, type NavTab } from "@/lib/tabs"
 
 /**
  * The dock: the app's way between screens.
@@ -35,9 +36,6 @@ import { lightTap, primeHaptics } from "@/lib/haptics"
  * is the only place iOS will tick for its hidden switch. The switch is primed on mount.
  */
 
-/** The screens the dock can take you to. A tab with no screen has no `to`. */
-export type NavTab = "dashboard" | "ledger" | "stats" | "settings"
-
 export interface NavItem {
   key: string
   /** The slot's accessible name. Nothing is drawn with it. */
@@ -47,13 +45,25 @@ export interface NavItem {
   to?: NavTab
 }
 
-/** The tabs, in the order they sit along the dock. Adding a screen is one line here. */
-const TABS: NavItem[] = [
-  { key: "home", label: "Home", icon: Home, to: "dashboard" },
-  { key: "ledger", label: "Ledger", icon: ArrowDownUp, to: "ledger" },
-  { key: "stats", label: "Stats", icon: BarChart3, to: "stats" },
-  { key: "settings", label: "Settings", icon: UserRound, to: "settings" },
-]
+/** What each screen is called in the dock, and the mark it wears. */
+const LABELS: Record<NavTab, string> = {
+  dashboard: "Home",
+  ledger: "Ledger",
+  stats: "Stats",
+  settings: "Settings",
+}
+const ICONS: Record<NavTab, LucideIcon> = {
+  dashboard: Home,
+  ledger: ArrowDownUp,
+  stats: BarChart3,
+  settings: UserRound,
+}
+
+/**
+ * The tabs, in the order they sit along the dock — the order shared with the sideways swipe
+ * (`lib/tabs.ts`), so there is one list a screen is added to. Every tab has a screen.
+ */
+const TABS: NavItem[] = TAB_VIEWS.map((to) => ({ key: to, label: LABELS[to], icon: ICONS[to], to }))
 
 const SPRING = { type: "spring", stiffness: 300, damping: 25 } as const
 /** What a reduced-motion preference gets: the same slide, without the overshoot. */

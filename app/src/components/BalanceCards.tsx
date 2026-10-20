@@ -391,7 +391,7 @@ export function BalanceCards({
               the metrics — on the capsule's centre line rather than on the card's last pixel.
             */}
             <div
-              className={`absolute inset-x-0 bottom-0 flex w-full flex-nowrap items-center justify-between gap-3 px-4 ${skin.foot}`}
+              className={`absolute inset-x-0 bottom-2 flex w-full flex-nowrap items-center justify-between gap-3 px-4 ${skin.foot}`}
             >
               <div className="flex max-w-[60%] min-w-0 flex-1 items-baseline justify-start select-none">
                 <p className="truncate font-sans text-[13px] leading-4">
@@ -427,7 +427,7 @@ export function BalanceCards({
           tick()
           onAddRecord?.()
         }}
-        className="absolute right-2 bottom-0 z-[6] flex h-12 min-w-32 shrink-0 items-center gap-2 rounded-3xl border border-line bg-pill pr-3 pl-3 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
+        className="absolute right-2 bottom-2 z-[6] flex h-12 w-32 shrink-0 items-center gap-1.5 rounded-3xl border border-line bg-pill pr-2 pl-2 text-[13px] leading-4 font-medium whitespace-nowrap text-ink"
       >
         <span className="flex size-8 items-center justify-center rounded-2xl bg-sage text-pill">
           <Plus className="size-4" strokeWidth={1.5} aria-hidden="true" />

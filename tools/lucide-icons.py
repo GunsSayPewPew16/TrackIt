@@ -50,7 +50,9 @@ MARKERS = {
     "food-drinks": "utensils",
     "groceries": "shopping-basket",
     "restaurant": "hamburger",
-    "bar-cafe": "wine",
+    "coffee-cafe": "coffee",
+    "bar-alcohol": "wine",
+    "bar-cafe": "wine",  # legacy envelope, kept for rows imported under it
     # Shopping
     "shopping": "shopping-bag",
     "clothes-shoes": "shirt",

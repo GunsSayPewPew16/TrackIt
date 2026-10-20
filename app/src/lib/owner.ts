@@ -25,6 +25,16 @@
 
 export const OWNER_NAME = "Priyansh"
 
+/**
+ * The account whose greeting name opens the payment code (`features/upi/UpiQrOverlay.tsx`). Matched
+ * on the address rather than the name, because the name is editable and an address is not.
+ */
+export const OWNER_EMAIL = "priyanshdhoot0611@gmail.com"
+
+export function isOwnerEmail(email: string | null | undefined): boolean {
+  return email?.trim().toLowerCase() === OWNER_EMAIL
+}
+
 const NAME_KEY = "trackit-name"
 
 /** `undefined` until the first read: a stored name, or `null` for a browser that has never set one. */

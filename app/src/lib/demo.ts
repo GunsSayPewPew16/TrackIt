@@ -63,15 +63,15 @@ type Sample = {
  * per-day lists below index into it.
  */
 const SAMPLES: Sample[] = [
-  { title: "Blue Bottle", sub: "Coffee · Morning run", tag: "Coffee", rupees: 5.5, time: "8:05 AM", style: "std", icon: "coffee", pct: 62, faces: 2 },
-  { title: "City Transit", sub: "Transit · Commute", tag: "Transit", rupees: 2.75, time: "7:42 AM", style: "std", icon: "bus", pct: 35, faces: 1 },
-  { title: "Whole Foods", sub: "Groceries · Weekly shop", tag: "Groceries", rupees: 64.2, time: "6:18 PM", style: "std", icon: "cart", pct: 80, faces: 3 },
-  { title: "Nimbus Cloud", sub: "Subscription · Software", tag: "Subscription", rupees: 12.99, time: "9:00 AM", style: "std", icon: "laptop", pct: 45, faces: 1 },
-  { title: "Lakeside Rent", sub: "Housing · Monthly rent", tag: "High expense", rupees: 1850, time: "10:00 AM", style: "alt", icon: "home", pct: 96, faces: 2 },
-  { title: "Apple Store", sub: "Electronics · Laptop", tag: "High expense", rupees: 1299, time: "3:24 PM", style: "alt", icon: "laptop", pct: 88, faces: 1 },
-  { title: "Acme Payroll", sub: "Income · Salary", tag: "Income", rupees: 3210, time: "9:00 AM", style: "inc", icon: "wallet", pct: 100, faces: 1 },
-  { title: "Studio Kite", sub: "Income · Freelance invoice", tag: "Income", rupees: 640, time: "11:30 AM", style: "inc", icon: "wallet", pct: 64, faces: 2 },
-  { title: "Fresh Bowl", sub: "Dining · Lunch", tag: "Dining", rupees: 14.8, time: "1:10 PM", style: "std", icon: "coffee", pct: 52, faces: 2 },
+  { title: "Blue Bottle", sub: "Coffee · Morning run", tag: "Trivial Expense", rupees: 5.5, time: "8:05 AM", style: "std", icon: "coffee", pct: 62, faces: 2 },
+  { title: "City Transit", sub: "Transit · Commute", tag: "Trivial Expense", rupees: 2.75, time: "7:42 AM", style: "std", icon: "bus", pct: 35, faces: 1 },
+  { title: "Whole Foods", sub: "Groceries · Weekly shop", tag: "Trivial Expense", rupees: 64.2, time: "6:18 PM", style: "std", icon: "cart", pct: 80, faces: 3 },
+  { title: "Nimbus Cloud", sub: "Subscription · Software", tag: "Trivial Expense", rupees: 12.99, time: "9:00 AM", style: "std", icon: "laptop", pct: 45, faces: 1 },
+  { title: "Lakeside Rent", sub: "Housing · Monthly rent", tag: "High Expense", rupees: 1850, time: "10:00 AM", style: "alt", icon: "home", pct: 96, faces: 2 },
+  { title: "Apple Store", sub: "Electronics · Laptop", tag: "High Expense", rupees: 1299, time: "3:24 PM", style: "alt", icon: "laptop", pct: 88, faces: 1 },
+  { title: "Acme Payroll", sub: "Income · Salary", tag: "High Income", rupees: 3210, time: "9:00 AM", style: "inc", icon: "wallet", pct: 100, faces: 1 },
+  { title: "Studio Kite", sub: "Income · Freelance invoice", tag: "Medium Income", rupees: 640, time: "11:30 AM", style: "inc", icon: "wallet", pct: 64, faces: 2 },
+  { title: "Fresh Bowl", sub: "Dining · Lunch", tag: "Trivial Expense", rupees: 14.8, time: "1:10 PM", style: "std", icon: "coffee", pct: 52, faces: 2 },
   { title: "Metro Fuel", sub: "Transport · Fuel", tag: "Transit", rupees: 48.3, time: "5:45 PM", style: "std", icon: "bus", pct: 58, faces: 1 },
   { title: "Cinema Rex", sub: "Entertainment · Movies", tag: "Leisure", rupees: 22, time: "8:15 PM", style: "std", icon: "laptop", pct: 30, faces: 3 },
 ]
@@ -175,7 +175,7 @@ export const DEMO_DASHBOARD: DashboardModel = {
     actions: [
       { label: "Log Transit Fare", primary: true, category: "public-transport" },
       { label: "Log Breakfast", primary: false, category: "restaurant" },
-      { label: "Log Coffee", primary: false, category: "bar-cafe" },
+      { label: "Log Coffee", primary: false, category: "coffee-cafe" },
     ],
   },
   velocity: {

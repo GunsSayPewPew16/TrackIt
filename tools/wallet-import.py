@@ -157,6 +157,10 @@ CATEGORIES = [
     ("Food & Drinks", "food-drinks", False, "food-drinks"),
     ("Groceries", "groceries", False, "food-drinks"),
     ("Restaurant, fast-food", "restaurant", False, "food-drinks"),
+    ("Coffee & Cafes", "coffee-cafe", False, "food-drinks"),
+    ("Bar & Alcohol", "bar-alcohol", False, "food-drinks"),
+    # Wallet's one `Bar, cafe` envelope, kept for rows already imported under it: the
+    # owner's history cannot say which of the two it was, so it is not re-filed.
     ("Bar, cafe", "bar-cafe", False, "food-drinks"),
     # Shopping (#4FC3F7) — the group's own row, then its browser's rows in order.
     ("Shopping", "shopping", False, "shopping"),

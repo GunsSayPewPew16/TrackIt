@@ -69,7 +69,7 @@ import type { Kind } from "@/lib/types"
  * wording (`Coffee & Cafes`, `Spotify`), but its id is an id from `lib/categories.ts`:
  * a row saved here has to be a row the ledger can total and the icons can draw, and
  * inventing a `coffee` category would be a second tree. Where Wallet has one envelope
- * for two intents — `bar-cafe` is both the coffee shop and the bar, `tv-streaming` is
+ * for two intents — `tv-streaming` is
  * everything you subscribe to, `financial-investments` is both stocks and funds — the
  * two pills share the id and are told apart by `key`. A shared id is honest; a
  * category that does not exist is not.
@@ -110,8 +110,8 @@ const EXPENSES: MatrixCategory[] = [
     children: [
       { key: "groceries", id: "groceries", label: "Groceries", icon: ShoppingCart },
       { key: "restaurants", id: "restaurant", label: "Restaurants", icon: Utensils },
-      { key: "coffee", id: "bar-cafe", label: "Coffee & Cafes", icon: Coffee },
-      { key: "bar", id: "bar-cafe", label: "Bar & Alcohol", icon: Wine },
+      { key: "coffee", id: "coffee-cafe", label: "Coffee & Cafes", icon: Coffee },
+      { key: "bar", id: "bar-alcohol", label: "Bar & Alcohol", icon: Wine },
     ],
   },
   {
@@ -196,7 +196,7 @@ const EXPENSES: MatrixCategory[] = [
  * opened and closed with **Done**, so each tile is a sensible answer on its own: Salary
  * files `wage-invoices`, Gifts files `income-gifts`. Where two pills share an envelope —
  * Salary and Bonus are both `wage-invoices` — `key` tells them apart, exactly as the
- * expense pills do for the cafe and the bar.
+ * expense pills do for Spotify and Movies & Streaming.
  */
 const INCOMES: MatrixCategory[] = [
   {
@@ -299,8 +299,8 @@ export function CategoryMatrix({ kind, value, expanded, room, onExpand, onCollap
   const [open, setOpen] = useState<string | null>(null)
   /**
    * The pill that was actually pressed, when two of them file under the same Wallet
-   * envelope. `value` alone is not enough to light the right one — `bar-cafe` is both
-   * the coffee shop and the bar — so the key remembers which label the owner picked.
+   * envelope. `value` alone is not enough to light the right one — `tv-streaming` is both
+   * Spotify and films — so the key remembers which label the owner picked.
    */
   const [picked, setPicked] = useState<string | null>(null)
 
@@ -396,8 +396,8 @@ export function CategoryMatrix({ kind, value, expanded, room, onExpand, onCollap
           /* `Parent • Sub` — the parent in the structural sans, the sub in the editorial
              serif's italic at 60%, which is the app's split-font language everywhere else.
              The mark is the pill's own icon when a sub was picked, not the Wallet
-             category's: `Coffee & Cafes` and `Bar & Alcohol` share one envelope, so the
-             category marker would have drawn a wine glass beside the word coffee. */
+             category's: `Movies & Streaming` and `Spotify` share one envelope, so the
+             category marker would have drawn the same glyph beside both. */
           <span className="flex min-w-0 items-center gap-2 text-[13px] leading-4">
             {chosen ? (
               <chosen.icon strokeWidth={1.5} className="size-5 shrink-0" aria-hidden="true" />

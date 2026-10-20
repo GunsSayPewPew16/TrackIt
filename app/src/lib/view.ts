@@ -26,7 +26,7 @@ export type LedgerCard = {
    * saying "this part is context, not data". Absent when the row has no note.
    */
   subNote?: string
-  /** The pill above the card's notch: the category, `Income`, or `High expense`. */
+  /** The label in the card's notch: its degree and kind, e.g. `High Expense`, `Trivial Income`. */
   tag: string
   /** Already signed and in rupees: `−₹5.50`, `+₹3,210.00`. */
   amount: string

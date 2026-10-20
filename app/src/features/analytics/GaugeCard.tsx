@@ -127,10 +127,13 @@ export function GaugeCard({
         this/last switch: the year's history is usually more than two months, and a month
         is chosen by tapping it or swiping the strip. A month with no expense logged is not
         a stop — only the current month is always there, so the dial has somewhere to open.
+        The strip takes the screen's sideways gesture for itself (`data-swipe-ignore`), even
+        when there is only one month to page.
       */}
       <div
         role="group"
         aria-label="Months with spending"
+        data-swipe-ignore
         className="hide-scrollbar -mx-1 flex h-12 snap-x items-center gap-1 overflow-x-auto px-1"
       >
         {model.months.map((entry) => {

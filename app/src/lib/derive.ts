@@ -11,10 +11,12 @@
  * - **Money in is never spending.** Every "spent" figure counts `kind: "expense"`
  *   only; the balance is both openings plus income minus expenses; the cash-flow
  *   card prints both halves because it holds both.
- * - **`High expense` is a share, not a threshold.** The artboard fills its two
- *   biggest rows with the clay accent, so a row is `alt` when it is at least a
- *   tenth of that month's spending — which is what makes the treatment mean the
- *   same thing in a month of ₹5,000 and a month of ₹50,000.
+ * - **A row's degree is a share of its account, not a threshold.** Its notch reads
+ *   `High`, `Medium` or `Trivial` plus `Expense` or `Income`, decided by the row's amount
+ *   against the balance its account held just before it (`balancesBefore`): at least 20%
+ *   is High, at least 5% is Medium, anything less is Trivial. An account with nothing in
+ *   it has no share to measure, so a row out of it is High. A High expense is the clay
+ *   card, and the share means the same thing on a ₹5,000 account as on a ₹50,000 one.
  * - **The little bar on a card measures a budget where one exists** (the envelope
  *   the export carried for that category) **and the category's share of the month
  *   otherwise**, and it says which, because "62%" with no noun is not a fact.
@@ -88,20 +90,55 @@ function byDay(rows: Row[]): Map<string, Row[]> {
   return days
 }
 
+/** How big a row is against the balance its account held when it landed. */
+export type Degree = "High" | "Medium" | "Trivial"
+
+/** At or above this share of the balance, a row is High. */
+const HIGH_SHARE = 20
+/** At or above this share (and under High), a row is Medium; under it, Trivial. */
+const MEDIUM_SHARE = 5
+
 /**
- * A row's treatment, from the row and its month: income is `inc`, the month's big
- * ones are `alt`, everything else is `std` — see this file's header for the share.
+ * A row's degree. An account with nothing in it, or in the red, has no share to measure, so any
+ * row out of it is High.
  */
-function styleOf(row: Row, monthSpend: number): "std" | "alt" | "inc" {
-  if (row.kind === "income") return "inc"
-  return monthSpend > 0 && row.amountCents >= monthSpend / 10 ? "alt" : "std"
+function degreeOf(row: Row, balanceBefore: number): Degree {
+  if (balanceBefore <= 0) return "High"
+  const share = (row.amountCents / balanceBefore) * 100
+  if (share >= HIGH_SHARE) return "High"
+  if (share >= MEDIUM_SHARE) return "Medium"
+  return "Trivial"
 }
 
-/** What a card's pill calls the row: money in, a big one, or the category. */
-function tagOf(row: Row, style: "std" | "alt" | "inc"): string {
-  if (style === "inc") return "Income"
-  if (style === "alt") return "High expense"
-  return filedName(row.category)
+/**
+ * What each row's account held just before that row: its opening, plus every income and expense
+ * that landed before it. Rows are walked oldest first, so each one sees only what came before.
+ */
+function balancesBefore(rows: Row[], openings: Record<string, number>): Map<string, number> {
+  const running = new Map<string, number>()
+  const before = new Map<string, number>()
+  for (const row of [...rows].sort((a, b) => a.at - b.at)) {
+    const account = accountFor(row.account).id
+    const current =
+      running.get(account) ?? openings[account] ?? ACCOUNTS.find((candidate) => candidate.id === account)?.openingCents ?? 0
+    before.set(row.id, current)
+    running.set(account, current + (row.kind === "income" ? row.amountCents : -row.amountCents))
+  }
+  return before
+}
+
+/**
+ * A row's treatment, from its degree: income is `inc`, a High expense is `alt`, everything else
+ * is `std` — the colour follows the label the notch carries.
+ */
+function styleOf(row: Row, degree: Degree): "std" | "alt" | "inc" {
+  if (row.kind === "income") return "inc"
+  return degree === "High" ? "alt" : "std"
+}
+
+/** What a card's notch calls the row: its degree and whether it is money in or out. */
+function tagOf(row: Row, degree: Degree): string {
+  return `${degree} ${row.kind === "income" ? "Income" : "Expense"}`
 }
 
 /**
@@ -116,10 +153,17 @@ export function initialsOf(name: string): string {
 }
 
 /** One row as the ledger draws it. */
-function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, number>, budgets: Budget[]): LedgerCard {
+function cardOf(
+  row: Row,
+  monthSpend: number,
+  monthCategorySpend: Map<string, number>,
+  budgets: Budget[],
+  balanceBefore: number,
+): LedgerCard {
   const category = categoryFor(row.category)
   const name = filedName(row.category)
-  const style = styleOf(row, monthSpend)
+  const degree = degreeOf(row, balanceBefore)
+  const style = styleOf(row, degree)
 
   // The same envelope the gauge measures, where one covers this category.
   const budget = budgets.find((candidate) => candidate.categoryIds.includes(row.category))
@@ -136,7 +180,7 @@ function cardOf(row: Row, monthSpend: number, monthCategorySpend: Map<string, nu
     // The artboard's subtitle is the category, then the note: `Coffee · Morning run`.
     sub: name,
     ...(row.note ? { subNote: row.note } : {}),
-    tag: row.tag ?? tagOf(row, style),
+    tag: row.tag ?? tagOf(row, degree),
     amount: signedMoney(row.amountCents, row.kind),
     time: clock(row.at),
     account: accountFor(row.account).name,
@@ -187,7 +231,13 @@ function monthsWithRows(rows: Row[]): { key: string; label: string; anchor: numb
  * the owner came to see. That day is also the capsule the wheel opens on, so `selected`
  * is an index into the month rather than a fixed seat at its end.
  */
-export function ledgerModel(rows: Row[], budgets: Budget[] = [], anchor?: number): LedgerModel {
+export function ledgerModel(
+  rows: Row[],
+  budgets: Budget[] = [],
+  anchor?: number,
+  /** The opening balance of each account, in paise (`lib/balances.ts`), as the dashboard reads them. */
+  openings: Record<string, number> = {},
+): LedgerModel {
   const newest = newestFirst(rows)[0]
   const anchorDay = startOfDay(anchor ?? newest?.at ?? Date.now())
 
@@ -207,11 +257,15 @@ export function ledgerModel(rows: Row[], budgets: Budget[] = [], anchor?: number
     monthCategorySpend.set(row.category, (monthCategorySpend.get(row.category) ?? 0) + row.amountCents)
   }
 
+  const before = balancesBefore(rows, openings)
   const days = new Map(byDay(rows))
   const window: LedgerDay[] = []
   for (let at = monthStart; at <= lastDay; at = addDays(at, 1)) {
     const held = days.get(localDayKey(at)) ?? []
-    window.push({ at, cards: held.map((row) => cardOf(row, monthSpend, monthCategorySpend, budgets)) })
+    window.push({
+      at,
+      cards: held.map((row) => cardOf(row, monthSpend, monthCategorySpend, budgets, before.get(row.id) ?? 0)),
+    })
   }
 
   return {

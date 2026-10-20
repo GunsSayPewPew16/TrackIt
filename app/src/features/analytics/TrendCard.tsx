@@ -152,6 +152,8 @@ export function TrendCard({
         <div
           ref={plot}
           role="slider"
+          // Scrubbing the plot is itself a sideways drag; the screen swipe leaves it alone.
+          data-swipe-ignore
           tabIndex={0}
           aria-label={`Total balance, ${month}`}
           aria-valuemin={1}

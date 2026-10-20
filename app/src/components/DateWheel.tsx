@@ -246,6 +246,9 @@ export function DateWheel({ days, initialIndex, onActiveChange, className = "" }
     <div
       role="group"
       aria-label="Select a date"
+      // The wheel owns a sideways drag of its own; the screen swipe must not page the ledger
+      // out from under a thumb that is choosing a day.
+      data-swipe-ignore
       onKeyDown={onKeyDown}
       className={`relative h-[120px] touch-pan-y overflow-hidden ${className}`}
     >

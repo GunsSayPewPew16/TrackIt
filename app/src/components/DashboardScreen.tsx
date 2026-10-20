@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { BalanceCards } from "@/components/BalanceCards"
 import { RowIcon } from "@/components/RowIcon"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { UpiQrOverlay } from "@/features/upi/UpiQrOverlay"
 import { useLongPress } from "@/hooks/useLongPress"
 import type { GreetingLine } from "@/lib/greetings"
 import { heavyThud, lightTap, mediumClick } from "@/lib/haptics"
@@ -66,6 +67,7 @@ export function DashboardScreen({
   onMoveBudget,
   onDeleteBudget,
   onEditBalance,
+  canShowPayCode = false,
 }: {
   model: DashboardModel
   /**
@@ -114,12 +116,15 @@ export function DashboardScreen({
    * all three are told apart by the same 10px of travel (`hooks/useLongPress.ts`).
    */
   onEditBalance: (accountId: string) => void
+  /** Whether the signed-in account is the owner whose payment code the name opens. */
+  canShowPayCode?: boolean
 }) {
   /**
    * The envelope whose hold is showing its two options. It is an id rather than the card, so
    * a store write behind the menu cannot make it stale; the card is looked up for its name.
    */
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [payOpen, setPayOpen] = useState(false)
   const menuEnvelope = model.envelopes.find((envelope) => envelope.id === menuFor) ?? null
   /** The carousel's scroll box and the card the store says is open. */
   const scroller = useRef<HTMLDivElement>(null)
@@ -225,7 +230,22 @@ export function DashboardScreen({
             better home for a door than a name that does not look like one, and the masthead is
             back to being one line and a theme toggle.
           */}
-          <span>{greeting.name}</span>
+          {canShowPayCode ? (
+            <button
+              type="button"
+              onClick={() => {
+                lightTap()
+                setPayOpen(true)
+              }}
+              aria-haspopup="dialog"
+              title="Show the payment code"
+              className="cursor-pointer bg-transparent p-0 font-[inherit] text-[inherit] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink rounded-md"
+            >
+              {greeting.name}
+            </button>
+          ) : (
+            <span>{greeting.name}</span>
+          )}
           <span className="sr-only"> (in {greeting.language})</span>
         </h1>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -233,6 +253,10 @@ export function DashboardScreen({
 
       {/* The accounts, as the newer artboard's stack of cards. */}
       <BalanceCards cards={model.cards} onAddRecord={onAddRecord} onEditBalance={onEditBalance} />
+
+      {canShowPayCode && (
+        <UpiQrOverlay isOpen={payOpen} name={greeting.name} onClose={() => setPayOpen(false)} />
+      )}
 
       {/* The scan square and the tray of things the owner probably just did. */}
       <div className="grid h-[104px] grid-cols-[104px_1fr] gap-2">
@@ -261,7 +285,7 @@ export function DashboardScreen({
               Your habits show up here after a few records.
             </p>
           ) : (
-            <div className="hide-scrollbar flex gap-2 overflow-x-auto">
+            <div data-swipe-ignore className="hide-scrollbar flex gap-2 overflow-x-auto">
               {model.quickLog.actions.map((action) => (
                 <button
                   key={action.label}
@@ -368,6 +392,9 @@ export function DashboardScreen({
           ref={scroller}
           onScroll={syncActive}
           aria-label="Budget envelopes"
+          // A sideways drag here pages the cards, never the screens — including when there
+          // is only one card and there is nothing to scroll.
+          data-swipe-ignore
           className="hide-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain"
         >
           {model.envelopes.map((envelope, index) => (
