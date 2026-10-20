@@ -34,17 +34,18 @@ export const CARD_ICON_NAMES = [
 export type CardIconName = (typeof CARD_ICON_NAMES)[number]
 
 /**
- * The colours the owner can pick for a card: the five accent tokens of the current palette that
- * are neither a text colour nor orange or yellow. Each is a token, so a palette change repaints
- * the card and the text chosen to sit on it (`TONES` in `components/BalanceCards.tsx`).
+ * The colours the owner can pick for a card: the five slots of the current palette. A slot is a
+ * position, not a colour: `tone-3` is whichever third colour the palette declares (`tones` in
+ * `lib/theme.ts`), so the picker shows one palette's five and a palette change repaints them.
  */
-export const CARD_TONES = ["sage", "chart", "teal", "red", "indigo"] as const
+export const CARD_TONES = ["tone-1", "tone-2", "tone-3", "tone-4", "tone-5"] as const
 
 /**
- * Colours cards were given before the picker was narrowed. They are still drawn, so a card the
- * owner already made keeps its colour, but they are never offered for a new one.
+ * Colours cards were given before the palette slots. They are still drawn, so a card the owner
+ * already made keeps its colour, but they are never offered for a new one. The named tokens were
+ * the shared ones, which is why they were replaced.
  */
-export const LEGACY_CARD_TONES = ["clay", "gold"] as const
+export const LEGACY_CARD_TONES = ["clay", "gold", "sage", "chart", "teal", "red", "indigo"] as const
 
 export type CardTone = (typeof CARD_TONES)[number] | (typeof LEGACY_CARD_TONES)[number]
 

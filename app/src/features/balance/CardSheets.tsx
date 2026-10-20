@@ -108,9 +108,15 @@ function Header({ title, note, onClose }: { title: string; note: string; onClose
   )
 }
 
-/** One of the panel's secondary buttons: outlined, with the same type as the confirm. */
-const quiet =
-  "flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-35"
+/**
+ * The panel's secondary buttons: the same type as the confirm, with no colour of their own. The
+ * colour is added per button, because a shared `bg-transparent` or `text-ink` in the base would
+ * win over a later colour in the stylesheet and make the delete's armed state invisible.
+ */
+const buttonBase =
+  "flex h-12 items-center justify-center gap-2 rounded-2xl border font-sans text-[14px] leading-5 font-medium tracking-[0.02em] outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-35"
+/** An outlined secondary button. */
+const quiet = `${buttonBase} border-line bg-transparent text-ink`
 
 /** A card in the stack, as the choice sees it: its id for the store, its name for the eye. */
 export type StackCard = { id: string; name: string }
@@ -231,7 +237,7 @@ export function CardChoiceSheet({
               heavyThud()
               onDelete()
             }}
-            className={`${quiet} ${armed ? "border-transparent bg-clay text-on-clay" : "text-clay"}`}
+            className={`${buttonBase} ${armed ? "border-transparent bg-clay text-on-clay" : "border-line bg-transparent text-clay"}`}
           >
             <Trash2 strokeWidth={1.5} className="size-4" aria-hidden="true" />
             {armed ? "Tap to delete" : "Delete card"}
@@ -247,7 +253,8 @@ export function CardChoiceSheet({
 /** What the add-card sheet hands back: the name as typed, and the two choices. */
 export type NewCard = { label: string; icon: CardIconName; tone: CardTone }
 
-const toneName = (tone: CardTone): string => tone.charAt(0).toUpperCase() + tone.slice(1)
+/** A swatch's name for screen readers: its slot in the palette, in words the owner can follow. */
+const toneName = (tone: CardTone): string => `Colour ${tone.replace("tone-", "")}`
 
 /**
  * A new card: its name, one of the eight icons, and one of the five palette colours.

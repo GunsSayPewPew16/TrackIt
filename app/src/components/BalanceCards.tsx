@@ -83,6 +83,11 @@ export const CARD_ICONS: Record<CardIconName, LucideIcon> = {
  * was narrowed; they are drawn as they were given, and never offered again.
  */
 export const TONES: Record<CardTone, { fill: string; ink: string }> = {
+  "tone-1": { fill: "var(--tone-1)", ink: "var(--tone-1-ink)" },
+  "tone-2": { fill: "var(--tone-2)", ink: "var(--tone-2-ink)" },
+  "tone-3": { fill: "var(--tone-3)", ink: "var(--tone-3-ink)" },
+  "tone-4": { fill: "var(--tone-4)", ink: "var(--tone-4-ink)" },
+  "tone-5": { fill: "var(--tone-5)", ink: "var(--tone-5-ink)" },
   sage: { fill: "var(--sage)", ink: "var(--on-sage)" },
   chart: { fill: "var(--chart)", ink: "var(--on-sage)" },
   teal: { fill: "var(--data-teal)", ink: "var(--on-sage)" },
@@ -139,9 +144,22 @@ function glyphOf(card: BalanceCard): LucideIcon {
   return CARD_ICONS[card.icon] ?? Wallet
 }
 
+/** The Add Record pill's own corner radius: Tailwind's `rounded-3xl`. */
+const PILL_RADIUS = 24
+/** The gap the pill keeps from the card's edge and the notch's edge: Tailwind's `right-2` / `bottom-2`. */
+const PILL_INSET = 8
+/**
+ * The notch's top-right corner, by the nested-radius rule: outer = padding + inner. It is the
+ * corner the pill's own corner sits inside, so it is one pill-inset wider than the pill's curve.
+ */
+const NOTCH_CORNER = PILL_INSET + PILL_RADIUS
+const NOTCH_TOP = 120
+const CARD_RIGHT = 358
+
 /** The artboard's card outline: a 358×184 card with the notch for the pill. */
 const CARD_PATH =
-  "M20 0H338Q358 0 358 20V100Q358 120 338 120H234Q214 120 214 140V164Q214 184 194 184H20Q0 184 0 164V20Q0 0 20 0Z"
+  `M20 0H338Q358 0 358 20V${NOTCH_TOP - NOTCH_CORNER}Q${CARD_RIGHT} ${NOTCH_TOP} ${CARD_RIGHT - NOTCH_CORNER} ${NOTCH_TOP}` +
+  "H234Q214 120 214 140V164Q214 184 194 184H20Q0 184 0 164V20Q0 0 20 0Z"
 
 /** The whole band's peek, in pixels above the front card. It is fixed; the cards share it. */
 const PEEK = 40

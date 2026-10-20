@@ -16,7 +16,8 @@ import { paletteOnDocument } from "@/lib/theme"
  * **The colour is the theme's, chosen for the mode.** In a dark palette the modules are the
  * *lightest* token of the palette; in a light palette they are the *darkest*. The candidates are
  * read from the live stylesheet on every open, so a palette change is picked up without a reload.
- * There is no picker and no paper behind the code: the code is the only thing in the panel.
+ * The code sits on the card surface of the same palette, never on white, so the whole panel stays
+ * in the theme. There is no picker: the code's colour is the palette's own.
  *
  * Light modules on a dark field are an inverted code. Some readers refuse those, so this is a
  * deliberate choice the owner made, not a default this file would pick.
@@ -175,15 +176,17 @@ export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
               </button>
             </div>
 
-            <svg
-              role="img"
-              aria-label={label}
-              viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
-              className="mt-4 aspect-square w-full"
-              shapeRendering="geometricPrecision"
-            >
-              <path d={CODE_PATH} fill={moduleColor} />
-            </svg>
+            <div className="mt-4 rounded-[28px] border border-line bg-card p-5">
+              <svg
+                role="img"
+                aria-label={label}
+                viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
+                className="block aspect-square w-full"
+                shapeRendering="geometricPrecision"
+              >
+                <path d={CODE_PATH} fill={moduleColor} />
+              </svg>
+            </div>
           </motion.div>
         </>
       )}

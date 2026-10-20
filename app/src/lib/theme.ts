@@ -46,6 +46,12 @@ export type Palette = {
    * from the stylesheet in time, so it is stated twice on purpose.
    */
   canvas: string
+  /**
+   * The five colours a balance card of the owner's can be, drawn from this palette and no other.
+   * `applyPalette` writes them to `--tone-1` … `--tone-5` (with a readable ink for each), so the
+   * picker and the cards repaint with the theme and never mix in another palette's colours.
+   */
+  tones: readonly [string, string, string, string, string]
 }
 
 /**
@@ -58,19 +64,33 @@ export type Palette = {
  * the pair is offered once, and the header's sun/moon moves between its two sides.
  */
 export const PALETTES: Palette[] = [
-  { id: "sage-dark", label: "Archival Earth", theme: "dark", canvas: "#2c3639" },
-  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#161b2f" },
-  { id: "basel-dark", label: "Alpine Willows", theme: "dark", canvas: "#022e24" },
-  { id: "british-dark", label: "Tuscany Terracotta", theme: "dark", canvas: "#4c362d" },
-  { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#0a1931" },
-  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#190019" },
-  { id: "sage-light", label: "Archival Earth", theme: "light", canvas: "#faf7f0" },
-  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f5f1eb" },
-  { id: "basel-light", label: "Alpine Willows", theme: "light", canvas: "#e9efea" },
-  { id: "british-light", label: "Tuscany Terracotta", theme: "light", canvas: "#e8e1d5" },
-  { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#e6eef4" },
-  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f3eff5" },
+  { id: "sage-dark", label: "Archival Earth", theme: "dark", canvas: "#2c3639", tones: ["#84968c", "#a3b19b", "#5f7a6e", "#6b8a9a", "#c95a49"] },
+  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#161b2f", tones: ["#7a2e45", "#4f6ea8", "#9aa6c8", "#6f8f8a", "#c95a49"] },
+  { id: "basel-dark", label: "Alpine Willows", theme: "dark", canvas: "#022e24", tones: ["#4f8f75", "#9fc3b2", "#3f7a68", "#2c5f78", "#6fae95"] },
+  { id: "british-dark", label: "Tuscany Terracotta", theme: "dark", canvas: "#4c362d", tones: ["#88937b", "#a3b19b", "#6f7a6a", "#4f6670", "#9aa6a0"] },
+  { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#0a1931", tones: ["#b3cfe5", "#7fa6c6", "#4a7fa7", "#a3b19b", "#6c8ebf"] },
+  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#190019", tones: ["#854f6c", "#b08aa8", "#5e3a7a", "#6f8f8a", "#dfb6b2"] },
+  { id: "sage-light", label: "Archival Earth", theme: "light", canvas: "#faf7f0", tones: ["#5a6b62", "#3b594c", "#7d9488", "#4f6d80", "#c95a49"] },
+  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f5f1eb", tones: ["#2e4a7a", "#3b594c", "#7a2e45", "#5b6f8f", "#c95a49"] },
+  { id: "basel-light", label: "Alpine Willows", theme: "light", canvas: "#e9efea", tones: ["#366e57", "#1f4d3a", "#5f9a85", "#3b6a84", "#8fb8a6"] },
+  { id: "british-light", label: "Tuscany Terracotta", theme: "light", canvas: "#e8e1d5", tones: ["#5b6651", "#3b594c", "#7d8a72", "#4a6070", "#8c9a8a"] },
+  { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#e6eef4", tones: ["#4a7fa7", "#2b527e", "#7fa6c6", "#3b594c", "#8fb0cc"] },
+  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f3eff5", tones: ["#854f6c", "#5e3a7a", "#b08aa8", "#3b594c", "#7d6a8e"] },
 ]
+
+/**
+ * A readable ink for a tone: dark on a light fill, white on a dark one. The threshold is the
+ * WCAG midpoint of relative luminance, which is where the two inks give about equal contrast.
+ */
+export function toneInk(hex: string): string {
+  const value = parseInt(hex.slice(1), 16)
+  const linear = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
+    const c = channel / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+  return luminance > 0.18 ? "#16201c" : "#ffffff"
+}
 
 /**
  * The themes the selector offers, under the owner's own names — and **each name is a pair of
@@ -230,6 +250,11 @@ export function storedPalette(): Palette {
  */
 export function applyPalette(palette: Palette): void {
   document.documentElement.dataset.palette = palette.id
+  // The owner's card colours belong to the palette, so they are written here with it.
+  palette.tones.forEach((tone, index) => {
+    document.documentElement.style.setProperty(`--tone-${index + 1}`, tone)
+    document.documentElement.style.setProperty(`--tone-${index + 1}-ink`, toneInk(tone))
+  })
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", palette.canvas)
   try {
     window.localStorage.setItem(PALETTE_STORAGE_KEY, palette.id)
