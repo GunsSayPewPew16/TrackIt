@@ -77,14 +77,19 @@ export const CARD_ICONS: Record<CardIconName, LucideIcon> = {
 
 /**
  * The colours a card of the owner's own can be, each a token of the current palette. `ink` is
- * what sits on the fill; it is the palette's own pairing where there is one (`--on-sage`,
- * `--on-clay`), and the canvas for the two data colours, which are light enough to read dark on.
+ * what sits on the fill, chosen so it reads on that fill in both themes: the palette's own
+ * pairing where there is one, and white on the two deep data colours, which stays legible in a
+ * light palette as well as a dark one. Clay and gold are the colours cards made before the picker
+ * was narrowed; they are drawn as they were given, and never offered again.
  */
 export const TONES: Record<CardTone, { fill: string; ink: string }> = {
   sage: { fill: "var(--sage)", ink: "var(--on-sage)" },
+  chart: { fill: "var(--chart)", ink: "var(--on-sage)" },
+  teal: { fill: "var(--data-teal)", ink: "var(--on-sage)" },
+  red: { fill: "var(--data-red)", ink: "#ffffff" },
+  indigo: { fill: "var(--data-indigo)", ink: "#ffffff" },
   clay: { fill: "var(--clay)", ink: "var(--on-clay)" },
   gold: { fill: "var(--data-gold)", ink: "var(--canvas)" },
-  red: { fill: "var(--data-red)", ink: "var(--canvas)" },
 }
 
 /**
@@ -167,16 +172,22 @@ export function BalanceCards({
   cards,
   onAddRecord,
   onHoldCard,
+  onReorder,
 }: {
   cards: BalanceCard[]
   onAddRecord?: () => void
   /** A hold on the front card, by its id. The app opens the choice for it. */
   onHoldCard?: (cardId: string) => void
+  /** The stack's order, front to back, written whenever the front card changes. */
+  onReorder: (ids: string[]) => void
 }) {
   const count = cards.length
-  const [index, setIndex] = useState(0)
-  /** The card drawn in front. Guarded, because the list can shrink under the stack. */
-  const front = count === 0 ? 0 : index % count
+  /**
+   * The front card is always the first in the list. The order is the owner's to keep, so a cycle
+   * writes the new order (`onReorder`) rather than turning a local index, and the stack is the same
+   * whether it was rotated here or sent to the front from the choice.
+   */
+  const front = 0
 
   const tick = useTick()
   const reduceMotion = useReducedMotion()
@@ -246,13 +257,16 @@ export function BalanceCards({
     settle(front)
   }, [settle, front])
 
-  /** The next card. Its seat change is what animates the whole stack. */
+  /**
+   * The next card comes to the front and the one at the front goes to the back. The seats move
+   * first, so the frame is the same whether the new order is read back from the store or not.
+   */
   const cycle = useCallback(() => {
     if (count < 2) return
-    const next = (front + 1) % count
-    settle(next)
-    setIndex(next)
-  }, [count, front, settle])
+    const ids = cards.map((card) => card.id)
+    settle(1)
+    onReorder([...ids.slice(1), ids[0]])
+  }, [cards, count, onReorder, settle])
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>, seat: MotionValue<number>) => {
     grabbedAt.current = event.clientY

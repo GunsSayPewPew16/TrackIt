@@ -36,6 +36,7 @@ import { dashboardModel, hasHistory, ledgerModel } from "@/lib/derive"
 import { BUDGET_COPY, budgetSpent, envelopeCopy } from "@/lib/budget"
 import { startOfMonth, startOfNextMonth } from "@/lib/format"
 import { ACCOUNTS } from "@/lib/accounts"
+import { applyCardOrder } from "@/lib/customCards"
 import { appendToLedger } from "@/lib/ledger"
 import { TAB_VIEWS, type NavTab } from "@/lib/tabs"
 import type { Row } from "@/lib/types"
@@ -183,7 +184,7 @@ function TrackIt() {
     saveTotalTracked,
     saveTotalName,
   } = useBudgets()
-  const { openings, setBalance, customCards, addCard } = useBalances(rows)
+  const { openings, setBalance, customCards, cardOrder, addCard, removeCard, reorderCards } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   const [arrived, setArrived] = useState<Arrived>({})
@@ -559,11 +560,13 @@ function TrackIt() {
   const imported = hasHistory(rows)
   const demo = mode === "device" && !imported
   const dashboard = useMemo(
-    () =>
-      demo
+    () => {
+      const model = demo
         ? demoDashboard(envelopes, openings, customCards)
-        : dashboardModel(rows, now, envelopes, openings, customCards),
-    [demo, rows, now, envelopes, openings, customCards],
+        : dashboardModel(rows, now, envelopes, openings, customCards)
+      return { ...model, cards: applyCardOrder(model.cards, cardOrder) }
+    },
+    [demo, rows, now, envelopes, openings, customCards, cardOrder],
   )
   const ledger = useMemo(
     () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor, openings)),
@@ -621,6 +624,7 @@ function TrackIt() {
               onMoveBudget={moveBudget}
               onDeleteBudget={deleteEnvelope}
               onHoldCard={(cardId) => void holdCard(cardId)}
+              onReorderCards={reorderCards}
               canShowPayCode={isOwnerEmail(email)}
             />
           ) : view === "ledger" && Ledger ? (
@@ -746,6 +750,9 @@ function TrackIt() {
           <cardSheets.CardChoiceSheet
             isOpen={choiceFor !== null}
             name={dashboard.cards.find((card) => card.id === choiceFor)?.name ?? "Card"}
+            heldId={choiceFor ?? ""}
+            cards={dashboard.cards.map((card) => ({ id: card.id, name: card.name }))}
+            canDelete={customCards.some((card) => card.id === choiceFor)}
             onEdit={() => {
               const id = choiceFor
               setChoiceFor(null)
@@ -754,6 +761,21 @@ function TrackIt() {
             onAdd={() => {
               setChoiceFor(null)
               setAddingCard(true)
+            }}
+            onFront={(id) => {
+              const ids = dashboard.cards.map((card) => card.id)
+              setChoiceFor(null)
+              reorderCards([id, ...ids.filter((existing) => existing !== id)])
+            }}
+            onBack={(id) => {
+              const ids = dashboard.cards.map((card) => card.id)
+              setChoiceFor(null)
+              reorderCards([...ids.filter((existing) => existing !== id), id])
+            }}
+            onDelete={() => {
+              const id = choiceFor
+              setChoiceFor(null)
+              if (id) removeCard(id)
             }}
             onClose={() => setChoiceFor(null)}
           />

@@ -1,53 +1,49 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 
 import { UPI_QR_MATRIX } from "@/features/upi/upiQrMatrix"
 import { lightTap } from "@/lib/haptics"
+import { paletteOnDocument } from "@/lib/theme"
 
 /**
- * The owner's payment code, in a square of its own.
+ * The owner's payment code, on its own over the page.
  *
  * The code is drawn from `upiQrMatrix.ts` rather than from the screenshot it was read off:
  * each dark module becomes a rounded square, so the code matches the app's rounded surfaces,
  * and nothing moves — a module keeps its cell, so the payload a UPI reader decodes is unchanged.
  *
- * **Why the paper is light.** A QR is read by contrast, and most readers are built for dark
- * modules on a light field. A palette colour on a dark card would be an inverted code, which
- * some readers refuse, so the square is a light paper and the modules are the palette's colour.
- * The swatches are the theme's own tokens, and any token that is too pale to read against that
- * paper is shown disabled rather than offered — a colour that does not scan is not a choice.
+ * **The colour is the theme's, chosen for the mode.** In a dark palette the modules are the
+ * *lightest* token of the palette; in a light palette they are the *darkest*. The candidates are
+ * read from the live stylesheet on every open, so a palette change is picked up without a reload.
+ * There is no picker and no paper behind the code: the code is the only thing in the panel.
+ *
+ * Light modules on a dark field are an inverted code. Some readers refuse those, so this is a
+ * deliberate choice the owner made, not a default this file would pick.
  */
 
 const QUIET_ZONE = 4
 /** Corner radius of each module, in module widths. Small enough that a module keeps its shape. */
 const MODULE_RADIUS = 0.32
-/** Below this, a reader on a phone camera misses the code. WCAG's 3:1 for graphics. */
-const MIN_CONTRAST = 3
-
-const PAPER = "#fbfaf6"
-/** Drawn only if no palette colour reads on the paper, which the current palettes never leave us in. */
-const SAFE_MODULE = "#1b1b1b"
-
-/** Theme tokens offered as module colours, in the order they are shown. */
-const PALETTE_TOKENS = [
-  { token: "--ink", label: "Ink" },
-  { token: "--sage", label: "Sage" },
-  { token: "--chart", label: "Chart" },
-  { token: "--clay", label: "Clay" },
-  { token: "--data-teal", label: "Teal" },
-  { token: "--data-gold", label: "Gold" },
-  { token: "--data-red", label: "Red" },
-  { token: "--data-indigo", label: "Indigo" },
-  { token: "--canvas", label: "Canvas" },
-] as const
-
-type Swatch = { label: string; color: string; readable: boolean }
 
 /**
- * A palette colour as its three channels. The browser hands custom properties back as `rgb()` /
- * `rgba()` once they are resolved, and the source writes them as `#rrggbb`, so both are read.
- * Anything else is `null`, which the contrast check treats as unreadable.
+ * The tokens the code may take its colour from. The canvas is left out on purpose: it is the
+ * field the code sits on, and a code drawn in the field's own colour is invisible.
+ */
+const CODE_TOKENS = [
+  "--ink",
+  "--sage",
+  "--chart",
+  "--clay",
+  "--data-teal",
+  "--data-gold",
+  "--data-red",
+  "--data-indigo",
+] as const
+
+/**
+ * A colour as its three channels. The stylesheet writes tokens as `#rrggbb`, and a browser may
+ * hand them back as `rgb()`, so both are read. Anything else is `null` and is never chosen.
  */
 function channels(color: string): [number, number, number] | null {
   const text = color.trim()
@@ -61,6 +57,7 @@ function channels(color: string): [number, number, number] | null {
   return null
 }
 
+/** Relative luminance (WCAG): 0 is black, 1 is white. */
 function luminance([r, g, b]: [number, number, number]): number {
   const linear = [r, g, b].map((channel) => {
     const c = channel / 255
@@ -69,23 +66,20 @@ function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 }
 
-/** WCAG contrast ratio between two palette colours, or `0` when either cannot be read. */
-export function contrastRatio(a: string, b: string): number {
-  const ca = channels(a)
-  const cb = channels(b)
-  if (!ca || !cb) return 0
-  const [hi, lo] = [luminance(ca), luminance(cb)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
-
-/** The palette, read from the live theme, with each swatch marked readable or not on the paper. */
-function readPalette(): Swatch[] {
+/**
+ * The colour the code is drawn in: the palette's lightest token in a dark theme, its darkest in a
+ * light one. Falls back to the first readable token, and to the stylesheet's ink if none reads.
+ */
+export function codeColour(theme: "light" | "dark"): string {
   const style = getComputedStyle(document.documentElement)
-  return PALETTE_TOKENS.map(({ token, label }) => {
+  const candidates = CODE_TOKENS.flatMap((token) => {
     const color = style.getPropertyValue(token).trim()
-    const readable = contrastRatio(color, PAPER) >= MIN_CONTRAST
-    return { label, color, readable }
+    const rgb = channels(color)
+    return rgb ? [{ color, lum: luminance(rgb) }] : []
   })
+  if (candidates.length === 0) return "currentColor"
+  candidates.sort((a, b) => a.lum - b.lum)
+  return theme === "dark" ? candidates[candidates.length - 1].color : candidates[0].color
 }
 
 /**
@@ -124,24 +118,16 @@ export type UpiQrOverlayProps = {
 }
 
 export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
-  const [palette, setPalette] = useState<Swatch[]>([])
-  /** The swatch's label, not its colour: two tokens can resolve to the same value in one theme. */
-  const [chosen, setChosen] = useState<string | null>(null)
-
-  // Every open reads the theme as it is now, so a palette change is picked up without a reload.
-  useEffect(() => {
-    if (!isOpen) return
-    const swatches = readPalette()
-    setPalette(swatches)
-    setChosen((current) => {
-      const stillReadable = swatches.find((s) => s.label === current && s.readable)
-      return stillReadable ? current : (swatches.find((s) => s.readable)?.label ?? null)
-    })
-    lightTap()
+  // Read on every open, so the colour follows the palette the owner has on now.
+  const moduleColor = useMemo(() => {
+    if (!isOpen) return "currentColor"
+    const theme = paletteOnDocument()?.theme ?? "dark"
+    return codeColour(theme)
   }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
+    lightTap()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
     }
@@ -149,8 +135,7 @@ export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
     return () => window.removeEventListener("keydown", onKey)
   }, [isOpen, onClose])
 
-  const moduleColor = palette.find((s) => s.label === chosen && s.readable)?.color ?? SAFE_MODULE
-  const label = useMemo(() => `Payment code for ${name}`, [name])
+  const label = `Payment code for ${name}`
 
   return (
     <AnimatePresence>
@@ -176,12 +161,10 @@ export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
             transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
-            className="fixed top-1/2 left-1/2 z-[55] flex aspect-square w-[min(86vw,340px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] border border-line bg-card p-4"
+            className="fixed top-1/2 left-1/2 z-[55] flex w-[min(86vw,340px)] -translate-x-1/2 -translate-y-1/2 flex-col"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="min-w-0 truncate font-editorial text-[18px] leading-7 italic text-ink">
-                Pay {name}
-              </h2>
+              <h2 className="min-w-0 truncate font-editorial text-[18px] leading-7 italic text-ink">Pay {name}</h2>
               <button
                 type="button"
                 aria-label="Close"
@@ -192,41 +175,15 @@ export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
               </button>
             </div>
 
-            <div className="mt-3 flex min-h-0 flex-1 items-center justify-center">
-              <div
-                className="grid aspect-square h-full max-h-full w-full max-w-full place-items-center rounded-[22px] p-2"
-                style={{ backgroundColor: PAPER }}
-              >
-                <svg
-                  role="img"
-                  aria-label={label}
-                  viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
-                  className="size-full"
-                  shapeRendering="geometricPrecision"
-                >
-                  <path d={CODE_PATH} fill={moduleColor} />
-                </svg>
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2" role="radiogroup" aria-label="Code colour">
-              {palette.map((swatch) => {
-                const selected = swatch.label === chosen
-                return (
-                  <button
-                    key={swatch.label}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    aria-label={swatch.readable ? swatch.label : `${swatch.label} (too pale to scan)`}
-                    disabled={!swatch.readable}
-                    onClick={() => setChosen(swatch.label)}
-                    className="size-7 rounded-full border border-line outline-none transition-transform disabled:cursor-not-allowed disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-ink aria-checked:scale-110 aria-checked:ring-2 aria-checked:ring-ink"
-                    style={{ backgroundColor: swatch.color }}
-                  />
-                )
-              })}
-            </div>
+            <svg
+              role="img"
+              aria-label={label}
+              viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
+              className="mt-4 aspect-square w-full"
+              shapeRendering="geometricPrecision"
+            >
+              <path d={CODE_PATH} fill={moduleColor} />
+            </svg>
           </motion.div>
         </>
       )}

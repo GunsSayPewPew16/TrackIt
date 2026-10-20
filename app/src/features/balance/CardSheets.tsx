@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Pencil, Plus, X } from "lucide-react"
+import { Pencil, Plus, Trash2, X } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 
 import { CARD_ICONS, TONES } from "@/components/BalanceCards"
@@ -7,12 +7,13 @@ import { CARD_ICON_NAMES, CARD_TONES, type CardIconName, type CardTone } from "@
 import { heavyThud, lightTap, mediumClick, primeHaptics } from "@/lib/haptics"
 
 /**
- * The two panels a hold on the balance stack can open, and the one this file's siblings share.
+ * The panels a hold on the balance stack can open, and the ones this file's siblings share.
  *
- * A hold on the front card opens **the choice**: edit that card's balance, or add a card to the
- * stack. Edit hands over to the balance editor (`BalanceSheet.tsx`); Add opens **the card
- * sheet**, which names a card, picks one of eight icons and one of the palette's colours, and
- * adds it to the end of the stack (`lib/customCards.ts`).
+ * A hold always lands on the **front** card, so the choice is about that card and about the
+ * stack around it: edit its balance, add a card, send it to the back, bring another card to the
+ * front, or delete it if it is one of the owner's own. Add opens **the card sheet**, which names a
+ * card, picks one of eight icons and one of the five palette colours, and adds it to the end of
+ * the stack (`lib/customCards.ts`).
  *
  * Both are the balance editor's own panel: the same 28px top radius, the same 380/32/0.8 spring,
  * the same dim layer, the same 48px sage confirm. They are fetched on the first hold, like every
@@ -107,24 +108,57 @@ function Header({ title, note, onClose }: { title: string; note: string; onClose
   )
 }
 
-/** The hold's first question: what to do with the card that was held. */
+/** One of the panel's secondary buttons: outlined, with the same type as the confirm. */
+const quiet =
+  "flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-35"
+
+/** A card in the stack, as the choice sees it: its id for the store, its name for the eye. */
+export type StackCard = { id: string; name: string }
+
+/**
+ * What a held card can do. `cards` is the whole stack front to back, so the chips to bring a
+ * card forward are the rest of it; `canDelete` is true only for a card the owner made.
+ */
 export function CardChoiceSheet({
   isOpen,
   name,
+  heldId,
+  cards,
+  canDelete,
   onEdit,
   onAdd,
+  onFront,
+  onBack,
+  onDelete,
   onClose,
 }: {
   isOpen: boolean
   /** The held card's name, which is what the title says. */
   name: string
+  /** The held card's id: the front card of the stack. */
+  heldId: string
+  cards: StackCard[]
+  canDelete: boolean
   onEdit: () => void
   onAdd: () => void
+  /** Bring another card to the front, by its id. */
+  onFront: (id: string) => void
+  /** Send the held card to the back. */
+  onBack: (id: string) => void
+  onDelete: () => void
   onClose: () => void
 }) {
+  /** Delete asks once more: the first tap arms it, the second writes. */
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!isOpen) setArmed(false)
+  }, [isOpen])
+
+  const others = cards.filter((card) => card.id !== heldId)
+
   return (
     <Panel isOpen={isOpen} label={`${name} card`} onClose={onClose}>
-      <Header title={name} note="Change what this card holds, or put another card on the stack." onClose={onClose} />
+      <Header title={name} note="Change this card, or arrange the stack around it." onClose={onClose} />
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
@@ -133,7 +167,7 @@ export function CardChoiceSheet({
             mediumClick()
             onEdit()
           }}
-          className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-transparent font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+          className={quiet}
         >
           <Pencil strokeWidth={1.5} className="size-4" aria-hidden="true" />
           Edit balance
@@ -150,6 +184,62 @@ export function CardChoiceSheet({
           Add a card
         </button>
       </div>
+
+      {others.length > 0 && (
+        <>
+          <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">
+            Bring to front
+          </p>
+          <div className="mt-2 flex gap-2 overflow-x-auto">
+            {others.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => {
+                  mediumClick()
+                  onFront(card.id)
+                }}
+                className="inline-flex h-10 flex-none items-center rounded-2xl border border-line bg-transparent px-4 font-sans text-[13px] leading-4 text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+              >
+                {card.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            mediumClick()
+            onBack(heldId)
+          }}
+          className={quiet}
+        >
+          Send to back
+        </button>
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (!armed) {
+                lightTap()
+                setArmed(true)
+                return
+              }
+              heavyThud()
+              onDelete()
+            }}
+            className={`${quiet} ${armed ? "border-transparent bg-clay text-on-clay" : "text-clay"}`}
+          >
+            <Trash2 strokeWidth={1.5} className="size-4" aria-hidden="true" />
+            {armed ? "Tap to delete" : "Delete card"}
+          </button>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+      </div>
     </Panel>
   )
 }
@@ -160,7 +250,7 @@ export type NewCard = { label: string; icon: CardIconName; tone: CardTone }
 const toneName = (tone: CardTone): string => tone.charAt(0).toUpperCase() + tone.slice(1)
 
 /**
- * A new card: its name, one of the eight icons, and one of the palette's colours.
+ * A new card: its name, one of the eight icons, and one of the five palette colours.
  *
  * Its balance is not asked for here. A card starts at zero and is given its figure the same way
  * the accounts are — by holding it and typing what it holds — so the sheet stays about the card

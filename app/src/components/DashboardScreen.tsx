@@ -67,6 +67,7 @@ export function DashboardScreen({
   onMoveBudget,
   onDeleteBudget,
   onHoldCard,
+  onReorderCards,
   canShowPayCode = false,
 }: {
   model: DashboardModel
@@ -116,6 +117,8 @@ export function DashboardScreen({
    * all three are told apart by the same 10px of travel (`hooks/useLongPress.ts`).
    */
   onHoldCard: (cardId: string) => void
+  /** Writes the stack's order, front to back, when a cycle or a choice moves a card. */
+  onReorderCards: (ids: string[]) => void
   /** Whether the signed-in account is the owner whose payment code the name opens. */
   canShowPayCode?: boolean
 }) {
@@ -252,7 +255,12 @@ export function DashboardScreen({
       </div>
 
       {/* The accounts, as the newer artboard's stack of cards. */}
-      <BalanceCards cards={model.cards} onAddRecord={onAddRecord} onHoldCard={onHoldCard} />
+      <BalanceCards
+        cards={model.cards}
+        onAddRecord={onAddRecord}
+        onHoldCard={onHoldCard}
+        onReorder={onReorderCards}
+      />
 
       {canShowPayCode && (
         <UpiQrOverlay isOpen={payOpen} name={greeting.name} onClose={() => setPayOpen(false)} />

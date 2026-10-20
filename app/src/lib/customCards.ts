@@ -1,5 +1,6 @@
 /**
- * The balance cards the owner has added, beside the two accounts Wallet imported.
+ * The balance cards the owner has added, beside the two accounts Wallet imported, and the order
+ * the whole stack is in.
  *
  * A custom card is a **label, an icon and a colour** — nothing about its money lives here.
  * Its figure is an opening in the balance store (`lib/balances.ts`), keyed by the card's id,
@@ -8,9 +9,11 @@
  * card yet, so `accountFor` still sends them to the primary account and a custom card's
  * income and expenses are always zero.
  *
- * Like the balances, the list is **per ledger**: `trackit-cards` on this device, and
- * `trackit-cards:u:<uuid>` for a signed-in account, so two accounts on one phone never see
- * each other's cards. It is read and written with the same owner that scopes the balances.
+ * The stack's **order** is kept here too, as the list of every card's id front to back. It is
+ * what "send to front" and "send to back" write, and what a drag's re-stack writes after it.
+ *
+ * Like the balances, both are **per ledger**: `trackit-cards` and `trackit-card-order` on this
+ * device, and the same keys under `:u:<uuid>` for a signed-in account.
  */
 
 import { ownerStorageKey, subscribeBalances } from "./balances"
@@ -31,11 +34,19 @@ export const CARD_ICON_NAMES = [
 export type CardIconName = (typeof CARD_ICON_NAMES)[number]
 
 /**
- * The colours a card can be, each one a token of the current palette (`index.css`). The
- * card's text is chosen to sit on it, so a palette change repaints the card and keeps it legible.
+ * The colours the owner can pick for a card: the five accent tokens of the current palette that
+ * are neither a text colour nor orange or yellow. Each is a token, so a palette change repaints
+ * the card and the text chosen to sit on it (`TONES` in `components/BalanceCards.tsx`).
  */
-export const CARD_TONES = ["sage", "clay", "gold", "red"] as const
-export type CardTone = (typeof CARD_TONES)[number]
+export const CARD_TONES = ["sage", "chart", "teal", "red", "indigo"] as const
+
+/**
+ * Colours cards were given before the picker was narrowed. They are still drawn, so a card the
+ * owner already made keeps its colour, but they are never offered for a new one.
+ */
+export const LEGACY_CARD_TONES = ["clay", "gold"] as const
+
+export type CardTone = (typeof CARD_TONES)[number] | (typeof LEGACY_CARD_TONES)[number]
 
 export type CustomCard = {
   id: string
@@ -46,9 +57,11 @@ export type CustomCard = {
 }
 
 const STORAGE_KEY = "trackit-cards"
+const ORDER_KEY = "trackit-card-order"
 const LABEL_LIMIT = 24
 
 let cache: { key: string; cards: CustomCard[] } | null = null
+let orderCache: { key: string; ids: string[] } | null = null
 const listeners = new Set<() => void>()
 
 const announce = (): void => {
@@ -59,7 +72,7 @@ const isIcon = (value: unknown): value is CardIconName =>
   typeof value === "string" && (CARD_ICON_NAMES as readonly string[]).includes(value)
 
 const isTone = (value: unknown): value is CardTone =>
-  typeof value === "string" && (CARD_TONES as readonly string[]).includes(value)
+  typeof value === "string" && ([...CARD_TONES, ...LEGACY_CARD_TONES] as readonly string[]).includes(value)
 
 /** A stored card is kept only if every part of it is still a thing the app can draw. */
 function read(key: string): CustomCard[] {
@@ -80,11 +93,42 @@ function read(key: string): CustomCard[] {
   }
 }
 
+function readOrder(key: string): string[] {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((id): id is string => typeof id === "string")
+  } catch {
+    return []
+  }
+}
+
 /** The owner's cards, handed back by reference until something changes. */
 export function customCardsSnapshot(): CustomCard[] {
   const key = ownerStorageKey(STORAGE_KEY)
   if (cache === null || cache.key !== key) cache = { key, cards: read(key) }
   return cache.cards
+}
+
+/** Every card's id front to back, as last arranged. Empty until the owner arranges the stack. */
+export function cardOrderSnapshot(): string[] {
+  const key = ownerStorageKey(ORDER_KEY)
+  if (orderCache === null || orderCache.key !== key) orderCache = { key, ids: readOrder(key) }
+  return orderCache.ids
+}
+
+/** Write the stack's order, front to back. */
+export function setCardOrder(ids: string[]): void {
+  const key = ownerStorageKey(ORDER_KEY)
+  orderCache = { key, ids: [...ids] }
+  try {
+    window.localStorage.setItem(key, JSON.stringify(orderCache.ids))
+  } catch {
+    // The order still holds for this session; only remembering it was refused.
+  }
+  announce()
 }
 
 /**
@@ -110,6 +154,32 @@ export function addCustomCard(input: Omit<CustomCard, "id">): CustomCard {
   return card
 }
 
+/** Remove one of the owner's own cards, and its place in the stack. The accounts cannot be removed. */
+export function removeCustomCard(id: string): void {
+  const key = ownerStorageKey(STORAGE_KEY)
+  const cards = customCardsSnapshot().filter((card) => card.id !== id)
+  cache = { key, cards }
+  try {
+    window.localStorage.setItem(key, JSON.stringify(cards))
+  } catch {
+    // The card is gone for this session; only forgetting it was refused.
+  }
+  setCardOrder(cardOrderSnapshot().filter((existing) => existing !== id))
+}
+
+/**
+ * Put cards in the stored order. A card the order does not name yet keeps its place after the
+ * named ones, so a card added since the last arrangement lands at the back.
+ */
+export function applyCardOrder<T extends { id: string }>(cards: T[], order: string[]): T[] {
+  if (order.length === 0) return cards
+  const rank = new Map(order.map((id, index) => [id, index]))
+  return cards
+    .map((card, index) => ({ card, sort: rank.get(card.id) ?? order.length + index }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ card }) => card)
+}
+
 /**
  * The owner's cards as stack cards, after the two accounts. What each holds is its opening, and
  * no row is filed under one yet, so it has nothing spent from it this month.
@@ -130,8 +200,8 @@ export function customCardsOf(cards: CustomCard[], openings: Record<string, numb
 }
 
 /**
- * Watch the cards. An owner change is also a change: the balance store announces it, and the
- * cards are read again under the new owner's key.
+ * Watch the cards and their order. An owner change is also a change: the balance store announces
+ * it, and both are read again under the new owner's keys.
  */
 export function subscribeCustomCards(listener: () => void): () => void {
   listeners.add(listener)
