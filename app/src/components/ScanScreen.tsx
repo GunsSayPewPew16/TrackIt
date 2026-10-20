@@ -1,10 +1,9 @@
-import { Scanner } from "@yudiel/react-qr-scanner"
-import type { IDetectedBarcode, IScannerError, ScannerErrorKind } from "@yudiel/react-qr-scanner"
-import { ArrowLeft, ArrowRight } from "lucide-react"
+import { ArrowLeft, ArrowRight, Flashlight, FlashlightOff } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
 
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { parseUpiCode, UPI_PARSE_MESSAGE, type UpiPayee } from "@/features/upi/upi"
+import { useScanCamera, type ScanErrorKind } from "@/features/upi/useScanCamera"
 import type { Theme } from "@/lib/theme"
 
 /**
@@ -24,9 +23,9 @@ import type { Theme } from "@/lib/theme"
  * - **The frame holds a camera, not a drawing.** The artboard paints a stylised
  *   code inside the viewfinder — three finder squares and a generated 13×13 mark,
  *   with a sage line sweeping across it — because a mockup cannot hold a camera.
- *   Here the same frame holds the real feed (`@yudiel/react-qr-scanner`, which
+ *   Here the same frame holds the real feed (`features/upi/useScanCamera.ts`, which
  *   decodes with the browser's own `BarcodeDetector` where there is one and a WASM
- *   ZXing build where there is not, so one component covers both phones), and the
+ *   ZXing build where there is not, so one decoder covers both phones), and the
  *   corner brackets and the sweeping line are kept over it. The code-shaped
  *   placeholder is the one part of the artboard *not* rebuilt: a fake code is a
  *   stand-in for the thing this screen is for.
@@ -92,7 +91,7 @@ export type Props = {
  * the library's own union, so a new one added upstream fails the build here rather
  * than showing an empty error.
  */
-const CAMERA_MESSAGE: Record<ScannerErrorKind, string> = {
+const CAMERA_MESSAGE: Record<ScanErrorKind, string> = {
   "permission-denied":
     "TrackIt needs permission to use the camera. Allow it for this site in your browser settings, then try again.",
   "no-camera": "No camera was found on this device.",
@@ -100,9 +99,6 @@ const CAMERA_MESSAGE: Record<ScannerErrorKind, string> = {
   overconstrained: "This camera cannot do what the scanner asked of it.",
   "insecure-context": "The camera only works over HTTPS, or on localhost.",
   unsupported: "This browser cannot scan QR codes.",
-  aborted: "The camera stopped before it started. Try again.",
-  security: "The browser blocked the camera for this page.",
-  "type-error": "The camera could not be started.",
   unknown: "The camera could not be started.",
 }
 
@@ -172,8 +168,7 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onOpenEntry }: Props)
   )
 
   const handleScan = useCallback(
-    (codes: IDetectedBarcode[]) => {
-      const value = codes[0]?.rawValue
+    (value: string) => {
       if (!value || value === lastRead.current) return
       lastRead.current = value
       accept(value)
@@ -181,9 +176,13 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onOpenEntry }: Props)
     [accept],
   )
 
-  const handleError = useCallback((error: IScannerError) => {
-    setStatus(CAMERA_MESSAGE[error.kind] ?? CAMERA_MESSAGE.unknown)
+  const handleError = useCallback((kind: ScanErrorKind) => {
+    setStatus(CAMERA_MESSAGE[kind])
   }, [])
+
+  /** The camera, its loop and its zoom ladder (`features/upi/useScanCamera.ts`). */
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const camera = useScanCamera(videoRef, handleScan, handleError, true)
 
   /**
    * The manual row is not gated the way the camera is: it is one deliberate press with one
@@ -238,24 +237,36 @@ export function ScanScreen({ theme, onToggleTheme, onBack, onOpenEntry }: Props)
           aria-label="Camera viewfinder"
           className="relative mt-[152px] size-[358px] overflow-hidden rounded-[16px] border border-sage bg-card"
         >
-          <Scanner
-            onScan={handleScan}
-            onError={handleError}
-            // The back camera, because a merchant's code is across the counter.
-            constraints={{ facingMode: "environment" }}
-            formats={["qr_code"]}
-            // No beep, no zoom control: the frame is the whole interface. The torch
-            // stays, because a QR code in a dim shop needs it.
-            sound={false}
-            components={{ finder: false, zoom: false, torch: true }}
-            // A short pause between reads is enough to stop a burst of callbacks
-            // without making the scan feel slow.
-            scanDelay={600}
-            styles={{
-              container: { width: "100%", height: "100%" },
-              video: { width: "100%", height: "100%", objectFit: "cover" },
-            }}
+          {/*
+            The back camera's feed. Its transform is written by the camera hook for the
+            digital punch-in, so the origin is the centre of the frame, which is the
+            point the crop is taken from.
+          */}
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            autoPlay
+            aria-hidden="true"
+            className="absolute inset-0 size-full object-cover"
+            style={{ transformOrigin: "center" }}
           />
+
+          {camera.torchAvailable && (
+            <button
+              type="button"
+              onClick={() => camera.setTorch(!camera.torchOn)}
+              aria-label={camera.torchOn ? "Turn the torch off" : "Turn the torch on"}
+              aria-pressed={camera.torchOn}
+              className="absolute right-3 bottom-3 z-[2] grid size-11 place-items-center rounded-2xl border border-line bg-card text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+            >
+              {camera.torchOn ? (
+                <FlashlightOff className="size-5" strokeWidth={1.5} aria-hidden="true" />
+              ) : (
+                <Flashlight className="size-5" strokeWidth={1.5} aria-hidden="true" />
+              )}
+            </button>
+          )}
 
           {/*
             The artboard's corner brackets: four 32px Ls drawn into its own 356×356

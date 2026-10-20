@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
-    "@yudiel/react-qr-scanner": "^2.6.0",
+    "barcode-detector": "^3.2.3",
     "framer-motion": "^12.23.12",
     "lucide-react": "^1.57.0",
     "radix-ui": "^1.8.1",
