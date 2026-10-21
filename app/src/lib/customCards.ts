@@ -12,7 +12,7 @@
  * The stack's **order** is kept here too, as the list of every card's id front to back. It is
  * what "send to front" and "send to back" write, and what a drag's re-stack writes after it.
  *
- * Like the balances, both are **per ledger**: `trackit-cards` and `trackit-card-order` on this
+ * Like the balances, both are **per ledger**: `trackit-cards-v2` and `trackit-card-order` on this
  * device, and the same keys under `:u:<uuid>` for a signed-in account.
  */
 
@@ -57,8 +57,23 @@ export type CustomCard = {
   tone: CardTone
 }
 
-const STORAGE_KEY = "trackit-cards"
+const STORAGE_KEY = "trackit-cards-v2"
+/** The key cards were kept under before the slots ran lightest to darkest. Read once, then left alone. */
+const LEGACY_STORAGE_KEY = "trackit-cards"
 const ORDER_KEY = "trackit-card-order"
+
+/**
+ * Where a slot went when the palettes were renumbered. The slots used to run darkest to lightest;
+ * `tone-N` is now the Nth lightest, so a card kept under the old numbers moves to `tone-(6 - N)`,
+ * which is the same colour in every palette that was not redesigned.
+ */
+const RENUMBERED_SLOT: Partial<Record<CardTone, CardTone>> = {
+  "tone-1": "tone-5",
+  "tone-2": "tone-4",
+  "tone-3": "tone-3",
+  "tone-4": "tone-2",
+  "tone-5": "tone-1",
+}
 const LABEL_LIMIT = 24
 
 let cache: { key: string; cards: CustomCard[] } | null = null
@@ -109,8 +124,29 @@ function readOrder(key: string): string[] {
 /** The owner's cards, handed back by reference until something changes. */
 export function customCardsSnapshot(): CustomCard[] {
   const key = ownerStorageKey(STORAGE_KEY)
-  if (cache === null || cache.key !== key) cache = { key, cards: read(key) }
+  if (cache === null || cache.key !== key) cache = { key, cards: readCards(key) }
   return cache.cards
+}
+
+/**
+ * The owner's cards under the current key. A browser with no cards under it yet is moved once from
+ * the legacy key, with each slot renumbered; the new copy is written only once it is made, so a
+ * refused write is simply tried again on the next visit.
+ */
+function readCards(key: string): CustomCard[] {
+  if (window.localStorage.getItem(key) !== null) return read(key)
+  const migrated = read(ownerStorageKey(LEGACY_STORAGE_KEY)).map((card) => ({
+    ...card,
+    tone: RENUMBERED_SLOT[card.tone] ?? card.tone,
+  }))
+  if (migrated.length > 0) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(migrated))
+    } catch {
+      // Still migrated for this session; the copy is made again on the next visit.
+    }
+  }
+  return migrated
 }
 
 /** Every card's id front to back, as last arranged. Empty until the owner arranges the stack. */

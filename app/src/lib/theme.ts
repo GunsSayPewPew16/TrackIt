@@ -61,31 +61,39 @@ export type Palette = {
  */
 export const PALETTES: Palette[] = [
   { id: "sage-dark", label: "Archival Earth", theme: "dark", canvas: "#2c3639" },
-  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#161b2f" },
+  { id: "kyoto-dark", label: "Kyoto Atelier", theme: "dark", canvas: "#250202" },
   { id: "basel-dark", label: "Alpine Willows", theme: "dark", canvas: "#022e24" },
-  { id: "british-dark", label: "Tuscany Terracotta", theme: "dark", canvas: "#4c362d" },
+  { id: "british-dark", label: "Terra di Siena", theme: "dark", canvas: "#1e1512" },
   { id: "monaco-dark", label: "Titanium & Monaco Blue", theme: "dark", canvas: "#0a1931" },
-  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#190019" },
+  { id: "nordic-dark", label: "Nordic Obsidian", theme: "dark", canvas: "#17183b" },
   { id: "sage-light", label: "Archival Earth", theme: "light", canvas: "#faf7f0" },
-  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#f5f1eb" },
+  { id: "kyoto-light", label: "Kyoto Atelier", theme: "light", canvas: "#fff9f2" },
   { id: "basel-light", label: "Alpine Willows", theme: "light", canvas: "#e9efea" },
-  { id: "british-light", label: "Tuscany Terracotta", theme: "light", canvas: "#e8e1d5" },
+  { id: "british-light", label: "Terra di Siena", theme: "light", canvas: "#f4ede2" },
   { id: "monaco-light", label: "Titanium & Monaco Blue", theme: "light", canvas: "#e6eef4" },
-  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f3eff5" },
+  { id: "nordic-light", label: "Nordic Obsidian", theme: "light", canvas: "#f2f5ea" },
 ]
 
-/**
- * A readable ink for a tone: dark on a light fill, white on a dark one. The threshold is the
- * WCAG midpoint of relative luminance, which is where the two inks give about equal contrast.
- */
-export function toneInk(hex: string): string {
+/** WCAG relative luminance of a #rrggbb colour. */
+function luminanceOf(hex: string): number {
   const value = parseInt(hex.slice(1), 16)
   const linear = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
     const c = channel / 255
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
   })
-  const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
-  return luminance > 0.18 ? "#16201c" : "#ffffff"
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+}
+
+/**
+ * A readable ink for a tone: whichever of the two inks gives the higher contrast on it, dark
+ * (`#16201c`) or white. Comparing the two ratios directly is the crossover itself, so the choice
+ * is never the weaker of the pair.
+ */
+export function toneInk(hex: string): string {
+  const fill = luminanceOf(hex)
+  const dark = (fill + 0.05) / (luminanceOf("#16201c") + 0.05)
+  const light = 1.05 / (fill + 0.05)
+  return dark > light ? "#16201c" : "#ffffff"
 }
 
 /**
@@ -128,7 +136,7 @@ export const THEME_CHOICES: ThemeChoice[] = [
   { id: "sage", label: "Archival", title: "Archival Earth", dark: "sage-dark", light: "sage-light" },
   { id: "kyoto", label: "Kyoto", title: "Kyoto Atelier", dark: "kyoto-dark", light: "kyoto-light" },
   { id: "basel", label: "Alpine", title: "Alpine Willows", dark: "basel-dark", light: "basel-light" },
-  { id: "british", label: "Tuscany", title: "Tuscany Terracotta", dark: "british-dark", light: "british-light" },
+  { id: "british", label: "Siena", title: "Terra di Siena", dark: "british-dark", light: "british-light" },
   { id: "monaco", label: "Monaco", title: "Titanium & Monaco Blue", dark: "monaco-dark", light: "monaco-light" },
   { id: "nordic", label: "Nordic", title: "Nordic Obsidian", dark: "nordic-dark", light: "nordic-light" },
 ]

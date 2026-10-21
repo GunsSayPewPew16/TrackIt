@@ -132,7 +132,15 @@ const ACCOUNT_SKIN: Record<string, Skin> = { upi: INK, cash: CLAY }
 function skinOf(card: BalanceCard): Skin {
   if (card.tone) {
     const tone = TONES[card.tone]
-    return { fill: tone.fill, stroke: tone.fill, accent: tone.ink, figure: tone.ink, foot: tone.ink }
+    // A card whose colour is the canvas itself would lose its edge, so a card of the owner's own
+    // carries a hairline of the palette's ink: it reads as an outline on any canvas, in both themes.
+    return {
+      fill: tone.fill,
+      stroke: "color-mix(in srgb, var(--ink) 28%, transparent)",
+      accent: tone.ink,
+      figure: tone.ink,
+      foot: tone.ink,
+    }
   }
   return ACCOUNT_SKIN[card.id] ?? INK
 }
@@ -403,7 +411,7 @@ export function BalanceCards({
               className="absolute inset-0 h-full w-full overflow-visible"
               preserveAspectRatio="none"
             >
-              <path d={CARD_PATH} strokeWidth={1} fill={skin.fill} stroke={skin.stroke} />
+              <path d={CARD_PATH} strokeWidth={1} style={{ fill: skin.fill, stroke: skin.stroke }} />
             </svg>
 
             <div

@@ -20,7 +20,7 @@
  * the first paint.
  *
  * The register is **six named themes, each a pair**: Archival Earth (the artboard's own, and
- * also what `:root` alone carries), Kyoto Atelier, Alpine Willows, Tuscany Terracotta,
+ * also what `:root` alone carries), Kyoto Atelier, Alpine Willows, Terra di Siena,
  * Titanium & Monaco Blue and Nordic Obsidian. A name is offered against both modes at once —
  * the settings selector lists it once — so each arrives as a dark table and its light
  * companion, and the header's sun/moon flips between the two sides of the name being worn
@@ -257,26 +257,24 @@
 }
 
 /*
- * 3. Kyoto Atelier, dark side — midnight indigo ink under lacquer panels, warm peach for the
- * numbers and a vermilion that only ever means “mind this”. The trend token is the deep
- * maroon of the same family, which is a tint first and a line second; on this canvas it sits
- * just above the ground, so a graph reads as a watermark rather than a stripe.
+ * 3. Kyoto Atelier, dark side — the first swatch set, read lightest to darkest: Floral White ink
+ * on Crushed Berry panels over a Rich Mahogany canvas. Racing Red is the warning, Pastel Pink the trend.
  */
 :root[data-palette="kyoto-dark"] {
-  --canvas: #161b2f;
-  --card: #242f49;
-  --line: #384358;
-  --ink: #ffa586;
-  --ink2: #ffa58699;
-  --clay: #b51a2b;
-  --chart: #541a2e;
-  --sage: #541a2e;
-  --on-clay: #ffffff;
-  --on-sage: #ffffff;
-  --pill: #242f49;
-  --pill-ink: #ffa58699;
-  --dock: #2c3854;
-  --dock-line: #3d4a60;
+  --canvas: #250202;
+  --card: #892325;
+  --line: #a8393c;
+  --ink: #fff9f2;
+  --ink2: #fff9f2b3;
+  --clay: #f10222;
+  --chart: #ffcad0;
+  --sage: #ffcad0;
+  --on-clay: #fff9f2;
+  --on-sage: #250202;
+  --pill: #892325;
+  --pill-ink: #fff9f2b3;
+  --dock: #9c2b2e;
+  --dock-line: #b8434a;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -289,26 +287,25 @@
 }
 
 /*
- * 4. Kyoto Atelier, light companion — soft bleached washi under alabaster silk panels, with the
- * dark side's own indigo as the ink. The vermilion is the same heritage crimson, which carries
- * a white label on paper; the trend turns to toasted amber coral, the one warm stroke that
- * stays readable on a light ground without shouting.
+ * 4. Kyoto Atelier, light companion — the same swatches turned over: Floral White canvas under
+ * Pastel Pink panels, with Rich Mahogany as the ink. Racing Red is the warning and Crushed Berry
+ * carries the trend, so a graph reads as a dark line on pink.
  */
 :root[data-palette="kyoto-light"] {
-  --canvas: #f5f1eb;
-  --card: #ffffff;
-  --line: #e6ded1;
-  --ink: #161b2f;
-  --ink2: #161b2f99;
-  --clay: #b51a2b;
-  --chart: #c96e53;
-  --sage: #c96e53;
+  --canvas: #fff9f2;
+  --card: #ffcad0;
+  --line: #f2aeb7;
+  --ink: #250202;
+  --ink2: #250202b3;
+  --clay: #f10222;
+  --chart: #892325;
+  --sage: #892325;
   --on-clay: #ffffff;
-  --on-sage: #161b2f;
-  --pill: #f5f1eb;
-  --pill-ink: #161b2f99;
-  --dock: #ffffff;
-  --dock-line: #e2d9cb;
+  --on-sage: #ffffff;
+  --pill: #fff9f2;
+  --pill-ink: #250202b3;
+  --dock: #fff9f2;
+  --dock-line: #f2c3c9;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -387,26 +384,25 @@
 }
 
 /*
- * 7. Tuscany Terracotta, dark side — a deep-umber soil canvas under baked terracotta panels,
- * framed by a warm 1px earthen line. The linen white is the ink and the alert accent is a soft
- * toasted almond, so nothing in the frame competes with the clay; the trend is a muted sage that
- * reads as a plant in the soil rather than a stripe on it.
+ * 7. Terra di Siena, dark side — a near-black espresso canvas under warm umber panels, with
+ * travertine cream for the numbers. A soft terracotta marks the warning and a burnished ochre
+ * carries the trend, so the two accents read as gold and clay rather than as alarms.
  */
 :root[data-palette="british-dark"] {
-  --canvas: #4c362d;
-  --card: #a46447;
-  --line: #bf7e61;
-  --ink: #e8e1d5;
-  --ink2: #e8e1d599;
-  --clay: #ceb59e;
-  --chart: #88937b;
-  --sage: #88937b;
-  --on-clay: #4c362d;
-  --on-sage: #4c362d;
-  --pill: #a46447;
-  --pill-ink: #e8e1d599;
-  --dock: #b4734f;
-  --dock-line: #c58a6c;
+  --canvas: #1e1512;
+  --card: #2e211b;
+  --line: #4a362c;
+  --ink: #f1e4d2;
+  --ink2: #f1e4d2b3;
+  --clay: #e0a17a;
+  --chart: #d4a24c;
+  --sage: #d4a24c;
+  --on-clay: #1e1512;
+  --on-sage: #1e1512;
+  --pill: #2e211b;
+  --pill-ink: #f1e4d2b3;
+  --dock: #3a2a22;
+  --dock-line: #4a362c;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -419,25 +415,25 @@
 }
 
 /*
- * 8. Tuscany Terracotta, light companion — linen white under bleached ceramic silk, with the dark
- * side's deep umber as the ink. The terracotta is baked rather than soft so it can carry a white
- * label, and the sage deepens until a gauge or a spline still reads as a line on paper.
+ * 8. Terra di Siena, light companion — warm travertine canvas under ivory panels, with deep
+ * espresso ink. The terracotta is baked so it carries a white label, and the ochre is deepened to
+ * a bronze so a graph stays a line on stone.
  */
 :root[data-palette="british-light"] {
-  --canvas: #e8e1d5;
-  --card: #ffffff;
-  --line: #d6cdbc;
-  --ink: #4c362d;
-  --ink2: #4c362d99;
-  --clay: #a46447;
-  --chart: #5b6651;
-  --sage: #5b6651;
+  --canvas: #f4ede2;
+  --card: #fffbf5;
+  --line: #e2d5c3;
+  --ink: #2b1d16;
+  --ink2: #2b1d16b3;
+  --clay: #a4472a;
+  --chart: #8c6a1e;
+  --sage: #8c6a1e;
   --on-clay: #ffffff;
   --on-sage: #ffffff;
-  --pill: #e8e1d5;
-  --pill-ink: #4c362d99;
-  --dock: #ffffff;
-  --dock-line: #ddd4c5;
+  --pill: #f4ede2;
+  --pill-ink: #2b1d16b3;
+  --dock: #fffbf5;
+  --dock-line: #e2d5c3;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
@@ -514,25 +510,25 @@
 }
 
 /*
- * 11. Nordic Obsidian, dark side — a volcanic plum void under sub-arctic violet panels, with
- * frosted-linen numbers and a muted rose-clay that only ever means “look here”. The trend is
- * a deep glacial heather, one step brighter than a tint so a sparkline can still be followed.
+ * 11. Nordic Obsidian, dark side — the Space Indigo table's dark column: a deep indigo canvas
+ * (#17183B) under elevated indigo panels (#232554), with ivory numbers. Bubblegum pink is the key
+ * action, and powder blush carries the trend and the passive tags.
  */
 :root[data-palette="nordic-dark"] {
-  --canvas: #190019;
-  --card: #2b124c;
-  --line: #522b5b;
-  --ink: #fbe4d8;
-  --ink2: #fbe4d899;
-  --clay: #dfb6b2;
-  --chart: #854f6c;
-  --sage: #854f6c;
-  --on-clay: #190019;
-  --on-sage: #ffffff;
-  --pill: #2b124c;
-  --pill-ink: #fbe4d899;
-  --dock: #351859;
-  --dock-line: #5e3468;
+  --canvas: #17183b;
+  --card: #232554;
+  --line: #2f3270;
+  --ink: #f2f5ea;
+  --ink2: #f2f5eab3;
+  --clay: #ff4f79;
+  --chart: #ffb49a;
+  --sage: #ffb49a;
+  --on-clay: #17183b;
+  --on-sage: #17183b;
+  --pill: #232554;
+  --pill-ink: #f2f5eab3;
+  --dock: #2c2f66;
+  --dock-line: #3c4080;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #a3b19b;
@@ -545,26 +541,25 @@
 }
 
 /*
- * 12. Nordic Obsidian, light companion — glacial melt white under pure frosted-silica panels,
- * with the dark side's own plum as the ink. The warmed rose of the dark theme becomes arctic
- * deep heather, which carries a white label, and the trend turns to toasted nordic rose so a
- * sparkline is a line rather than a highlight.
+ * 12. Nordic Obsidian, light companion — the Space Indigo table's light column: ivory canvas under
+ * pure white panels, with Space Indigo ink. Dark magenta is the key action and carries a white
+ * label, and the trend is the same magenta so a graph reads as a line on paper.
  */
 :root[data-palette="nordic-light"] {
-  --canvas: #f3eff5;
+  --canvas: #f2f5ea;
   --card: #ffffff;
-  --line: #e4dce9;
-  --ink: #190019;
-  --ink2: #19001999;
-  --clay: #854f6c;
-  --chart: #a67e7a;
-  --sage: #a67e7a;
+  --line: #dde0d2;
+  --ink: #17183b;
+  --ink2: #17183bb3;
+  --clay: #a11692;
+  --chart: #a11692;
+  --sage: #a11692;
   --on-clay: #ffffff;
-  --on-sage: #190019;
-  --pill: #f3eff5;
-  --pill-ink: #19001999;
+  --on-sage: #ffffff;
+  --pill: #f2f5ea;
+  --pill-ink: #17183bb3;
   --dock: #ffffff;
-  --dock-line: #e6dfea;
+  --dock-line: #dde0d2;
   --data-red: #c95a49;
   --data-gold: #d9a74a;
   --data-teal: #3b594c;
