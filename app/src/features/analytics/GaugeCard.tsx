@@ -101,10 +101,11 @@ export function GaugeCard({
               />
             </mask>
           </defs>
-          {/* The ring's own ticks are secondary ink rather than the hairline: at 1px they were
-              too pale to read as a dial, and the colour is the only thing that moves here. */}
-          <path d={TICKS} fill="none" strokeWidth={1} className="stroke-ink2" />
-          <path d={TICKS} fill="none" strokeWidth={1} className="stroke-sage" mask={`url(#${maskId})`} />
+          {/* The unspent ticks are dimmed ink, and the spent ones are sage at 2.5px. The gap
+              between the two is what tells the eye how far the spend has got, so both the colour
+              and the weight separate them: at 1px the sage ticks were lost against the ring. */}
+          <path d={TICKS} fill="none" strokeWidth={1.5} className="stroke-ink2 opacity-30" />
+          <path d={TICKS} fill="none" strokeWidth={2.5} className="stroke-sage" mask={`url(#${maskId})`} />
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">

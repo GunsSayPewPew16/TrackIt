@@ -164,24 +164,25 @@ export function UpiQrOverlay({ isOpen, name, onClose }: UpiQrOverlayProps) {
             transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}
             className="fixed top-1/2 left-1/2 z-[55] flex w-[min(86vw,340px)] -translate-x-1/2 -translate-y-1/2 flex-col"
           >
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="min-w-0 truncate font-editorial text-[18px] leading-7 italic text-ink">Pay {name}</h2>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={onClose}
-                className="grid size-9 flex-none place-items-center rounded-2xl border border-line bg-transparent text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
-              >
-                <X strokeWidth={1.5} className="size-4" aria-hidden="true" />
-              </button>
-            </div>
+            {/* The title and close sit inside the card, so the whole panel reads as one window. */}
+            <div className="rounded-[28px] border border-line bg-card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="min-w-0 truncate font-editorial text-[18px] leading-7 italic text-ink">Pay {name}</h2>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={onClose}
+                  className="grid size-9 flex-none place-items-center rounded-2xl border border-line bg-transparent text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  <X strokeWidth={1.5} className="size-4" aria-hidden="true" />
+                </button>
+              </div>
 
-            <div className="mt-4 rounded-[28px] border border-line bg-card p-5">
               <svg
                 role="img"
                 aria-label={label}
                 viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
-                className="block aspect-square w-full"
+                className="mt-4 block aspect-square w-full"
                 shapeRendering="geometricPrecision"
               >
                 <path d={CODE_PATH} fill={moduleColor} />

@@ -184,3 +184,18 @@ create policy "budgets: update own" on public.budgets
 drop policy if exists "budgets: delete own" on public.budgets;
 create policy "budgets: delete own" on public.budgets
   for delete using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- grants: the Data API's door, separate from the policies above
+-- ---------------------------------------------------------------------------
+-- From 30 October 2026 Supabase no longer grants the Data API access to new tables in `public`
+-- automatically, and a table without a grant answers "permission denied" before any policy is
+-- read. Existing tables keep their grants; these lines are for the tables above, and re-running
+-- this file applies them (grants are idempotent).
+--
+-- `authenticated` is the signed-in owner, whose rows the policies narrow to their own. `anon`
+-- is deliberately left out: the app only syncs once an account is signed in, so a signed-out
+-- request is refused outright. `service_role` is for trusted server code only and bypasses RLS.
+grant select, insert, update, delete on public.profiles to authenticated, service_role;
+grant select, insert, update, delete on public.ledgers to authenticated, service_role;
+grant select, insert, update, delete on public.budgets to authenticated, service_role;
