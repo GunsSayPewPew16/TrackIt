@@ -193,9 +193,17 @@ create policy "budgets: delete own" on public.budgets
 -- read. Existing tables keep their grants; these lines are for the tables above, and re-running
 -- this file applies them (grants are idempotent).
 --
--- `authenticated` is the signed-in owner, whose rows the policies narrow to their own. `anon`
--- is deliberately left out: the app only syncs once an account is signed in, so a signed-out
--- request is refused outright. `service_role` is for trusted server code only and bypasses RLS.
+-- Supabase's default grants can still hand every role the full set of table privileges, so the
+-- revoke comes first and takes back everything. TRUNCATE is the one that matters: Postgres does
+-- not apply row-level security to it, so a signed-in owner could otherwise empty a table of every
+-- account's rows. The app never needs it, and it never uses `service_role` either.
+--
+-- Then the four operations the app uses are granted back to `authenticated` (the signed-in owner,
+-- whose rows the policies narrow to their own) and `service_role` (trusted server code only, which
+-- bypasses RLS). `anon` gets nothing: the app only syncs once an account is signed in, so a
+-- signed-out request is refused outright.
+revoke all on public.profiles, public.ledgers, public.budgets from anon, authenticated, service_role;
+
 grant select, insert, update, delete on public.profiles to authenticated, service_role;
 grant select, insert, update, delete on public.ledgers to authenticated, service_role;
 grant select, insert, update, delete on public.budgets to authenticated, service_role;
