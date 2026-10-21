@@ -196,9 +196,10 @@ export function heatmapModel(rows: Row[], page: number, now: number, weeks: numb
 }
 
 /**
- * The money both accounts hold, day by day across the current month. The balance at the
- * end of a day is the openings plus every row up to that day, so the series is built by
- * walking the rows once in time order rather than summing each day from scratch.
+ * The money both accounts hold, day by day across the current month, or across the last
+ * `months` calendar months ending with this one. The balance at the end of a day is the
+ * openings plus every row up to that day, so the series is built by walking the rows once
+ * in time order rather than summing each day from scratch.
  *
  * `openingCents` is handed in by the screen from the same store the dashboard's cards read
  * (`lib/balances.ts`), so the trend and the cards can never disagree — and an account that
@@ -209,20 +210,23 @@ export function balanceModel(
   rows: Row[],
   now: number,
   openingCents: number = OPENING_BALANCE_CENTS,
+  months: number = 1,
 ): BalanceModel {
-  const monthStart = startOfMonth(now)
+  const first = new Date(startOfMonth(now))
+  first.setMonth(first.getMonth() - (months - 1))
+  const rangeStart = first.getTime()
   const monthEnd = startOfNextMonth(now)
-  const dayCount = Math.round((monthEnd - monthStart) / 86_400_000)
+  const dayCount = Math.round((monthEnd - rangeStart) / 86_400_000)
   const days: BalanceModel["days"] = Array.from({ length: dayCount }, (_, i) => ({
-    at: addDays(monthStart, i),
+    at: addDays(rangeStart, i),
     cents: null,
   }))
 
   const ordered = [...rows].sort((a, b) => a.at - b.at)
   let total = openingCents
   let next = 0
-  // Everything before the month is already in the opening of its first day.
-  while (next < ordered.length && ordered[next].at < monthStart) total += signed(ordered[next++])
+  // Everything before the range is already in the opening of its first day.
+  while (next < ordered.length && ordered[next].at < rangeStart) total += signed(ordered[next++])
 
   const today = startOfDay(now)
   let todayIndex = 0
