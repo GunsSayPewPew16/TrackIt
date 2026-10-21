@@ -194,7 +194,7 @@ The register is **six named themes, each a dark table and a light companion**: A
 Earth (the app's own, and the default — `#2C3639` canvas, `#3F4E4F` cards, `#536768`
 hairlines, `#DCD7C9` ink, `#A27B5C` warning, `#84968C` chart, with `#FAF7F0` / `#FFFFFF` /
 `#E8E2D6` / `#2C3639` / `#A27B5C` / `#5A6B62` on the light side), Kyoto Atelier, Alpine
-Willows, Tuscany Terracotta, Titanium & Monaco Blue and Nordic Obsidian. A name is offered once
+Willows, Terra di Siena, Titanium & Monaco Blue and Nordic Obsidian. A name is offered once
 because a theme is an identity, so the sun/moon flips between its two sides rather than
 between the app's defaults. No component knows which palette it is drawn in — it says
 `bg-card` and `text-ink2` and gets that palette's pair — and every surface repaints over the

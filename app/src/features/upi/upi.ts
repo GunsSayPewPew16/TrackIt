@@ -168,7 +168,11 @@ export const UPI_PARSE_MESSAGE: Record<UpiParseError, string> = {
 export type UpiPayment = {
   pa: string
   pn: string
-  amountCents: number
+  /**
+   * Paise to pay, or `null` when the code has no amount of its own: the link then leaves `am`
+   * out and the UPI app asks for one, as its own scanner does for the same code.
+   */
+  amountCents: number | null
   /** Free text for the UPI app's own note field (`tn`). */
   note?: string
   /** Defaults to the app's own currency. */
@@ -208,10 +212,11 @@ function upiQuery(payment: UpiPayment, currency: string): string {
   const pairs: [string, string][] = [
     ['pa', payment.pa],
     ['pn', payment.pn || payment.pa],
-    // Rupees with two decimals, as the spec's `am` wants: 20900 -> "209.00".
-    ['am', (payment.amountCents / 100).toFixed(2)],
-    ['cu', payment.currency ?? currency],
   ]
+  // Rupees with two decimals, as the spec's `am` wants: 20900 -> "209.00". Left out entirely when
+  // the code had no amount, so the app asks for it instead of being handed one.
+  if (payment.amountCents !== null) pairs.push(['am', (payment.amountCents / 100).toFixed(2)])
+  pairs.push(['cu', payment.currency ?? currency])
   if (note) pairs.push(['tn', note])
   /*
    * The scanned code's other fields, in its own order. The amount and payee are ours — the

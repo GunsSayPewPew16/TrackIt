@@ -391,7 +391,9 @@ export function ManualEntryScreen({
       handOffToUpiApp({
         pa: payee.pa,
         pn: payee.pn,
-        amountCents,
+        // A code with a fixed amount keeps it in the link. One without has no amount to keep, so
+        // the UPI app asks for it, the way its own scanner does for the same code.
+        amountCents: payee.amountCents === null ? null : amountCents,
         note: written,
         // A merchant QR's own fields, so Google Pay sees the same merchant payment. They
         // include the merchant category, terminal reference and signature when present.

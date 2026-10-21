@@ -26,7 +26,7 @@ import type { Palette, Theme } from "@/lib/theme"
  * other letter would be a request.
  *
  * **The theme is the owner's swatch grid** (`features/settings/ThemeSelectorCard.tsx`): one capsule
- * per theme — Archival, Kyoto, Alpine, Tuscany, Monaco, Nordic — with the theme's own two canvases in the
+ * per theme — Archival, Kyoto, Alpine, Siena, Monaco, Nordic — with the theme's own two canvases in the
  * dot. A name there is a *pair* of tables (`lib/theme.ts`), so choosing one wears the side that
  * matches the mode on screen, and the header's sun/moon then flips between that theme's two sides
  * rather than between the app's defaults.

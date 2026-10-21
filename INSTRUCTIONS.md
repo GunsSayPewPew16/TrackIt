@@ -151,7 +151,7 @@ left out and why.
   has one block per **palette**, each stating the whole table (canvas, surfaces and their 1px
   border, ink and ink2, the warning and chart accents, the date capsule, the dock, the data
   colours, the tint numbers). Six named themes, each a **pair**: Archival Earth (the
-  default), Kyoto Atelier, Alpine Willows, Tuscany Terracotta, Titanium & Monaco Blue and
+  default), Kyoto Atelier, Alpine Willows, Terra di Siena, Titanium & Monaco Blue and
   Nordic Obsidian. `:root` alone carries Archival Earth's dark, so a document that names nothing is the
   design of record. **This is the modularity the owner asked for**: the settings grid is a
   list over `lib/theme.ts`'s `THEME_CHOICES` calling `useTheme().chooseTheme(id)`, and adding
