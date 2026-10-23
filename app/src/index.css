@@ -174,6 +174,26 @@
 }
 
 /*
+ * The text lock: nothing on the screen can be selected, so a long press on a figure or a
+ * label never opens the system's selection handles over the app. Fields stay typable: the
+ * selection rule is for reading, and an input that could not be selected could not be edited.
+ */
+html,
+body,
+#root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/*
  * 1. Archival Earth, dark side — the app's own pair, and the default.
  *
  * Six themes, two tables each: a named theme is an identity, so the settings selector lists it

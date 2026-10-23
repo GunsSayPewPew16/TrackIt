@@ -1038,10 +1038,52 @@ function TrackIt() {
  * from `localStorage` synchronously enough that a returning owner never sees it, and a logo held
  * for one frame is a promise the app cannot keep any faster than painting.
  */
+/**
+ * The loading screen: the owner's mark, animated, on the selected palette's own canvas.
+ *
+ * It covers the app while the session is read, and fades out in 200ms once the app is ready,
+ * so the first screen arrives under it rather than after a blank frame. It is `aria-hidden`
+ * because it carries no information, and it is removed from the tree once the fade ends.
+ */
+function LoadingScreen({ done }: { done: boolean }) {
+  const reduceMotion = useReducedMotion()
+  return (
+    <AnimatePresence>
+      {!done && (
+        <motion.div
+          key="loading"
+          aria-hidden="true"
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2, ease: "easeOut" }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-canvas"
+        >
+          <img src="/loading-mark.png" alt="" className="h-[300px] w-[168px]" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 export default function App() {
   const { mode, ready, user } = useAuth()
+  // The device build has no session to wait for. It is ready once the first screen has been
+  // painted, so the overlay is up for that frame and lifts into its fade rather than never showing.
+  const [deviceReady, setDeviceReady] = useState(false)
+  useEffect(() => {
+    if (mode !== "device") return
+    const frame = window.requestAnimationFrame(() => setDeviceReady(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [mode])
 
-  if (mode === "device") return <TrackIt />
-  if (!ready) return <div className="h-dvh w-full bg-canvas" aria-busy="true" />
-  return user ? <TrackIt /> : <LoginScreen />
+  // The screen the app wants once it knows who is signed in. The overlay is drawn over it
+  // either way, so the owner sees the mark, then the app.
+  const content =
+    mode === "device" ? <TrackIt /> : !ready ? null : user ? <TrackIt /> : <LoginScreen />
+
+  return (
+    <>
+      {content}
+      <LoadingScreen done={mode === "device" ? deviceReady : ready} />
+    </>
+  )
 }

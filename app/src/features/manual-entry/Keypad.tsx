@@ -1,6 +1,7 @@
 import { motion } from "framer-motion"
 import { Delete } from "lucide-react"
 
+import { keyClick } from "@/lib/keyclick"
 import { lightTap, mediumClick } from "@/lib/haptics"
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"] as const
@@ -48,6 +49,7 @@ export function Keypad({ onKey }: { onKey: (key: string) => void }) {
   const tick = (key: string) => {
     if (key === "." || key === "back") mediumClick()
     else lightTap()
+    keyClick()
   }
 
   return (
