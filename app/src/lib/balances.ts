@@ -146,6 +146,7 @@ export function setBalancesOwner(userId: string | null): void {
   if (userId === null) carried = null
   owner = userId
   cache = null
+  transfers = null
   announce()
 }
 
@@ -171,6 +172,68 @@ export function adoptDeviceBalances(): void {
     window.localStorage.setItem(storageKey(), JSON.stringify(cache))
   } catch {
     // This session still draws the adopted figures; only remembering them was refused.
+  }
+  announce()
+}
+
+/**
+ * A transfer between two accounts: money moved from one to another, in paise.
+ *
+ * It is not a row. A transfer has no category, is not spending or income, and must not appear
+ * in the ledger or the statistics, so it lives in its own list and only the cards read it:
+ * `dashboardModel` takes the from-account down and the to-account up by the amount.
+ */
+export type Transfer = { id: string; from: string; to: string; cents: number; at: number }
+
+const TRANSFERS_KEY = "trackit-transfers"
+
+let transfers: Transfer[] | null = null
+
+function readTransfers(): Transfer[] {
+  try {
+    const raw = window.localStorage.getItem(ownerStorageKey(TRANSFERS_KEY))
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item): item is Transfer =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as Transfer).id === "string" &&
+        typeof (item as Transfer).from === "string" &&
+        typeof (item as Transfer).to === "string" &&
+        typeof (item as Transfer).cents === "number" &&
+        Number.isFinite((item as Transfer).cents),
+    )
+  } catch {
+    return []
+  }
+}
+
+/** Every transfer on this ledger, handed back by reference until one is added. */
+export function transfersSnapshot(): Transfer[] {
+  if (transfers === null) transfers = readTransfers()
+  return transfers
+}
+
+/**
+ * Record a move of money between two accounts. It changes what each card reads and nothing
+ * else: no row is written, so the ledger and the statistics do not see it.
+ */
+export function addTransfer(from: string, to: string, cents: number): void {
+  if (from === to || !(cents > 0)) return
+  const entry: Transfer = {
+    id: `transfer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    from,
+    to,
+    cents: Math.round(cents),
+    at: Date.now(),
+  }
+  transfers = [...transfersSnapshot(), entry]
+  try {
+    window.localStorage.setItem(ownerStorageKey(TRANSFERS_KEY), JSON.stringify(transfers))
+  } catch {
+    // The move still holds for this session; only remembering it was refused.
   }
   announce()
 }

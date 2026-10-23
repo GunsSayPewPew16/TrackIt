@@ -20,7 +20,7 @@
  * it is written twice, in the two slots it is true in.
  *
  * Each word is romanized into the latin letters the masthead is set in and **keeps its own
- * accents**, Mandarin's tone marks included (`Zǎo shang hǎo`, `Günaydın`, `Dobré ráno`,
+ * accents**, except Mandarin, which is spelled plain (`Zao shang hao`). Others keep theirs (`Günaydın`, `Dobré ráno`,
  * `God kväll`). The tone marks were off for a while, at the owner's own asking, and they
  * asked for them back: `ǎ`, `ǔ` and `ā` are letters the serif draws, and a pinyin without
  * them is a spelling a Mandarin reader has to reconstruct.
@@ -112,12 +112,11 @@ export type GreetingLine = Greeting & {
  * characters, which is exactly `MAX_WORD` below.
  */
 export const GREETINGS: Greeting[] = [
-  // The tone marks are the owner's own asking, twice: off once, and back on when they missed
-  // them (`Zǎo shang hǎo`, 早上好).
-  { word: "Zǎo shang hǎo,", language: "Mandarin Chinese", lang: "zh-Latn", when: "morning" },
-  { word: "Xià wǔ hǎo,", language: "Mandarin Chinese", lang: "zh-Latn", when: "afternoon" },
-  { word: "Wǎn shang hǎo,", language: "Mandarin Chinese", lang: "zh-Latn", when: "evening" },
-  { word: "Wǎn ān,", language: "Mandarin Chinese", lang: "zh-Latn", when: "night" },
+  // The Mandarin words are spelled plain, without tone marks, at the owner's own asking (早上好).
+  { word: "Zao shang hao,", language: "Mandarin Chinese", lang: "zh-Latn", when: "morning" },
+  { word: "Xia wu hao,", language: "Mandarin Chinese", lang: "zh-Latn", when: "afternoon" },
+  { word: "Wan shang hao,", language: "Mandarin Chinese", lang: "zh-Latn", when: "evening" },
+  { word: "Wan an,", language: "Mandarin Chinese", lang: "zh-Latn", when: "night" },
 
   { word: "Suprabhat,", language: "Hindi", lang: "hi-Latn", when: "morning" },
   { word: "Namaskar,", language: "Hindi", lang: "hi-Latn", when: "afternoon" },

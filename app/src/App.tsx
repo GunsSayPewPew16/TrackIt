@@ -201,7 +201,8 @@ function TrackIt() {
     saveTotalTracked,
     saveTotalName,
   } = useBudgets()
-  const { openings, setBalance, customCards, cardOrder, addCard, removeCard, reorderCards } = useBalances(rows)
+  const { openings, transfers, setBalance, transfer, customCards, cardOrder, addCard, removeCard, reorderCards } =
+    useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   /**
@@ -261,6 +262,10 @@ function TrackIt() {
    * needs the numbers (`features/balance/BalanceSheet.tsx`).
    */
   const [balanceAccount, setBalanceAccount] = useState<string | null>(null)
+  /** The card a transfer is moving money into, or `null` when no transfer sheet is open. */
+  const [transferTo, setTransferTo] = useState<string | null>(null)
+  /** Counts each open, so the transfer sheet remounts blank on every open. */
+  const [transferOpens, setTransferOpens] = useState(0)
   /**
    * The balance panel, fetched on the first hold for the same reason the budget editor is:
    * a keypad that may never be opened does not belong in the entry chunk. It is warmed idly
@@ -718,10 +723,10 @@ function TrackIt() {
     () => {
       const model = demo
         ? demoDashboard(envelopes, openings, customCards)
-        : dashboardModel(rows, now, envelopes, openings, customCards)
+        : dashboardModel(rows, now, envelopes, openings, customCards, transfers)
       return { ...model, cards: applyCardOrder(model.cards, cardOrder) }
     },
-    [demo, rows, now, envelopes, openings, customCards, cardOrder],
+    [demo, rows, now, envelopes, openings, customCards, cardOrder, transfers],
   )
   const ledger = useMemo(
     () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor, openings)),
@@ -959,6 +964,12 @@ function TrackIt() {
               setChoiceFor(null)
               if (id) void editBalance(id)
             }}
+            onTransfer={() => {
+              const id = choiceFor
+              setChoiceFor(null)
+              setTransferOpens((count) => count + 1)
+              setTransferTo(id)
+            }}
             onAdd={() => {
               setChoiceFor(null)
               setAddingCard(true)
@@ -979,6 +990,17 @@ function TrackIt() {
               if (id) removeCard(id)
             }}
             onClose={() => setChoiceFor(null)}
+          />
+          <cardSheets.TransferSheet
+            key={transferOpens}
+            isOpen={transferTo !== null}
+            toId={transferTo ?? ""}
+            toName={dashboard.cards.find((card) => card.id === transferTo)?.name ?? "Card"}
+            onClose={() => setTransferTo(null)}
+            onSave={(fromId, cents) => {
+              if (transferTo) transfer(fromId, transferTo, cents)
+              setTransferTo(null)
+            }}
           />
           <cardSheets.AddCardSheet
             isOpen={addingCard}

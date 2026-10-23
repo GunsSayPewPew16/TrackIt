@@ -402,6 +402,11 @@ export function dashboardModel(
    */
   openings: Record<string, number> = {},
   custom: CustomCard[] = [],
+  /**
+   * Money moved between accounts (`lib/balances.ts`). It moves what each card reads and is
+   * never a row, so the ledger and the statistics do not count it.
+   */
+  transfers: readonly { from: string; to: string; cents: number }[] = [],
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -435,10 +440,16 @@ export function dashboardModel(
   // is the same rule the import follows.
   const cards = ACCOUNTS.map((account) => {
     const own = rows.filter((row) => accountFor(row.account).id === account.id)
+    const moved = transfers.reduce(
+      (total, move) =>
+        total + (move.to === account.id ? move.cents : 0) - (move.from === account.id ? move.cents : 0),
+      0,
+    )
     const balance =
       (openings[account.id] ?? account.openingCents) +
       sum(own.filter((row) => row.kind === "income")) -
-      sum(own.filter(isExpense))
+      sum(own.filter(isExpense)) +
+      moved
     return {
       id: account.id,
       name: account.name,

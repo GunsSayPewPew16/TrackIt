@@ -119,6 +119,8 @@ const buttonBase =
 const quiet = `${buttonBase} border-line bg-transparent text-ink`
 
 /** A card in the stack, as the choice sees it: its id for the store, its name for the eye. */
+export { TransferSheet, type TransferSheetProps } from "./TransferSheet"
+
 export type StackCard = { id: string; name: string }
 
 /**
@@ -132,6 +134,7 @@ export function CardChoiceSheet({
   cards,
   canDelete,
   onEdit,
+  onTransfer,
   onAdd,
   onFront,
   onBack,
@@ -146,6 +149,8 @@ export function CardChoiceSheet({
   cards: StackCard[]
   canDelete: boolean
   onEdit: () => void
+  /** Move money into this card from another account. */
+  onTransfer: () => void
   onAdd: () => void
   /** Bring another card to the front, by its id. */
   onFront: (id: string) => void
@@ -177,6 +182,16 @@ export function CardChoiceSheet({
         >
           <Pencil strokeWidth={1.5} className="size-4" aria-hidden="true" />
           Edit balance
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            mediumClick()
+            onTransfer()
+          }}
+          className={quiet}
+        >
+          Transfer money
         </button>
         <button
           type="button"
