@@ -1,16 +1,56 @@
 import { animate, motion, motionValue, useReducedMotion, type MotionValue } from "framer-motion"
 import {
+  Baby,
+  BadgeIndianRupee,
   Banknote,
+  Beer,
+  Bike,
+  BookOpen,
+  Briefcase,
+  Building2,
+  Bus,
+  CakeSlice,
+  Car,
+  Coffee,
   Coins,
   CreditCard,
+  Droplets,
+  Dumbbell,
+  Fuel,
   Gift,
+  GraduationCap,
+  Heart,
+  HeartPulse,
+  House,
+  IndianRupee,
   Landmark,
+  MapPin,
+  PawPrint,
+  Percent,
   PiggyBank,
+  Pill,
+  Pizza,
   Plane,
+  PlaneTakeoff,
   Plus,
   QrCode,
+  Receipt,
+  Scissors,
+  Shirt,
   ShoppingBag,
+  ShoppingBasket,
+  ShoppingCart,
+  Smartphone,
+  Sparkles,
+  Store,
+  Tag,
+  Ticket,
+  TrainFront,
+  Utensils,
   Wallet,
+  Wifi,
+  Wrench,
+  Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
@@ -63,16 +103,62 @@ import type { BalanceCard } from "@/lib/view"
  * on the same 10px of travel (`hooks/useLongPress.ts`), so a pull is still a pull.
  */
 
-/** The icons a card of the owner's own can wear, by the names `lib/customCards.ts` stores. */
+/**
+ * Every icon a card can wear, by the name `lib/cardIcons.ts` stores: fifty, the library and the
+ * quick row together. `qr` and `cash` are the two accounts' own marks, drawn from Lucide's code
+ * and banknote glyphs, so a card of the owner's own can wear the same ones the accounts do.
+ */
 export const CARD_ICONS: Record<CardIconName, LucideIcon> = {
+  qr: QrCode,
+  cash: Banknote,
   Wallet,
   CreditCard,
-  PiggyBank,
-  Landmark,
   Coins,
-  Gift,
-  Plane,
+  BadgeIndianRupee,
+  IndianRupee,
+  Percent,
   ShoppingBag,
+  ShoppingCart,
+  ShoppingBasket,
+  Store,
+  Receipt,
+  Tag,
+  Ticket,
+  Utensils,
+  Coffee,
+  Pizza,
+  CakeSlice,
+  Beer,
+  Car,
+  Bus,
+  Bike,
+  Fuel,
+  TrainFront,
+  Plane,
+  PlaneTakeoff,
+  MapPin,
+  House,
+  Building2,
+  Landmark,
+  HeartPulse,
+  Pill,
+  Dumbbell,
+  Heart,
+  PiggyBank,
+  Gift,
+  GraduationCap,
+  BookOpen,
+  Briefcase,
+  Smartphone,
+  Wifi,
+  Zap,
+  Droplets,
+  Wrench,
+  Scissors,
+  Shirt,
+  PawPrint,
+  Baby,
+  Sparkles,
 }
 
 /**
@@ -147,8 +233,7 @@ function skinOf(card: BalanceCard): Skin {
 
 /** The glyph a card carries in its top-left corner. */
 function glyphOf(card: BalanceCard): LucideIcon {
-  if (card.icon === "qr") return QrCode
-  if (card.icon === "cash") return Banknote
+  // `qr` and `cash` are in the map with every other mark, so there is nothing to special-case.
   return CARD_ICONS[card.icon] ?? Wallet
 }
 

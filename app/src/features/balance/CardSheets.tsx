@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2, X } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 
 import { CARD_ICONS, TONES } from "@/components/BalanceCards"
+import { MORE_ICONS, QUICK_ICONS } from "@/lib/cardIcons"
 import { CARD_ICON_NAMES, CARD_TONES, type CardIconName, type CardTone } from "@/lib/customCards"
 import { heavyThud, lightTap, mediumClick, primeHaptics } from "@/lib/haptics"
 import type { BalanceCard } from "@/lib/view"
@@ -331,30 +332,7 @@ export function CardLookSheet({
       <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">
         Icon
       </p>
-      <div role="radiogroup" aria-label="Icon" className="mt-2 grid grid-cols-4 gap-2">
-        {CARD_ICON_NAMES.map((option) => {
-          const Icon = CARD_ICONS[option]
-          const active = option === chosen
-          return (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={option}
-              onClick={() => {
-                lightTap()
-                setChosen(option)
-              }}
-              className={`grid h-12 place-items-center rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-ink ${
-                active ? "border-transparent bg-sage text-on-sage" : "border-line bg-transparent text-ink"
-              }`}
-            >
-              <Icon strokeWidth={1.5} className="size-5" aria-hidden="true" />
-            </button>
-          )
-        })}
-      </div>
+      <IconPicker value={chosen} onChange={setChosen} />
 
       <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">
         Colour
@@ -420,6 +398,86 @@ export function CardLookSheet({
   )
 }
 
+/**
+ * The icon picker, shared by the add-card sheet and the look sheet.
+ *
+ * Seven marks are always in reach — the ones a card usually wants — and the eighth cell is
+ * **More**, which opens the rest of the library (`lib/cardIcons.ts`, fifty in all, the two
+ * accounts' `qr` and `cash` among them). The library is a scrollable grid of its own rather than
+ * a second screen, so a mark can be tried against the preview without losing the quick row; it
+ * opens already open when the card wears a library icon, so the current choice is never hidden.
+ */
+function IconPicker({ value, onChange }: { value: CardIconName; onChange: (icon: CardIconName) => void }) {
+  const [open, setOpen] = useState(!(QUICK_ICONS as readonly string[]).includes(value))
+
+  const tile = (name: CardIconName) => {
+    const Icon = CARD_ICONS[name]
+    const chosen = name === value
+    return (
+      <button
+        key={name}
+        type="button"
+        role="radio"
+        aria-checked={chosen}
+        aria-label={name}
+        onClick={() => {
+          lightTap()
+          onChange(name)
+        }}
+        className={`grid h-12 place-items-center rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-ink ${
+          chosen ? "border-transparent bg-sage text-on-sage" : "border-line bg-transparent text-ink"
+        }`}
+      >
+        <Icon strokeWidth={1.5} className="size-5" aria-hidden="true" />
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <div role="radiogroup" aria-label="Icon" className="mt-2 grid grid-cols-4 gap-2">
+        {QUICK_ICONS.map(tile)}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="card-icon-library"
+          onClick={() => {
+            lightTap()
+            setOpen((was) => !was)
+          }}
+          className={`h-12 rounded-2xl border font-sans text-[12px] leading-4 font-medium tracking-[0.02em] outline-none focus-visible:ring-2 focus-visible:ring-ink ${
+            open ? "border-transparent bg-ink text-canvas" : "border-line bg-transparent text-ink"
+          }`}
+        >
+          {open ? "Fewer" : "More"}
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="library"
+            id="card-icon-library"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={SPRING}
+            className="overflow-hidden"
+          >
+            <div
+              role="radiogroup"
+              aria-label="More icons"
+              className="mt-2 grid max-h-44 grid-cols-4 gap-2 overflow-y-auto pt-1 pr-1"
+            >
+              {MORE_ICONS.map(tile)}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
 /** A swatch's name for screen readers: its slot in the palette, in words the owner can follow. */
 const toneName = (tone: CardTone): string => `Colour ${tone.replace("tone-", "")}`
 
@@ -477,30 +535,7 @@ export function AddCardSheet({
       />
 
       <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">Icon</p>
-      <div role="radiogroup" aria-label="Icon" className="mt-2 grid grid-cols-4 gap-2">
-        {CARD_ICON_NAMES.map((name) => {
-          const Icon = CARD_ICONS[name]
-          const chosen = name === icon
-          return (
-            <button
-              key={name}
-              type="button"
-              role="radio"
-              aria-checked={chosen}
-              aria-label={name}
-              onClick={() => {
-                lightTap()
-                setIcon(name)
-              }}
-              className={`grid h-12 place-items-center rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-ink ${
-                chosen ? "border-transparent bg-sage text-on-sage" : "border-line bg-transparent text-ink"
-              }`}
-            >
-              <Icon strokeWidth={1.5} className="size-5" aria-hidden="true" />
-            </button>
-          )
-        })}
-      </div>
+      <IconPicker value={icon} onChange={setIcon} />
 
       <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">Colour</p>
       <div role="radiogroup" aria-label="Colour" className="mt-2 flex items-center gap-3">

@@ -17,21 +17,17 @@
  */
 
 import { ownerStorageKey, subscribeBalances } from "./balances"
+import { ICON_LIBRARY, type CardIconName } from "./cardIcons"
 import { money, wholeMoney } from "./format"
 import type { BalanceCard } from "./view"
 
-/** The icons a card can wear. The names are Lucide's; the components are in `components/BalanceCards.tsx`. */
-export const CARD_ICON_NAMES = [
-  "Wallet",
-  "CreditCard",
-  "PiggyBank",
-  "Landmark",
-  "Coins",
-  "Gift",
-  "Plane",
-  "ShoppingBag",
-] as const
-export type CardIconName = (typeof CARD_ICON_NAMES)[number]
+/**
+ * The icons a card can wear: fifty, from `lib/cardIcons.ts`. The picker shows seven of them and a
+ * **More** button for the rest; a saved card is validated against all fifty either way, so an icon
+ * chosen from the library is stored exactly like a quick one.
+ */
+const CARD_ICON_NAMES = ICON_LIBRARY
+export { CARD_ICON_NAMES, type CardIconName }
 
 /**
  * The colours the owner can pick for a card: the five slots of the current palette. A slot is a
