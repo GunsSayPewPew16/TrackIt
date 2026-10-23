@@ -2,11 +2,17 @@
  * The colour sheet for balance cards: five colours for every palette, written out here so each
  * can be read against its palette at a glance.
  *
- * **How to read it.** Each palette has a row of five colours, numbered **1 to 5 by lightness**:
- * 1 is the lightest of the five and 5 the darkest. A card the owner makes stores only its number
- * (`tone-1` … `tone-5`), never a hex value. When the card is drawn, its number is looked up in the
- * palette that is on screen *now*, so a card that shows colour 2 on Alpine Willows shows colour 2 of
- * whichever palette is chosen next. The picker in the new-card sheet reads the same row.
+ * **How to read it.** Each palette has a row of five colours, written **lightest to darkest**. A
+ * card the owner makes stores only its *slot* (`tone-1` … `tone-5`), never a hex value. When the
+ * card is drawn, its slot is looked up in the palette that is on screen *now*, so a card that shows
+ * slot 2 on Alpine Willows shows slot 2 of whichever palette is chosen next. The picker in the
+ * card sheets reads the same slots.
+ *
+ * **Which end a slot takes follows the mode.** Slot 1 is always the colour *nearest the canvas*:
+ * in a light palette the lightest of the row, and in a dark palette the darkest. So the scale runs
+ * away from the background in both modes, and a stack of cards reads the same direction in either —
+ * the lightest tone in light mode is the darkest tone in dark mode, which is what `cardToneSlots`
+ * below decides. A row is therefore authored once, lightest to darkest, and never per mode.
  *
  * **Where each colour comes from.** Every colour is one of the palette's own tokens in
  * `src/index.css`, named in the comment beside it. The category colours (`--data-*`) are left out:
@@ -16,7 +22,7 @@
  * that sits on each fill is chosen by luminance in `applyPalette` (`lib/theme.ts`).
  */
 
-/** Five colours, lightest (1) to darkest (5). */
+/** Five colours, authored lightest to darkest. */
 export type CardColourRow = readonly [string, string, string, string, string]
 
 /* ------------------------------------------------------------------ *
@@ -125,4 +131,21 @@ export const LIGHT_CARD_COLOURS: Record<string, CardColourRow> = {
     "#a11692", // 4  Dark Magenta
     "#17183b", // 5  Space Indigo
   ],
+}
+
+/**
+ * A palette's five colours in **slot order**: slot 1 first, slot 5 last.
+ *
+ * The rows are authored lightest to darkest, so a light palette uses them as they are — slot 1 is
+ * the lightest, nearest a light canvas — and a dark palette takes them backwards, which makes
+ * slot 1 its darkest and the lightest colour land on slot 5. That is the whole of the mode's
+ * difference: a card's slot means the same thing on either side of the toggle, and only the
+ * colours it resolves to mirror.
+ *
+ * `null` for a palette with no row, which leaves its slots to whatever was last set.
+ */
+export function cardToneSlots(paletteId: string, theme: "light" | "dark"): CardColourRow | null {
+  const row = (theme === "dark" ? DARK_CARD_COLOURS : LIGHT_CARD_COLOURS)[paletteId]
+  if (!row) return null
+  return theme === "dark" ? ([...row].reverse() as unknown as CardColourRow) : row
 }

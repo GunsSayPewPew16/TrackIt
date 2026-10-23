@@ -29,7 +29,7 @@
  * and pressing it again comes back to its dark one rather than resetting to Archival Earth.
  */
 
-import { DARK_CARD_COLOURS, LIGHT_CARD_COLOURS } from "@/lib/cardColours"
+import { cardToneSlots } from "@/lib/cardColours"
 
 /** The two themes the palettes are drawn for. A component that draws a sun or a moon needs this. */
 export type Theme = "light" | "dark"
@@ -254,10 +254,10 @@ export function storedPalette(): Palette {
  */
 export function applyPalette(palette: Palette): void {
   document.documentElement.dataset.palette = palette.id
-  // The card colours are the palette's row on the colour sheet (`lib/cardColours.ts`): colour 1 to 5
-  // of the palette on screen now, so a card that holds colour 2 shows colour 2 of whatever is chosen.
-  const sheet = palette.theme === "dark" ? DARK_CARD_COLOURS : LIGHT_CARD_COLOURS
-  sheet[palette.id]?.forEach((tone, index) => {
+  // The card colours are the palette's row on the colour sheet (`lib/cardColours.ts`), read through
+  // `cardToneSlots`: a dark palette hands them back mirrored, so slot 1 is the colour nearest the
+  // canvas in either mode and a card keeps its slot when the theme changes.
+  cardToneSlots(palette.id, palette.theme)?.forEach((tone, index) => {
     document.documentElement.style.setProperty(`--tone-${index + 1}`, tone)
     document.documentElement.style.setProperty(`--tone-${index + 1}-ink`, toneInk(tone))
   })
