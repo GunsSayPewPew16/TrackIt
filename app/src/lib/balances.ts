@@ -111,9 +111,35 @@ export function netOf(rows: Row[], accountId: string): number {
   return net
 }
 
-/** The opening that makes this account read `targetCents` today. */
-export function openingFor(rows: Row[], accountId: string, targetCents: number): number {
-  return Math.round(targetCents) - netOf(rows, accountId)
+/**
+ * What transfers have done to one account: in minus out, in paise.
+ *
+ * A card reads its opening, plus its rows, plus this. The balance editor therefore has to take
+ * it back out again before it stores an opening — which is why it is here and not only in
+ * `lib/derive.ts`, where the card is drawn.
+ */
+export function movedFor(transfers: readonly Transfer[], accountId: string): number {
+  let moved = 0
+  for (const move of transfers) {
+    if (move.to === accountId) moved += move.cents
+    if (move.from === accountId) moved -= move.cents
+  }
+  return moved
+}
+
+/**
+ * The opening that makes this account read `targetCents` today.
+ *
+ * The rows and the transfers are both taken back out: what the owner typed is what the card
+ * shows, and the two ways the figure has moved since its opening are not the editor's business.
+ */
+export function openingFor(
+  rows: Row[],
+  accountId: string,
+  targetCents: number,
+  movedCents = 0,
+): number {
+  return Math.round(targetCents) - netOf(rows, accountId) - movedCents
 }
 
 /**
@@ -122,8 +148,16 @@ export function openingFor(rows: Row[], accountId: string, targetCents: number):
  * The figure is what the card shows, so a typed `₹2,400` is a card that says ₹2,400 — not an
  * opening that happens to work out to it after the next row lands.
  */
-export function setAccountBalance(accountId: string, targetCents: number, rows: Row[]): void {
-  const next = { ...openingSnapshot(), [accountId]: openingFor(rows, accountId, Math.max(0, targetCents)) }
+export function setAccountBalance(
+  accountId: string,
+  targetCents: number,
+  rows: Row[],
+  movedCents = 0,
+): void {
+  const next = {
+    ...openingSnapshot(),
+    [accountId]: openingFor(rows, accountId, Math.max(0, targetCents), movedCents),
+  }
   cache = next
   try {
     window.localStorage.setItem(storageKey(), JSON.stringify(next))

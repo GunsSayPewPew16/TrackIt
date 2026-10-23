@@ -56,6 +56,7 @@ import {
 } from "./format"
 
 import type { Budget, Row } from "./types"
+import type { CardLooks } from "./cardLook"
 import type { CustomCard } from "./customCards"
 import { customCardsOf } from "./customCards"
 import type { DashboardModel, LedgerCard, LedgerDay, LedgerModel } from "./view"
@@ -407,6 +408,8 @@ export function dashboardModel(
    * never a row, so the ledger and the statistics do not count it.
    */
   transfers: readonly { from: string; to: string; cents: number }[] = [],
+  /** The icon and colour the owner gave a card (`lib/cardLook.ts`), by card id. */
+  looks: CardLooks = {},
 ): DashboardModel {
   const expenses = rows.filter(isExpense)
 
@@ -450,10 +453,14 @@ export function dashboardModel(
       sum(own.filter((row) => row.kind === "income")) -
       sum(own.filter(isExpense)) +
       moved
+    const look = looks[account.id]
     return {
       id: account.id,
       name: account.name,
-      icon: account.id === "upi" ? ("qr" as const) : ("cash" as const),
+      // A look the owner saved wins over the account's own mark and colour, so the two accounts
+      // can wear anything the owner's own cards can.
+      icon: look?.icon ?? (account.id === "upi" ? ("qr" as const) : ("cash" as const)),
+      tone: look?.tone,
       cents: Math.max(balance, 0),
       balance: money(Math.max(balance, 0)),
       spent: wholeMoney(spentBetween(own, monthStart, monthEnd)),
@@ -461,7 +468,7 @@ export function dashboardModel(
   })
 
   return {
-    cards: [...cards, ...customCardsOf(custom, openings)],
+    cards: [...cards, ...customCardsOf(custom, openings, transfers, looks)],
     quickLog: {
       title: "Quick log",
       context: timeOfDayWord(now),

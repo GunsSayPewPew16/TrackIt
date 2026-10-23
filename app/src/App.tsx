@@ -201,8 +201,19 @@ function TrackIt() {
     saveTotalTracked,
     saveTotalName,
   } = useBudgets()
-  const { openings, transfers, setBalance, transfer, customCards, cardOrder, addCard, removeCard, reorderCards } =
-    useBalances(rows)
+  const {
+    openings,
+    transfers,
+    looks,
+    setBalance,
+    transfer,
+    setLook,
+    customCards,
+    cardOrder,
+    addCard,
+    removeCard,
+    reorderCards,
+  } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
   /**
@@ -266,6 +277,10 @@ function TrackIt() {
   const [balanceAccount, setBalanceAccount] = useState<string | null>(null)
   /** The card a transfer is moving money into, or `null` when no transfer sheet is open. */
   const [transferTo, setTransferTo] = useState<string | null>(null)
+  /** The card whose icon and colour are being changed, or `null` when that sheet is closed. */
+  const [lookFor, setLookFor] = useState<string | null>(null)
+  /** Counts each open, so the look sheet remounts on the card's current look. */
+  const [lookOpens, setLookOpens] = useState(0)
   /** Counts each open, so the transfer sheet remounts blank on every open. */
   const [transferOpens, setTransferOpens] = useState(0)
   /**
@@ -725,11 +740,11 @@ function TrackIt() {
   const dashboard = useMemo(
     () => {
       const model = demo
-        ? demoDashboard(envelopes, openings, customCards)
-        : dashboardModel(rows, now, envelopes, openings, customCards, transfers)
+        ? demoDashboard(envelopes, openings, customCards, transfers, looks)
+        : dashboardModel(rows, now, envelopes, openings, customCards, transfers, looks)
       return { ...model, cards: applyCardOrder(model.cards, cardOrder) }
     },
-    [demo, rows, now, envelopes, openings, customCards, cardOrder, transfers],
+    [demo, rows, now, envelopes, openings, customCards, cardOrder, transfers, looks],
   )
   const ledger = useMemo(
     () => (demo ? DEMO_LEDGER : ledgerModel(rows, budgets, anchor, openings)),
@@ -975,6 +990,12 @@ function TrackIt() {
               setTransferOpens((count) => count + 1)
               setTransferTo(id)
             }}
+            onLook={() => {
+              const id = choiceFor
+              setChoiceFor(null)
+              setLookOpens((count) => count + 1)
+              setLookFor(id)
+            }}
             onAdd={() => {
               setChoiceFor(null)
               setAddingCard(true)
@@ -1001,10 +1022,23 @@ function TrackIt() {
             isOpen={transferTo !== null}
             toId={transferTo ?? ""}
             toName={dashboard.cards.find((card) => card.id === transferTo)?.name ?? "Card"}
+            cards={dashboard.cards.map((card) => ({ id: card.id, name: card.name }))}
             onClose={() => setTransferTo(null)}
             onSave={(fromId, cents) => {
               if (transferTo) transfer(fromId, transferTo, cents)
               setTransferTo(null)
+            }}
+          />
+          <cardSheets.CardLookSheet
+            key={lookOpens}
+            isOpen={lookFor !== null}
+            name={dashboard.cards.find((card) => card.id === lookFor)?.name ?? "Card"}
+            icon={dashboard.cards.find((card) => card.id === lookFor)?.icon ?? "Wallet"}
+            tone={dashboard.cards.find((card) => card.id === lookFor)?.tone}
+            onClose={() => setLookFor(null)}
+            onSave={(choice) => {
+              if (lookFor) setLook(lookFor, choice)
+              setLookFor(null)
             }}
           />
           <cardSheets.AddCardSheet

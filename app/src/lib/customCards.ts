@@ -221,14 +221,27 @@ export function applyCardOrder<T extends { id: string }>(cards: T[], order: stri
  * The owner's cards as stack cards, after the two accounts. What each holds is its opening, and
  * no row is filed under one yet, so it has nothing spent from it this month.
  */
-export function customCardsOf(cards: CustomCard[], openings: Record<string, number>): BalanceCard[] {
+export function customCardsOf(
+  cards: CustomCard[],
+  openings: Record<string, number>,
+  transfers: readonly { from: string; to: string; cents: number }[] = [],
+  looks: Record<string, { icon?: CardIconName; tone?: CardTone }> = {},
+): BalanceCard[] {
   return cards.map((card) => {
-    const cents = Math.max(openings[card.id] ?? 0, 0)
+    // Money moved into or out of the card is part of what it holds, exactly as it is for the two
+    // accounts; a look the owner saved replaces the icon and colour it was made with.
+    const moved = transfers.reduce(
+      (total, move) =>
+        total + (move.to === card.id ? move.cents : 0) - (move.from === card.id ? move.cents : 0),
+      0,
+    )
+    const cents = Math.max((openings[card.id] ?? 0) + moved, 0)
+    const look = looks[card.id]
     return {
       id: card.id,
       name: card.label,
-      icon: card.icon,
-      tone: card.tone,
+      icon: look?.icon ?? card.icon,
+      tone: look?.tone ?? card.tone,
       cents,
       balance: money(cents),
       spent: wholeMoney(0),

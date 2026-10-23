@@ -24,17 +24,23 @@ export type TransferSheetProps = {
   toName: string
   /** The account the money goes into, by id. */
   toId: string
+  /**
+   * Every card in the stack, in the dock's order. The sources are all of them but the one the
+   * money is going into: the owner can move money between their own cards as well as the two
+   * accounts, so this is the stack rather than `lib/accounts.ts`.
+   */
+  cards?: readonly { id: string; name: string }[]
   onClose: () => void
   /** The amount in integer paise, and the id of the account it leaves. */
   onSave: (fromId: string, cents: number) => void
 }
 
-export function TransferSheet({ isOpen, toName, toId, onClose, onSave }: TransferSheetProps) {
+export function TransferSheet({ isOpen, toName, toId, cards = ACCOUNTS, onClose, onSave }: TransferSheetProps) {
   const { raw, value, press } = useAmountInput()
-  const sources = ACCOUNTS.filter((account) => account.id !== toId)
+  const sources = cards.filter((card) => card.id !== toId)
   /** The account the money leaves, chosen by the owner; `null` means the first one that is not the card's. */
   const [chosen, setChosen] = useState<string | null>(null)
-  const fromId = chosen !== null && sources.some((account) => account.id === chosen) ? chosen : (sources[0]?.id ?? "")
+  const fromId = chosen !== null && sources.some((card) => card.id === chosen) ? chosen : (sources[0]?.id ?? "")
 
   useEffect(() => {
     if (!isOpen) return
@@ -114,9 +120,9 @@ export function TransferSheet({ isOpen, toName, toId, onClose, onSave }: Transfe
                 onChange={(event) => setChosen(event.target.value)}
                 className="mt-1 h-12 w-full rounded-2xl border border-line bg-card px-4 font-sans text-[15px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
               >
-                {sources.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
+                {sources.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    {card.name}
                   </option>
                 ))}
               </select>

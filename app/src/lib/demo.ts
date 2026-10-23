@@ -18,6 +18,7 @@
  */
 
 import { defaultEnvelopes, type Envelope } from "./budget"
+import type { CardLooks } from "./cardLook"
 import type { CustomCard } from "./customCards"
 import { customCardsOf } from "./customCards"
 import { initialsOf } from "./derive"
@@ -246,17 +247,30 @@ export function demoDashboard(
   envelopes: Envelope[] = defaultEnvelopes(),
   openings: Record<string, number> = {},
   custom: CustomCard[] = [],
+  transfers: readonly { from: string; to: string; cents: number }[] = [],
+  looks: CardLooks = {},
 ): DashboardModel {
+  /** What transfers have done to one card: in minus out. */
+  const moved = (cardId: string) =>
+    transfers.reduce(
+      (total, move) =>
+        total + (move.to === cardId ? move.cents : 0) - (move.from === cardId ? move.cents : 0),
+      0,
+    )
   return {
     ...DEMO_DASHBOARD,
     // With nothing imported there are no rows to carry a balance, so the opening *is* the
-    // figure — the same sum `lib/derive.ts` does with an empty ledger.
+    // figure — the same sum `lib/derive.ts` does with an empty ledger. A transfer moves it, and a
+    // look the owner saved replaces the card's mark and colour.
     cards: [...DEMO_DASHBOARD.cards.map((card) => {
       const opening = openings[card.id]
-      if (opening === undefined) return card
-      const cents = Math.max(opening, 0)
-      return { ...card, cents, balance: money(cents) }
-    }), ...customCardsOf(custom, openings)],
+      const look = looks[card.id]
+      const base = opening === undefined ? card.cents : opening
+      const cents = Math.max(base + moved(card.id), 0)
+      const styled = { ...card, cents, balance: money(cents) }
+      if (!look) return styled
+      return { ...styled, icon: look.icon ?? card.icon, tone: look.tone ?? card.tone }
+    }), ...customCardsOf(custom, openings, transfers, looks)],
     envelopes: envelopes.map((budget) => {
       const tracked = budget.tracked === null ? null : new Set(budget.tracked)
       const parts = Object.entries(DEMO_FOOD_PARTS)

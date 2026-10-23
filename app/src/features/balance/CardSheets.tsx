@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { CARD_ICONS, TONES } from "@/components/BalanceCards"
 import { CARD_ICON_NAMES, CARD_TONES, type CardIconName, type CardTone } from "@/lib/customCards"
 import { heavyThud, lightTap, mediumClick, primeHaptics } from "@/lib/haptics"
+import type { BalanceCard } from "@/lib/view"
 
 /**
  * The panels a hold on the balance stack can open, and the ones this file's siblings share.
@@ -135,6 +136,7 @@ export function CardChoiceSheet({
   canDelete,
   onEdit,
   onTransfer,
+  onLook,
   onAdd,
   onFront,
   onBack,
@@ -151,6 +153,8 @@ export function CardChoiceSheet({
   onEdit: () => void
   /** Move money into this card from another account. */
   onTransfer: () => void
+  /** Change this card's icon and colour. */
+  onLook: () => void
   onAdd: () => void
   /** Bring another card to the front, by its id. */
   onFront: (id: string) => void
@@ -192,6 +196,16 @@ export function CardChoiceSheet({
           className={quiet}
         >
           Transfer money
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            mediumClick()
+            onLook()
+          }}
+          className={quiet}
+        >
+          Icon &amp; colour
         </button>
         <button
           type="button"
@@ -267,6 +281,144 @@ export function CardChoiceSheet({
 
 /** What the add-card sheet hands back: the name as typed, and the two choices. */
 export type NewCard = { label: string; icon: CardIconName; tone: CardTone }
+
+/**
+ * Change a card's icon and colour — any card, the two accounts included.
+ *
+ * It is the add-card sheet's two pickers without the name: a card's name is what it *is*, and
+ * this is only what it wears. The colour can be left alone, which is what the **Its own colour**
+ * chip is for: a card saved here with neither keeps the account skin it has always drawn with
+ * (`components/BalanceCards.tsx`), so UPI can take a new mark and still be the ink card.
+ */
+export type CardLookChoice = { icon?: CardIconName; tone?: CardTone }
+
+export function CardLookSheet({
+  isOpen,
+  name,
+  icon,
+  tone,
+  onClose,
+  onSave,
+}: {
+  isOpen: boolean
+  /** The card's name, which is what the title says. */
+  name: string
+  /** The mark it wears now; `qr` and `cash` are the two accounts' own, and pick nothing here. */
+  icon: BalanceCard["icon"]
+  /** The colour it wears now, when the owner has already chosen one. */
+  tone?: CardTone
+  onClose: () => void
+  onSave: (choice: CardLookChoice) => void
+}) {
+  /*
+    The sheet is remounted for every open (`App.tsx` keys it), so these are read once from the
+    card as it stands: what it wears now is what the pickers start on, every time.
+  */
+  const [chosen, setChosen] = useState<CardIconName>(
+    CARD_ICON_NAMES.includes(icon as CardIconName) ? (icon as CardIconName) : "Wallet",
+  )
+  const [colour, setColour] = useState<CardTone | null>(
+    CARD_TONES.includes(tone as (typeof CARD_TONES)[number]) ? (tone as CardTone) : null,
+  )
+
+  const Glyph = CARD_ICONS[chosen]
+  const preview = colour ? TONES[colour] : TONES[tone ?? "tone-1"]
+
+  return (
+    <Panel isOpen={isOpen} label={`${name} icon and colour`} onClose={onClose}>
+      <Header title={name} note="Its icon and colour. The name and the money stay as they are." onClose={onClose} />
+
+      <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">
+        Icon
+      </p>
+      <div role="radiogroup" aria-label="Icon" className="mt-2 grid grid-cols-4 gap-2">
+        {CARD_ICON_NAMES.map((option) => {
+          const Icon = CARD_ICONS[option]
+          const active = option === chosen
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={option}
+              onClick={() => {
+                lightTap()
+                setChosen(option)
+              }}
+              className={`grid h-12 place-items-center rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-ink ${
+                active ? "border-transparent bg-sage text-on-sage" : "border-line bg-transparent text-ink"
+              }`}
+            >
+              <Icon strokeWidth={1.5} className="size-5" aria-hidden="true" />
+            </button>
+          )
+        })}
+      </div>
+
+      <p className="mt-4 font-sans text-[11px] leading-4 font-bold tracking-[0.08em] text-ink2 uppercase">
+        Colour
+      </p>
+      <div role="radiogroup" aria-label="Colour" className="mt-2 flex items-center gap-3">
+        {CARD_TONES.map((option) => {
+          const active = option === colour
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={toneName(option)}
+              onClick={() => {
+                lightTap()
+                setColour(option)
+              }}
+              className="size-10 rounded-full border-0 p-0 outline-none focus-visible:ring-2 focus-visible:ring-ink"
+              style={{
+                background: TONES[option].fill,
+                boxShadow: active ? "0 0 0 2px var(--card), 0 0 0 4px var(--ink)" : undefined,
+              }}
+            />
+          )
+        })}
+        <button
+          type="button"
+          aria-pressed={colour === null}
+          onClick={() => {
+            lightTap()
+            setColour(null)
+          }}
+          className={`h-10 rounded-full border px-3 font-sans text-[11px] leading-4 outline-none focus-visible:ring-2 focus-visible:ring-ink ${
+            colour === null ? "border-transparent bg-sage text-on-sage" : "border-line bg-transparent text-ink"
+          }`}
+        >
+          Its own colour
+        </button>
+      </div>
+
+      {/* The card as the stack will draw it. */}
+      <div
+        aria-hidden="true"
+        className="mt-4 flex h-12 items-center gap-3 rounded-2xl px-4"
+        style={{ background: preview.fill, color: preview.ink }}
+      >
+        <Glyph strokeWidth={1.5} className="size-5" />
+        <span className="truncate font-display text-[14px] font-medium">{name}</span>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          heavyThud()
+          onSave({ icon: chosen, tone: colour ?? undefined })
+        }}
+        className="mt-3 h-12 w-full rounded-2xl border-0 bg-sage px-4 font-sans text-[14px] leading-5 font-medium tracking-[0.02em] text-on-sage outline-none focus-visible:ring-2 focus-visible:ring-ink"
+      >
+        Save look
+      </button>
+    </Panel>
+  )
+}
 
 /** A swatch's name for screen readers: its slot in the palette, in words the owner can follow. */
 const toneName = (tone: CardTone): string => `Colour ${tone.replace("tone-", "")}`

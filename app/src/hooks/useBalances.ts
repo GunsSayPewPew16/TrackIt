@@ -2,11 +2,13 @@ import { useCallback, useSyncExternalStore } from "react"
 
 import {
   addTransfer,
+  movedFor,
   openingSnapshot,
   setAccountBalance,
   subscribeBalances,
   transfersSnapshot,
 } from "@/lib/balances"
+import { cardLooksSnapshot, setCardLook, subscribeCardLooks, type CardLooks } from "@/lib/cardLook"
 import {
   addCustomCard,
   cardOrderSnapshot,
@@ -41,17 +43,21 @@ export function useBalances(rows: Row[]) {
   )
   const cardOrder = useSyncExternalStore(subscribeCustomCards, cardOrderSnapshot, cardOrderSnapshot)
   const transfers = useSyncExternalStore(subscribeBalances, transfersSnapshot, transfersSnapshot)
+  const looks: CardLooks = useSyncExternalStore(subscribeCardLooks, cardLooksSnapshot, cardLooksSnapshot)
 
   const setBalance = useCallback(
-    (accountId: string, cents: number) => setAccountBalance(accountId, cents, rows),
+    (accountId: string, cents: number) =>
+      setAccountBalance(accountId, cents, rows, movedFor(transfersSnapshot(), accountId)),
     [rows],
   )
 
   return {
     openings,
     transfers,
+    looks,
     setBalance,
     transfer: addTransfer,
+    setLook: setCardLook,
     customCards,
     cardOrder,
     addCard: addCustomCard,
