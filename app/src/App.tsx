@@ -224,6 +224,8 @@ function TrackIt() {
   const viewport = useRef<HTMLDivElement>(null)
   /** The viewport's width, read by the gesture and the turn; a ref so both see it at once. */
   const widthRef = useRef(0)
+  /** The screen's width as state, so the dock re-places its circle when the screen is measured. */
+  const [screenWidth, setScreenWidth] = useState(0)
   /** The committed view, for the layout effects and the resize observer. */
   const viewRef = useRef<View>(view)
   const reduceMotion = useReducedMotion()
@@ -353,6 +355,7 @@ function TrackIt() {
     if (!el) return
     const measure = () => {
       widthRef.current = el.clientWidth
+      setScreenWidth(el.clientWidth)
       if (!sliding.current && !dragging.current) restTrack()
     }
     measure()
@@ -884,6 +887,8 @@ function TrackIt() {
       <BottomNav
         active={view === "scan" ? null : view}
         onChange={(tab) => void goTo(tab)}
+        track={track}
+        screenWidth={screenWidth}
       />
 
       {/* The one modal in the app: over the dock, and fetched on first use. */}

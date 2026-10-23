@@ -1,4 +1,4 @@
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion"
+import { animate, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue } from "framer-motion"
 import { ArrowDownUp, BarChart3, Home, UserRound, type LucideIcon } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
@@ -131,9 +131,17 @@ interface BottomNavProps {
   /** The screen on show. `null` (the scanner) leaves the circle where it was. */
   active: NavTab | null
   onChange: (tab: NavTab) => void
+  /**
+   * The screen track's left edge, in pixels: `-index × screen width` at rest. While a swipe
+   * moves it, the circle follows it tab for tab, so the dock is at the finger's position at
+   * every frame rather than only when the new screen is committed.
+   */
+  track?: MotionValue<number>
+  /** The width of one screen, in pixels, which turns the track's position into tabs. */
+  screenWidth?: number
 }
 
-export function BottomNav({ active, onChange }: BottomNavProps) {
+export function BottomNav({ active, onChange, track, screenWidth }: BottomNavProps) {
   const [ref, width] = useWidth<HTMLDivElement>()
   const reduceMotion = useReducedMotion()
 
@@ -161,10 +169,37 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
   /** The blur is clipped to the same outline as the fill, so it never leaves the pill. */
   const outline = useTransform(hump, (d) => `path('${d}')`)
 
+  /**
+   * While the track is moving, the circle is placed by it: the track's position in tabs maps
+   * straight onto the circle's centre. The `active` effect below is then only the place to
+   * settle at, and it runs when the screen is committed.
+   */
+  useEffect(() => {
+    if (!track || !screenWidth) return
+    const place = (px: number) => {
+      const tabs = -px / screenWidth
+      const first = centreOf(0)
+      const last = centreOf(slots - 1)
+      const centre = first + ((last - first) * tabs) / (slots - 1)
+      circleX.set(centre - CIRCLE / 2)
+    }
+    place(track.get())
+    const stop = track.on("change", (px) => {
+      // A drag or a turn owns the circle: any spring the seat started is cancelled here.
+      circleX.stop()
+      place(px)
+    })
+    return stop
+    // `centreOf` is derived from the width and inset, which the `circleX` effect already tracks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track, screenWidth, circleX, slots, width, inset])
+
   /** Whether the circle has been placed once: the first slot is a seat, not a slide. */
   const seated = useRef(false)
   useEffect(() => {
-    if (activeSlot === null) return
+    // A moving track places the circle itself (see the effect above), so the committed slot
+    // only seats it when the track is at rest, not while a swipe or a turn is still running.
+    if (activeSlot === null || (track && track.isAnimating())) return
     const target = centreOf(activeSlot) - CIRCLE / 2
     if (!seated.current) {
       seated.current = true
