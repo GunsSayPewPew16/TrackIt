@@ -1,5 +1,14 @@
-import { AnimatePresence, motion } from "framer-motion"
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react"
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "framer-motion"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react"
 
 import { BottomNav } from "@/components/BottomNav"
 import { DashboardScreen } from "@/components/DashboardScreen"
@@ -42,6 +51,14 @@ import { TAB_VIEWS, type NavTab } from "@/lib/tabs"
 import type { Row } from "@/lib/types"
 
 /**
+ * How a turn of the tab track moves. The four tabs sit side by side in one track, and a move from one
+ * tab to another slides it: a jump across more than one tab passes the screens in between, so they
+ * go by. The longer the jump, the longer it takes.
+ */
+const SLIDE_EASE = [0.32, 0.72, 0, 1] as const
+const slideDuration = (pagesPassed: number): number => 0.3 + 0.1 * pagesPassed
+
+/**
  * The app: three screens, and the state that decides what they show.
  *
  * **The greeting is the one thing here that is neither.** It is a different language
@@ -60,11 +77,11 @@ import type { Row } from "@/lib/types"
  * nothing on it shows nothing, never sample merchants. Nothing else in the app
  * knows which of the two it got.
  *
- * **The fade between the screens.** `mode="popLayout"` is what makes it a
- * cross-fade rather than a hand-over: the screen being left is taken out of the
- * layout and fades out in place while the new one fades in over it. The duration is
- * the design's own 0.35s for a screen, which is a slower movement than the 120ms
- * repaint a theme change uses: one is the page arriving, the other a switch.
+ * **The movement between the screens.** The four tabs are one track laid side by side, and a
+ * move between two of them slides it, so a jump across the tabs in between sees them go by.
+ * The scanner is not a tab and cross-fades in its place (`mode="popLayout"`), at the design's
+ * own 0.35s, which is a slower movement than the 120ms repaint a theme change uses: one is the
+ * page arriving, the other a switch.
  *
  * **Where the ledger opens.** The wheel holds one month — the 1st through today, or a
  * past month's last day — so the month menu on the ledger screen is what reaches the
@@ -77,7 +94,7 @@ import type { Row } from "@/lib/types"
  * browser would otherwise hand the new one the old one's scroll offset — the dashboard
  * opening halfway down its cards, or the ledger past a day the owner has not seen.
  * `scrollTo` is instant rather than smooth on purpose: this is not a movement the
- * owner asked for, and the cross-fade is what carries the change of screen.
+ * owner asked for, and the slide is what carries the change of screen.
  *
  * **The scanner is a screen too.** The dashboard's scan square opens it, and it is the
  * only way in — the dock has no Create — and it wears the second artboard's design
@@ -97,7 +114,7 @@ import type { Row } from "@/lib/types"
  * **The dock is the one thing every screen shares.** It is rendered beside the
  * `AnimatePresence` rather than inside it, so it neither fades with a screen nor
  * leaves the page when the screen does: the tabs are a level above the views and
- * stay put while the content cross-fades over them. Its `active` is the view itself
+ * stay put while the content slides over them. Its `active` is the view itself
  * — the tab keys are view names, so a tab is a screen — and the scanner is the one
  * view that is not a tab, so the circle holds its place while the camera is up and
  * slides from there when the owner goes back.
@@ -107,7 +124,7 @@ import type { Row } from "@/lib/types"
  * order (`TAB_VIEWS`), so a screen added to the dock is a screen the thumb can reach. A
  * gesture that starts in a control which reads sideways itself — the budget carousel, the
  * ledger's date wheel, the trend plot — stays with that control, and a vertical drag is a
- * scroll; the scanner is not a page, so there a swipe is the camera's. The cross-fade is the
+ * scroll; the scanner is not a page, so there a swipe is the camera's. The slide is the
  * same one a tab press gets: the gesture chooses the screen, not a second transition.
  *
  * **Only the dashboard is in the file that must arrive before the first pixel.** Nothing
@@ -187,6 +204,28 @@ function TrackIt() {
   const { openings, setBalance, customCards, cardOrder, addCard, removeCard, reorderCards } = useBalances(rows)
   const greeting = useGreeting()
   const [view, setView] = useState<View>("dashboard")
+  /**
+   * The tab track. `track` is its left edge in pixels — `-index × width` at rest — and it is the only
+   * thing that moves while a turn runs or the thumb drags. `mounted` is which tabs are drawn at all:
+   * the current one, and whatever a turn passes through or a drag may reveal. Every other slot is
+   * empty, so a screen the owner is not near is not mounted.
+   */
+  const track = useMotionValue(0)
+  const [mounted, setMounted] = useState<number[]>([0])
+  /** A turn or a snap-back is moving the track, so a gesture must not fight it. */
+  const sliding = useRef(false)
+  /** Counts the moves of the track. A move that was overtaken by a later one does nothing when it lands. */
+  const turn = useRef(0)
+  /** The move that is running now, so the next one can stop it. */
+  const glideControls = useRef<ReturnType<typeof animate> | null>(null)
+  /** A sideways drag has mounted the neighbours and is following the thumb. */
+  const dragging = useRef(false)
+  const viewport = useRef<HTMLDivElement>(null)
+  /** The viewport's width, read by the gesture and the turn; a ref so both see it at once. */
+  const widthRef = useRef(0)
+  /** The committed view, for the layout effects and the resize observer. */
+  const viewRef = useRef<View>(view)
+  const reduceMotion = useReducedMotion()
   const [arrived, setArrived] = useState<Arrived>({})
   /**
    * Where the owner has most recently asked to be. A tap is not always answered in the order
@@ -287,23 +326,100 @@ function TrackIt() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  /**
-   * Change screens, whichever way, and start the new one at its own top.
-   *
-   * A tap on one of the lazy screens waits for that screen, over the one being left rather
-   * than over an empty canvas, and the idle fetch above usually means there is nothing to
-   * wait for.
-   */
-  const goTo = useCallback(async (next: View) => {
-    wanted.current = next
-    if (next !== "dashboard") {
-      const screen = await screens[next]()
-      setArrived((was) => ({ ...was, [next]: screen }))
-    }
-    if (wanted.current !== next) return
-    setView(next)
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+  /** A screen is in hand before it is drawn: fetched once, then kept in `arrived`. */
+  const loadScreen = useCallback(async (page: View) => {
+    if (page === "dashboard") return
+    const screen = await screens[page]()
+    setArrived((was) => ({ ...was, [page]: screen }))
   }, [])
+
+  /** Put the track where the committed view is, at rest, for the width it is measured at. */
+  const restTrack = useCallback(() => {
+    const index = TAB_VIEWS.indexOf(viewRef.current as NavTab)
+    if (index >= 0) track.set(-index * widthRef.current)
+  }, [track])
+
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
+  useLayoutEffect(() => {
+    const el = viewport.current
+    if (!el) return
+    const measure = () => {
+      widthRef.current = el.clientWidth
+      if (!sliding.current && !dragging.current) restTrack()
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [restTrack])
+
+  /**
+   * Turn the track from one tab to another. Every tab the move passes through is in hand and drawn
+   * before it moves, so the owner sees them go by; the view is changed when the track lands.
+   */
+  const slideTo = useCallback(
+    async (to: number) => {
+      const target = TAB_VIEWS[to]
+      const id = ++turn.current
+      wanted.current = target
+      // Where the track is now, in tabs: a tap during a turn turns it from there, not from the view.
+      const at = -track.get() / Math.max(1, widthRef.current)
+      glideControls.current?.stop()
+      sliding.current = true
+      const low = Math.max(0, Math.min(Math.floor(at), to))
+      const high = Math.min(TAB_VIEWS.length - 1, Math.max(Math.ceil(at), to))
+      await Promise.all(TAB_VIEWS.slice(low, high + 1).map((page) => loadScreen(page)))
+      if (turn.current !== id) return
+      setMounted(Array.from({ length: high - low + 1 }, (_, k) => low + k))
+      const controls = animate(track, -to * widthRef.current, {
+        duration: reduceMotion ? 0 : slideDuration(Math.abs(to - at)),
+        ease: SLIDE_EASE,
+      })
+      glideControls.current = controls
+      await controls
+      if (turn.current !== id) return
+      sliding.current = false
+      setMounted([to])
+      setView(target)
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+    },
+    [loadScreen, reduceMotion, track],
+  )
+
+  /**
+   * Change screens, whichever way. A move between two tabs turns the track; the scanner is not in the
+   * tab order, so a move to or from it is a plain change of screen. A tap during a turn is ignored.
+   */
+  const goTo = useCallback(
+    async (next: View) => {
+      const to = TAB_VIEWS.indexOf(next as NavTab)
+      if (to >= 0 && TAB_VIEWS.includes(viewRef.current as NavTab)) {
+        // A tap on the screen that is already showing, with the track at rest, is nothing. A tap
+        // while it is still turning to another tab turns it back.
+        if (!sliding.current && next === viewRef.current) return
+        await slideTo(to)
+        return
+      }
+      // The scanner, or a move from it: a plain change of screen. Any turn still running is stopped.
+      turn.current++
+      glideControls.current?.stop()
+      sliding.current = false
+      wanted.current = next
+      await loadScreen(next)
+      if (wanted.current !== next) return
+      // A tab coming back from the scanner is put at rest on its own tab, with only that one drawn.
+      if (to >= 0) {
+        setMounted([to])
+        track.set(-to * widthRef.current)
+      }
+      setView(next)
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+    },
+    [loadScreen, slideTo, track],
+  )
 
   /**
    * The thumb's way between screens: the same four tabs, in the dock's order. `canSwipe`
@@ -317,13 +433,52 @@ function TrackIt() {
       const index = TAB_VIEWS.indexOf(view as NavTab)
       return index >= 0 && index + direction >= 0 && index + direction < TAB_VIEWS.length
     },
-    onSwipe: (direction) => {
+    onDrag: (dx) => {
+      if (sliding.current) return
       const index = TAB_VIEWS.indexOf(view as NavTab)
-      const next = index >= 0 ? TAB_VIEWS[index + direction] : undefined
-      if (!next) return
-      // Must run synchronously inside the gesture for iOS, like every other tap in the app.
-      lightTap()
-      void goTo(next)
+      if (index < 0) return
+      if (!dragging.current) {
+        // The first sideways movement draws the screens either side, so there is one to show.
+        dragging.current = true
+        const beside = [index - 1, index + 1].filter((i) => i >= 0 && i < TAB_VIEWS.length)
+        beside.forEach((i) => void loadScreen(TAB_VIEWS[i]))
+        setMounted([index, ...beside])
+      }
+      // A move toward no screen gives a little and no more.
+      const toward = dx < 0 ? 1 : -1
+      const open = index + toward >= 0 && index + toward < TAB_VIEWS.length
+      track.set(-index * widthRef.current + (open ? dx : dx * 0.3))
+    },
+    onSettle: (direction) => {
+      const wasDragging = dragging.current
+      dragging.current = false
+      if (sliding.current) return
+      const index = TAB_VIEWS.indexOf(view as NavTab)
+      if (index < 0) return
+      const next = direction === null ? -1 : index + direction
+      if (direction !== null && next >= 0 && next < TAB_VIEWS.length) {
+        // Must run synchronously inside the gesture for iOS, like every other tap in the app.
+        lightTap()
+        void slideTo(next)
+        return
+      }
+      if (!wasDragging) return
+      // Did not turn: the track goes back to where the view is, and the neighbours go with it.
+      const id = ++turn.current
+      wanted.current = TAB_VIEWS[index]
+      glideControls.current?.stop()
+      sliding.current = true
+      const controls = animate(track, -index * widthRef.current, {
+        duration: reduceMotion ? 0 : 0.3,
+        ease: SLIDE_EASE,
+      })
+      glideControls.current = controls
+      void (async () => {
+        await controls
+        if (turn.current !== id) return
+        sliding.current = false
+        setMounted([index])
+      })()
     },
   })
 
@@ -598,81 +753,127 @@ function TrackIt() {
   const Stats = arrived.stats
   const Settings = arrived.settings
 
+  /** The screen a tab draws. A tab the track has not reached yet is not drawn at all. */
+  const tabScreen = (page: NavTab): ReactNode => {
+    if (page === "dashboard") {
+      return (
+        <DashboardScreen
+          model={dashboard}
+          greeting={greeting}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onScan={() => void goTo("scan")}
+          onAddRecord={() => void openEntry()}
+          onQuickLog={(category) => void openEntry(category)}
+          activeEnvelopeId={activeEnvelopeId}
+          onViewEnvelope={viewEnvelope}
+          onEditBudget={(id) => void editBudget({ kind: "envelope", id })}
+          onCreateBudget={createBudget}
+          onMoveBudget={moveBudget}
+          onDeleteBudget={deleteEnvelope}
+          onHoldCard={(cardId) => void holdCard(cardId)}
+          onReorderCards={reorderCards}
+          canShowPayCode={isOwnerEmail(email)}
+        />
+      )
+    }
+    if (page === "ledger") {
+      return Ledger ? (
+        <Ledger
+          model={ledger}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onPickMonth={setAnchor}
+          // The ledger screen only asks; the store is what forgets a row and tells every
+          // screen subscribed to it (`lib/ledger.ts`).
+          onDelete={remove}
+          // …and an edit comes back the same way: the sheet is opened here, over the
+          // ledger, with the row the app holds.
+          onEdit={editRow}
+        />
+      ) : null
+    }
+    if (page === "stats") {
+      return Stats ? (
+        <Stats
+          rows={rows}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          budgetCents={total.limitCents}
+          budgetCategories={total.tracked}
+          openingCents={openingCents}
+          onSetBudget={() => void editBudget({ kind: "total" })}
+        />
+      ) : null
+    }
+    return Settings ? (
+      <Settings
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        palette={palette}
+        onChooseTheme={chooseTheme}
+      />
+    ) : null
+  }
+
   return (
     <>
-      <AnimatePresence initial={false} mode="popLayout">
-        <motion.div
-          key={view}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-        >
-          {view === "dashboard" ? (
-            <DashboardScreen
-              model={dashboard}
-              greeting={greeting}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onScan={() => void goTo("scan")}
-              onAddRecord={() => void openEntry()}
-              onQuickLog={(category) => void openEntry(category)}
-              activeEnvelopeId={activeEnvelopeId}
-              onViewEnvelope={viewEnvelope}
-              onEditBudget={(id) => void editBudget({ kind: "envelope", id })}
-              onCreateBudget={createBudget}
-              onMoveBudget={moveBudget}
-              onDeleteBudget={deleteEnvelope}
-              onHoldCard={(cardId) => void holdCard(cardId)}
-              onReorderCards={reorderCards}
-              canShowPayCode={isOwnerEmail(email)}
-            />
-          ) : view === "ledger" && Ledger ? (
-            <Ledger
-              model={ledger}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onPickMonth={setAnchor}
-              // The ledger screen only asks; the store is what forgets a row and tells every
-              // screen subscribed to it (`lib/ledger.ts`).
-              onDelete={remove}
-              // …and an edit comes back the same way: the sheet is opened here, over the
-              // ledger, with the row the app holds.
-              onEdit={editRow}
-            />
-          ) : view === "stats" && Stats ? (
-            <Stats
-              rows={rows}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              budgetCents={total.limitCents}
-              budgetCategories={total.tracked}
-              openingCents={openingCents}
-              onSetBudget={() => void editBudget({ kind: "total" })}
-            />
-        ) : view === "scan" && Scan ? (
-            <Scan
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onBack={() => void goTo("dashboard")}
-              // A scanned code opens the same sheet the dashboard's pill opens, as a payment
-              // screen for this merchant — and its answer is the status line's sentence, so the
-              // screen itself never touches the ledger.
-              onOpenEntry={(payee) => openEntry(null, payee)}
-            />
-          ) : view === "settings" && Settings ? (
-            <Settings
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              palette={palette}
-              onChooseTheme={chooseTheme}
-            />
-          ) : null}
-        </motion.div>
-      </AnimatePresence>
+      {/*
+        The tab track. The four tabs sit side by side in one row, and the row is moved with `left`
+        rather than a transform: a transform would make every `position: fixed` inside a page
+        relative to the row. The scanner is not a tab, so it cross-fades in the same frame.
+      */}
+      <div ref={viewport} className="relative overflow-x-clip">
+        <AnimatePresence initial={false} mode="popLayout">
+          {view === "scan" ? (
+            <motion.div
+              key="scan"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.35 }}
+            >
+              {Scan ? (
+                <Scan
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onBack={() => void goTo("dashboard")}
+                  // A scanned code opens the same sheet the dashboard's pill opens, as a payment
+                  // screen for this merchant — and its answer is the status line's sentence, so the
+                  // screen itself never touches the ledger.
+                  onOpenEntry={(payee) => openEntry(null, payee)}
+                />
+              ) : null}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="tabs"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.35 }}
+            >
+              <motion.div
+                className="relative flex"
+                style={{ left: track, width: `${TAB_VIEWS.length * 100}%` }}
+              >
+                {TAB_VIEWS.map((page, index) => (
+                  <div
+                    key={page}
+                    className="min-w-0 shrink-0"
+                    style={{ width: `${100 / TAB_VIEWS.length}%` }}
+                  >
+                    {mounted.includes(index) ? tabScreen(page) : null}
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/*
-        The dock lives outside the cross-fade: it is the frame the screens change
+        The dock lives outside the slide: it is the frame the screens change
         inside, not a fourth screen. `null` on the scanner leaves no tab marked.
       */}
       <BottomNav

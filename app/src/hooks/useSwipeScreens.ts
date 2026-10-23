@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react"
 
 /**
- * A sideways swipe, as the one answer "the next screen" or "the one before it".
+ * A sideways swipe, as the thumb's way between screens.
  *
  * The dock is still the app's frame; this is the same movement with a thumb, so a phone can
  * page through Home → Ledger → Stats → Settings without reaching for the bottom of the screen.
- * The rules it keeps are the ones a phone already taught the owner:
+ * The screens follow the finger while it moves (`onDrag`), and the gesture ends with one answer
+ * (`onSettle`): the direction it turned to, or `null` when it did not turn. The rules it keeps
+ * are the ones a phone already taught the owner:
  *
  * - **A page is paged, a control is not.** A gesture that starts inside a horizontally
  *   scrollable region belongs to that region — the budget carousel, the quick-log tray, the
@@ -16,11 +18,13 @@ import { useEffect, useRef } from "react"
  * - **A gesture is a direction before it is a distance.** The first 10px decide: if the finger
  *   is mostly travelling down, this is a scroll and the swipe lets go for good — a page that
  *   scrolls a little and then changes screens is the worst of both.
- * - **A press is not a swipe.** The click a mouse drag or a touch ends with is swallowed when
- *   the gesture became a page turn, so a card that was under the thumb does not open as well.
+ * - **A press is not a swipe.** The click a sideways gesture ends with is swallowed, so a card
+ *   that was under the thumb does not open as well.
  * - **Nothing pages under a sheet.** A modal is the only thing on screen while it is up; its
  *   scrim is not a navigation surface. The dock is excluded for the same reason — its own
  *   press is the tab.
+ * - **A gesture that is cancelled settles where it is.** A lost pointer, a second finger or a
+ *   blur reports `null`, so the screens snap back rather than being left half-way.
  *
  * **Touch is read as touch events, not as pointer events.** A browser that starts panning a
  * page may cancel the pointer stream, and then a perfectly ordinary sideways swipe would end
@@ -40,20 +44,30 @@ const DISTANCE = 56
  */
 const FLICK_DISTANCE = 28
 const FLICK_SPEED = 0.5 // px per ms
+/** The first movement that makes a gesture sideways, rather than a press or a scroll. */
+const DECIDE = 10
 
-/** Which way the thumb went: `1` is "the next screen", `-1` is "the one before". */
+/** Which way the thumb went: `1` is the next screen, `-1` the one before it. */
 export type SwipeDirection = 1 | -1
 
 type SwipeOptions = {
   /** Off on a screen that is not a page in the order (the scanner). */
   enabled?: boolean
   /**
-   * Whether there is a screen in that direction. Without it the gesture is still swallowed —
-   * a swipe at the first or last page must not open whatever was under the thumb — but no
-   * page turn happens.
+   * Whether there is a screen in that direction. Without it a gesture toward the end of the
+   * order still follows the thumb (the caller decides how far), but settles as `null`.
    */
   canSwipe?: (direction: SwipeDirection) => boolean
-  onSwipe: (direction: SwipeDirection) => void
+  /**
+   * Every move of a sideways gesture, with the finger's travel since it began in pixels: negative
+   * is leftward. This is what lets a screen follow the thumb.
+   */
+  onDrag?: (dx: number) => void
+  /**
+   * The end of a sideways gesture, once: the direction it turned to, or `null` when it did not
+   * turn (too short, too slow, toward no screen) or was cancelled.
+   */
+  onSettle: (direction: SwipeDirection | null) => void
 }
 
 /** Whether an element is, or sits inside, something that scrolls sideways for its own reasons. */
@@ -77,15 +91,17 @@ const IGNORE =
   'nav[aria-label="Primary"], [role="dialog"], [role="menu"], [aria-modal="true"], ' +
   '[data-swipe-ignore], input, textarea, select, [contenteditable="true"]'
 
-export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOptions) {
+export function useSwipeScreens({ enabled = true, canSwipe, onDrag, onSettle }: SwipeOptions) {
   // The callbacks are re-read on every fire, not captured when the listeners were armed: App
   // passes inline arrows, and a re-render must not leave the last one in charge.
-  const swipe = useRef(onSwipe)
+  const drag = useRef(onDrag)
+  const settle = useRef(onSettle)
   const allowed = useRef(canSwipe)
   useEffect(() => {
-    swipe.current = onSwipe
+    drag.current = onDrag
+    settle.current = onSettle
     allowed.current = canSwipe
-  }, [onSwipe, canSwipe])
+  }, [onDrag, onSettle, canSwipe])
 
   useEffect(() => {
     if (!enabled) return
@@ -95,7 +111,7 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
     /** The mouse/pen pointer the gesture belongs to; touch has no pointer id here. */
     let pointerId: number | null = null
 
-    /** The click a drag/touch ends with; swallowed once, only when a page turn happened. */
+    /** The click a sideways gesture ends with; swallowed once, and only for a little while. */
     const swallowNextClick = () => {
       const swallow = (event: MouseEvent) => {
         event.preventDefault()
@@ -116,6 +132,12 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
       start = { x, y, at, horizontal: false }
     }
 
+    /** A sideways gesture that is cancelled settles where it is: a snap-back, never a turn. */
+    const abandon = () => {
+      if (start?.horizontal) settle.current(null)
+      start = null
+    }
+
     const move = (x: number, y: number) => {
       if (!start) return
       const dx = x - start.x
@@ -123,9 +145,10 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
       if (!start.horizontal) {
         // The first real movement decides the gesture. A downward one is a scroll, and the
         // page is left to it; this gesture cannot become a swipe later.
-        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) start.horizontal = true
-        else if (Math.abs(dy) > 10) start = null
+        if (Math.abs(dx) > DECIDE && Math.abs(dx) > Math.abs(dy) * 1.2) start.horizontal = true
+        else if (Math.abs(dy) > DECIDE) start = null
       }
+      if (start?.horizontal) drag.current?.(dx)
     }
 
     const end = (x: number, y: number, at: number) => {
@@ -136,18 +159,18 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
 
       const dx = x - gesture.x
       const dy = y - gesture.y
-      if (Math.abs(dy) > DISTANCE) return
       const elapsed = Math.max(1, at - gesture.at)
       const flick = Math.abs(dx) >= FLICK_DISTANCE && Math.abs(dx) / elapsed >= FLICK_SPEED
-      if (Math.abs(dx) < DISTANCE && !flick) return
+      let direction: SwipeDirection | null = null
+      if (Math.abs(dy) <= DISTANCE && (Math.abs(dx) >= DISTANCE || flick)) {
+        direction = dx < 0 ? 1 : -1
+      }
+      if (direction !== null && !(allowed.current?.(direction) ?? true)) direction = null
 
-      const direction: SwipeDirection = dx < 0 ? 1 : -1
-      // Even at the end of the order the gesture was a page turn, so the tap it ended on is
-      // not carried into the screen underneath.
+      // A sideways gesture was a drag, not a press: the click it would otherwise send is swallowed.
       swallowNextClick()
       window.getSelection()?.removeAllRanges()
-      if (!(allowed.current?.(direction) ?? true)) return
-      swipe.current(direction)
+      settle.current(direction)
     }
 
     const onPointerDown = (event: PointerEvent) => {
@@ -171,7 +194,7 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
 
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) {
-        start = null
+        abandon()
         return
       }
       const touch = event.touches[0]
@@ -181,7 +204,7 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
     const onTouchMove = (event: TouchEvent) => {
       if (!start) return
       if (event.touches.length !== 1) {
-        start = null
+        abandon()
         return
       }
       const touch = event.touches[0]
@@ -202,16 +225,16 @@ export function useSwipeScreens({ enabled = true, canSwipe, onSwipe }: SwipeOpti
     const onPointerCancel = (event: PointerEvent) => {
       if (event.pointerType === "touch" || event.pointerId !== pointerId) return
       pointerId = null
-      start = null
+      abandon()
     }
 
     const cancelTouch = () => {
-      start = null
+      abandon()
     }
 
     const onBlur = () => {
-      start = null
       pointerId = null
+      abandon()
     }
 
     window.addEventListener("pointerdown", onPointerDown)

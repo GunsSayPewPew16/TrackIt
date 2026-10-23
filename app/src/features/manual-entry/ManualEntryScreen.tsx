@@ -371,7 +371,6 @@ export function ManualEntryScreen({
     if (value <= 0) return
     heavyThud() // 45ms, and only here
     const written = note.trim()
-    const amountCents = Math.round(value * 100)
     // The picker's moment, to the minute. Untouched, that is the moment the sheet opened.
     onSubmit?.({ kind, amount: value, account, merchant: merchant.trim(), note: written, category, at })
     /*
@@ -391,10 +390,10 @@ export function ManualEntryScreen({
       handOffToUpiApp({
         pa: payee.pa,
         pn: payee.pn,
-        // A code with a fixed amount keeps it in the link. One without has no amount to keep, so
-        // the UPI app asks for it, the way its own scanner does for the same code.
-        amountCents: payee.amountCents === null ? null : amountCents,
-        note: written,
+        // The code's own amount and note, untouched. What the owner typed here is logged only; the
+        // UPI app shows the code as it was printed, and the owner enters the amount there.
+        amountCents: payee.amountCents,
+        note: payee.note,
         // A merchant QR's own fields, so Google Pay sees the same merchant payment. They
         // include the merchant category, terminal reference and signature when present.
         extra: payee.extra,
