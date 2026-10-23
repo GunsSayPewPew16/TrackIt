@@ -147,5 +147,7 @@ export const LIGHT_CARD_COLOURS: Record<string, CardColourRow> = {
 export function cardToneSlots(paletteId: string, theme: "light" | "dark"): CardColourRow | null {
   const row = (theme === "dark" ? DARK_CARD_COLOURS : LIGHT_CARD_COLOURS)[paletteId]
   if (!row) return null
-  return theme === "dark" ? ([...row].reverse() as unknown as CardColourRow) : row
+  // Written out rather than `.reverse()`d: the reverse of a five-tuple is still a five-tuple, and
+  // saying so here keeps the row's type without a cast.
+  return theme === "dark" ? [row[4], row[3], row[2], row[1], row[0]] : row
 }
